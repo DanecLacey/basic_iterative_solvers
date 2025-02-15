@@ -11,9 +11,8 @@
 void spmv(
     const MatrixCRS *crs_mat,
     const double *x,
-		double *y
-)
-{
+	double *y
+){
 	#pragma omp parallel
 	{
 #ifdef USE_LIKWID
@@ -40,48 +39,6 @@ void spmv(
 	}
 }
 
-void subtract_vectors(
-    double *result_vec,
-    const double *vec1,
-    const double *vec2,
-    int N,
-    double scale = 1.0
-){
-    #pragma omp parallel for
-    for (int i = 0; i < N; ++i){
-        result_vec[i] = vec1[i] - scale*vec2[i];
-    }
-}
-
-void compute_residual(
-	const MatrixCRS *crs_mat,
-	const double *x,
-  const double *b,
-  double *residual,
-  double *tmp
-){
-    spmv(crs_mat, x, tmp);
-    subtract_vectors(residual, b, tmp, crs_mat->n_cols);
-}
-
-double infty_vec_norm(
-    const double *vec,
-    int N
-){
-    double max_abs = 0.;
-    double curr_abs;
-    for (int i = 0; i < N; ++i){
-        // TODO:: Hmmm...
-        // curr_abs = std::abs(static_cast<double>(vec[i]));
-        curr_abs = (vec[i] >= 0) ? vec[i]  : -1*vec[i];
-        if ( curr_abs > max_abs){
-            max_abs = curr_abs; 
-        }
-    }
-
-    return max_abs;
-}
-
 void spltsv(
     const MatrixCRS *crs_mat_L,
     double *x,
@@ -103,6 +60,227 @@ void spltsv(
 #ifdef USE_LIKWID
 	LIKWID_MARKER_STOP("spltsv");
 #endif
+}
+
+void subtract_vectors(
+    double *result_vec,
+    const double *vec1,
+    const double *vec2,
+    const int N,
+    const double scale = 1.0
+){
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i){
+        result_vec[i] = vec1[i] - scale*vec2[i];
+    }
+}
+
+void sum_vectors(
+    double *result_vec,
+    const double *vec1,
+    const double *vec2,
+    const int N,
+    const double scale = 1.0
+){
+
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i){
+        result_vec[i] = vec1[i] + scale*vec2[i];
+    }
+}
+
+void compute_residual(
+    const MatrixCRS *crs_mat,
+    const double *x,
+    const double *b,
+    double *residual,
+    double *tmp
+){
+    spmv(crs_mat, x, tmp);
+    subtract_vectors(residual, b, tmp, crs_mat->n_cols);
+}
+
+double infty_vec_norm(
+    const double *vec,
+    const int N
+){
+    double max_abs = 0.0;
+    double curr_abs;
+    for (int i = 0; i < N; ++i){
+        // TODO:: Hmmm...
+        // curr_abs = std::abs(static_cast<double>(vec[i]));
+        curr_abs = (vec[i] >= 0) ? vec[i]  : -1*vec[i];
+        if ( curr_abs > max_abs){
+            max_abs = curr_abs; 
+        }
+    }
+
+    return max_abs;
+}
+
+double euclidean_vec_norm(
+    const double *vec,
+    int N
+){
+    double tmp = 0.0;
+
+    #pragma omp parallel for reduction(+:tmp)
+    for(int i = 0; i < N; ++i){
+        tmp += vec[i] * vec[i];
+    }
+
+    return std::sqrt(tmp);
+}
+
+double dot(
+    const double *vec1,
+    const double *vec2,
+    const int N
+){
+    double sum = 0.0;
+    #pragma omp parallel for reduction(+:sum)
+    for (int i = 0; i < N; ++i){
+        sum += vec1[i] * vec2[i];
+    }
+    return sum;
+}
+
+void scale(
+    double *result_vec,
+    const double *vec,
+    const double scalar,
+    const int N
+){
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i){
+        result_vec[i] = vec[i] * scalar;
+    }
+}
+
+void init_dense_identity_matrix(
+    double *mat,
+    const int n_rows,
+    const int n_cols
+){
+    #pragma omp parallel for
+    for(int i = 0; i < n_rows; ++i){
+        for(int j = 0; j < n_cols; ++j){
+            if(i == j){
+                mat[n_cols*i + j] = 1.0;
+            }
+            else{
+                mat[n_cols*i + j] = 0.0;
+            }
+        }
+    }
+}
+
+void init_vector(
+    double *vec,
+    double val,
+    long size
+){
+    #pragma omp parallel for
+    for(int i = 0; i < size; ++i){
+        vec[i] = val;
+    }
+}
+
+void copy_dense_matrix(
+    double *new_mat,
+    const double *old_mat,
+    const int n_rows,
+    const int n_cols
+){
+    for(int row_idx = 0; row_idx < n_rows; ++row_idx){
+        for(int col_idx = 0; col_idx < n_cols; ++col_idx){
+            new_mat[n_cols*row_idx + col_idx] = old_mat[n_cols*row_idx + col_idx];
+        }
+    }
+}
+
+void copy_vector(
+    double *new_vec,
+    const double *old_vec,
+    const int n_rows
+){
+    for(int row_idx = 0; row_idx < n_rows; ++row_idx){
+        new_vec[row_idx] = old_vec[row_idx];
+    }
+}
+
+void dgemm_transpose1(
+    double *A,
+    double *B,
+    double *C,
+    int n_rows_A,
+    int n_cols_A,
+    int n_cols_B
+){
+    for (int i = 0; i < n_rows_A; ++i) {
+        for (int j = 0; j < n_cols_B; ++j) {
+            double tmp = 0.0;
+            for (int k = 0; k < n_cols_A; ++k) {
+                tmp += A[k * n_rows_A + i] * B[k * n_cols_B + j];
+            }
+            C[i * n_cols_B + j] = tmp;
+        }
+    }
+}
+
+void dgemm_transpose2(
+    double *A,
+    double *B,
+    double *C,
+    int n_rows_A,
+    int n_cols_A,
+    int n_cols_B
+){
+    for (int i = 0; i < n_rows_A; ++i) {
+        for (int j = 0; j < n_cols_B; ++j) {
+            double tmp = 0.0;
+            for (int k = 0; k < n_cols_A; ++k) {
+                tmp += A[i * n_cols_A + k] * B[k * n_cols_B + j];
+            }
+            C[i * n_cols_B + j] = tmp;
+        }
+    }
+}
+
+void dgemm(
+    double *A,
+    double *B,
+    double *C,
+    int n_rows_A,
+    int n_cols_A,
+    int n_cols_B
+){
+    for (int i = 0; i < n_rows_A; ++i) {
+        for (int j = 0; j < n_cols_B; ++j) {
+            double tmp = 0.0;
+            for (int k = 0; k < n_cols_A; ++k) {
+                tmp += A[i * n_cols_A + k] * B[k * n_cols_B + j];
+            }
+            C[i * n_cols_B + j] = tmp;
+        }
+    }
+}
+
+void dgemv(
+    const double *A,
+    const double *x, 
+    double *y,
+    int n_rows_A,
+    int n_cols_A,
+    double alpha = 1.0,
+    double beta = 1.0
+){
+    for (int i = 0; i < n_rows_A; i++) {
+        y[i] *= beta;
+        for (int j = 0; j < n_cols_A; j++) {
+            y[i] += alpha * A[i*n_cols_A + j] * x[j];
+        }
+    }
 }
 
 #endif

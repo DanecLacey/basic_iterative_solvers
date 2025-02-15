@@ -36,17 +36,15 @@ int main(int argc, char *argv[]){
 	Timers *timers = new Timers;
 	init_timers(timers);
 
-	// Declare object to collect parsed command line arguements to
+	// Collect matrix file path and options from command line
 	Args *cli_args = new Args;
-
-	// Collect matrix file path and options from command line 
 	parse_cli(cli_args, argc, argv);
 
 	// Execute all phases of the solver
 	TIME(timers->total, run(cli_args, timers))
 
 	// Print timer information to stdout
-	print_timers(timers);
+	print_timers(cli_args, timers);
 
 #ifdef USE_LIKWID
 	LIKWID_MARKER_CLOSE;

@@ -1,14 +1,15 @@
 #ifndef JACOBI_HPP
 #define JACOBI_HPP
 
+#include "../common.hpp"
 #include "../kernels.hpp"
 #include "../sparse_matrix.hpp"
 
 void jacobi_fused_iteration(
-	MatrixCRS *crs_mat,
-	double *b,
-	double *x_old,
-	double *x_new
+	const MatrixCRS *crs_mat,
+	const double *b,
+	double *x_new,
+	const double *x_old
 ){
 	double diag_elem;
 
@@ -32,7 +33,7 @@ void normalize_x(
 	const double *x_old,
 	const double *D,
 	const double *b,
-	int n_rows
+	const int n_rows
 ){
 	double scaled_x_old;
 	double adjusted_x;
@@ -48,17 +49,18 @@ void normalize_x(
 }
 
 void jacobi_separate_iteration(
-	MatrixCRS *crs_mat,
-	double *D,
-	double *b,
-	double *x_old,
-	double *x_new
+	Timers *timers,
+	const MatrixCRS *crs_mat,
+	const double *D,
+	const double *b,
+	double *x_new,
+	const double *x_old
 ){
 	// x_new <- Ax_old
-	spmv(crs_mat, x_old, x_new);
+	TIME(timers->spmv, spmv(crs_mat, x_old, x_new))
 
 	// x_new <- D^{-1}(b - (x_new - D))
-	normalize_x(x_new, x_old, D, b, crs_mat->n_rows);
+	TIME(timers->normalize, normalize_x(x_new, x_old, D, b, crs_mat->n_rows))
 }
 
 #endif

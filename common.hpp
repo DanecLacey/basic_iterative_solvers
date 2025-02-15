@@ -4,6 +4,8 @@
 #include <sys/time.h>
 #include <string>
 #include <iostream>
+#include <iomanip>
+#include <cmath>
 
 class Stopwatch
 {
@@ -60,6 +62,12 @@ public:
     #define IF_DEBUG_MODE(print_statement)
 #endif
 
+#ifdef DEBUG_MODE_FINE
+    #define IF_DEBUG_MODE_FINE(print_statement) print_statement;
+#else
+    #define IF_DEBUG_MODE_FINE(print_statement)
+#endif
+
 struct Timers
 {
 	Stopwatch *total_time;
@@ -67,8 +75,17 @@ struct Timers
 	Stopwatch *solve_time;
 	Stopwatch *per_iteration_time;
 	Stopwatch *iterate_time;
+	Stopwatch *spmv_time;
+	Stopwatch *normalize_time;
+	Stopwatch *dot_time;
+	Stopwatch *sum_time;
+	Stopwatch *spltsv_time;
+	Stopwatch *orthog_time;
+	Stopwatch *least_sq_time;
+	Stopwatch *update_g_time;
 	Stopwatch *sample_time;
 	Stopwatch *exchange_time;
+	Stopwatch *restart_time;
 	Stopwatch *save_x_star_time;
 	Stopwatch *postprocessing_time;
 };
@@ -83,11 +100,148 @@ class SanityChecker {
 public:
 	template<typename VT>
 	static void print_vector(VT *vector, int size, std::string vector_name){
-		std::cout << vector_name << ": [" << std::endl;
+		std::cout << vector_name << " : [" << std::endl;
 		for(int i = 0; i < size; ++i){
 			std::cout << vector[i] << ", ";
 		}
-		std::cout << std::endl;
+		std::cout << "]" << std::endl;
+	}
+
+	template<typename VT>
+	static void print_dense_mat(VT *A, int n_rows, int n_cols, std::string mat_name){
+		int fixed_width = 12;
+		std::cout << mat_name << ": [" << std::endl;
+		for(int row_idx = 0; row_idx < n_rows; ++row_idx){
+				for(int col_idx = 0; col_idx < n_cols; ++col_idx){
+						std::cout << std::setw(fixed_width);
+						std::cout << A[(n_cols*row_idx) + col_idx]  << ", ";
+				}
+				std::cout << std::endl;
+		}
+		std::cout << "]" << std::endl;
+	}
+
+	static void print_extract_L_U_error(int nz_idx){
+		fprintf(stderr, "ERROR: extract_L_U: nz_idx %i cannot be segmented.\n", nz_idx);
+		exit(EXIT_FAILURE);
+	}
+
+	static void print_gmres_iter_counts(int iter_count, int restart_count){
+    printf("gmres solve iter_count = %i\n", iter_count);
+    printf("gmres solve restart_count = %i\n", restart_count);
+	}
+
+	static void check_V_orthonormal(
+		double *V,
+		int iter_count,
+		int N
+	){
+		// Check if all basis vectors in V are orthonormal
+		double tol=1e-14;
+
+		// Computing euclidean norm
+    for(int k = 0; k < iter_count+1; ++k){
+			double tmp = 0.0;
+			for(int i = 0; i < N; ++i){
+        tmp += V[k*N + i] * V[k*N + i];
+    	}
+			double tmp_2_norm = std::sqrt(tmp);
+
+			if(std::abs(tmp_2_norm) > 1+tol){
+				printf("GMRES WARNING: basis vector v_%i has a norm of %.17g, \n \
+								and does not have a norm of 1.0 as was expected.\n", k, tmp_2_norm);
+			}
+			else{
+				for(int j = iter_count; j > 0; --j){
+					double tmp_dot;
+					// Takes new v_k, and compares with all other basis vectors in V
+					
+					// Computing dot product
+					double sum = 0.0;
+					for (int i = 0; i < N; ++i){
+						sum += V[(iter_count+1)*N + i] * V[j*N + i];
+					}
+					tmp_dot = sum;
+
+
+					if(std::abs(tmp_dot) > tol){
+						printf("GMRES WARNING: basis vector v_%i is not orthogonal to basis vector v_%i, \n \
+										their dot product is %.17g, and not 0.0 as was expected.\n", k, j, tmp_dot);
+					}
+				}
+			}
+    }
+	}
+
+	static void check_H(
+		double *H,
+		double *R,
+		double *Q,
+		int restart_len
+	){
+		// Validate that H == Q_tR [(m+1 x m) == (m+1 x m+1)(m+1 x m)]
+		double tol=1e-14;
+		
+		double *Q_t = new double[(restart_len+1) * (restart_len+1)];
+
+		// init
+		#pragma omp parallel for
+    for(int i = 0; i < (restart_len+1) * (restart_len+1); ++i){
+			Q_t[i] = 0.0;
+    }
+
+		// transpose
+		for(int row_idx = 0; row_idx < (restart_len + 1); ++row_idx){
+			for(int col_idx = 0; col_idx < (restart_len + 1); ++col_idx){
+					Q_t[col_idx*(restart_len+1) + row_idx] = Q[row_idx*(restart_len+1) + col_idx]; 
+			}
+		}
+
+		print_dense_mat<double>(Q_t, (restart_len + 1), (restart_len + 1), "Q_t");
+
+		double *Q_tR = new double[(restart_len+1) * (restart_len)];
+
+		// init
+		#pragma omp parallel for
+    for(int i = 0; i < (restart_len+1) * restart_len; ++i){
+			Q_tR[i] = 0.0;
+    }
+
+		// Compute Q_tR <- Q_t*R [(m+1 x m) <- (m+1 x m+1)(m+1 x m)]
+		for(int row_idx = 0; row_idx <= restart_len; ++row_idx){
+				for(int col_idx = 0; col_idx < restart_len; ++col_idx){
+						double sum = 0.0;
+						for (int i = 0; i < (restart_len + 1); ++i){
+							sum += Q_t[row_idx*(restart_len+1) + i] * R[col_idx + i*restart_len];
+						}
+						Q_tR[(row_idx*restart_len) + col_idx] = sum;
+				}
+		}
+
+		print_dense_mat<double>(Q_tR, (restart_len + 1), restart_len, "Q_tR");
+
+		// Scan and validate H=Q_tR
+		for(int row_idx = 0; row_idx <= restart_len; ++row_idx){
+				for(int col_idx = 0; col_idx < restart_len; ++col_idx){
+						int idx = row_idx*restart_len + col_idx;
+						if(std::abs(static_cast<double>(Q_tR[idx] - H[idx])) > tol){
+								printf("GMRES WARNING: The Q_tR factorization of H at index %i has a value %.17g, \n \
+										and does not have a value of %.17g as was expected.\n", \
+										row_idx*restart_len + col_idx, Q_tR[idx], H[row_idx*restart_len + col_idx]);
+						}
+				}
+		}
+
+		delete[] Q_t;
+		delete[] Q_tR;
+	}
+
+	static void check_copied_L_U_elements(int total_nnz, int L_nnz, int U_nnz, int D_nnz){
+		int copied_elems_count = L_nnz + U_nnz + D_nnz; 
+		if(copied_elems_count != total_nnz){
+				fprintf(stderr, "ERROR: extract_L_U: %i out of %li elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
+				exit(EXIT_FAILURE);
+		}
 	}
 };
 

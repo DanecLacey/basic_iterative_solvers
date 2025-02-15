@@ -1,13 +1,13 @@
 #ifndef GAUSS_SEIDEL_HPP
 #define GAUSS_SEIDEL_HPP
 
+#include "../common.hpp"
 #include "../kernels.hpp"
 #include "../sparse_matrix.hpp"
 
 void gs_fused_iteration(
-	MatrixCRS *crs_mat,
-  double *tmp,
-  double *b,
+	const MatrixCRS *crs_mat,
+  const double *b,
   double *x
 ){
     double diag_elem = 1.0;
@@ -27,21 +27,22 @@ void gs_fused_iteration(
 }
 
 void gs_separate_iteration(
-	MatrixCRS *crs_mat_U,
-	MatrixCRS *crs_mat_L, 
+	Timers *timers,
+	const MatrixCRS *crs_mat_U,
+	const MatrixCRS *crs_mat_L, 
 	double *tmp,
-	double *D, 
-	double *b, 
+	const double *D, 
+	const double *b, 
 	double *x
 ){
 	// tmp <- Ux
-	spmv(crs_mat_U, x, tmp);
+	TIME(timers->spmv, spmv(crs_mat_U, x, tmp))
 
 	// tmp <- b - tmp
-	subtract_vectors(tmp, b, tmp, crs_mat_U->n_rows);
+	TIME(timers->sum, subtract_vectors(tmp, b, tmp, crs_mat_U->n_rows))
 
 	// x <- (D+L)^{-1}(tmp)
-	spltsv(crs_mat_L, x, D, tmp);
+	TIME(timers->spltsv, spltsv(crs_mat_L, x, D, tmp))
 }
 
 #endif

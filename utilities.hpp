@@ -25,8 +25,16 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 	else if(st == "-gm"){
 		cli_args->solver_type = "gmres";
 	}
+	else if(st == "-bi"){
+		cli_args->solver_type = "bicgstab";
+	}
 	else{
-			printf("ERROR: parse_cli: Please choose an available solver type:\n-j (Jacobi)\n-gs (Gauss-Seidel)\n-[p]gm ([Preconditioned] GMRES)\n-[p]cg ([Preconditioned] Conjugate Gradient)\n");
+			printf("ERROR: parse_cli: Please choose an available solver type:" \
+				"\n-j (Jacobi)" \
+				"\n-gs (Gauss-Seidel)" \
+				"\n-[p]gm ([Preconditioned] GMRES)" \
+				"\n-[p]cg ([Preconditioned] Conjugate Gradient)" \
+				"\n-[p]bi ([Preconditioned] BiCGSTAB)\n");
 			exit(1);
 	}
 
@@ -78,19 +86,37 @@ void init_timers(Timers *timers){
 	CREATE_STOPWATCH(solve)
 	CREATE_STOPWATCH(per_iteration)
 	CREATE_STOPWATCH(iterate)
+	CREATE_STOPWATCH(spmv)
+	CREATE_STOPWATCH(dot)
+	CREATE_STOPWATCH(normalize)
+	CREATE_STOPWATCH(sum)
+	CREATE_STOPWATCH(spltsv)
+	CREATE_STOPWATCH(orthog)
+	CREATE_STOPWATCH(least_sq)
+	CREATE_STOPWATCH(update_g)
 	CREATE_STOPWATCH(sample)
 	CREATE_STOPWATCH(exchange)
+	CREATE_STOPWATCH(restart)
 	CREATE_STOPWATCH(save_x_star)
 	CREATE_STOPWATCH(postprocessing)
 }
 
-void print_timers(Timers *timers){
+void print_timers(Args *cli_args, Timers *timers){
 	long double total_time = timers->total_time->get_wtime();
 	long double preprocessing_time = timers->preprocessing_time->get_wtime();
 	long double solve_time = timers->solve_time->get_wtime();
 	long double iterate_time = timers->iterate_time->get_wtime();
+	long double spmv_time = timers->spmv_time->get_wtime();
+	long double normalize_time = timers->normalize_time->get_wtime();
+	long double dot_time = timers->dot_time->get_wtime();
+	long double sum_time = timers->sum_time->get_wtime();
+	long double spltsv_time = timers->spltsv_time->get_wtime();
+	long double orthog_time = timers->orthog_time->get_wtime();
+	long double least_sq_time = timers->least_sq_time->get_wtime();
+	long double update_g_time = timers->update_g_time->get_wtime();
 	long double sample_time = timers->sample_time->get_wtime();
 	long double exchange_time = timers->exchange_time->get_wtime();
+	long double restart_time = timers->restart_time->get_wtime();
 	long double save_x_star_time = timers->save_x_star_time->get_wtime();
 	long double postprocessing_time = timers->postprocessing_time->get_wtime();
 
@@ -110,10 +136,40 @@ void print_timers(Timers *timers){
 	std::cout << solve_time  << "[s]" << std::endl;
 	std::cout << std::left << std::setw(left_flush_width) << "| | Iterate time: " << std::right << std::setw(right_flush_width);
 	std::cout << iterate_time  << "[s]" << std::endl;
+	std::cout << std::left << std::setw(left_flush_width) << "| | | SpMV time: " << std::right << std::setw(right_flush_width);
+	std::cout << spmv_time  << "[s]" << std::endl;
+	if(cli_args->solver_type == "jacobi"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
+		std::cout << normalize_time  << "[s]" << std::endl;
+	}
+	else if(cli_args->solver_type == "gauss-seidel"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
+		std::cout << sum_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | SpLTSV time: " << std::right << std::setw(right_flush_width);
+		std::cout << spltsv_time  << "[s]" << std::endl;
+	}
+	else if(cli_args->solver_type == "conjugate-gradient"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Dot time: " << std::right << std::setw(right_flush_width);
+		std::cout << dot_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
+		std::cout << sum_time  << "[s]" << std::endl;
+	}
+	else if(cli_args->solver_type == "gmres"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Orthog. time: " << std::right << std::setw(right_flush_width);
+		std::cout << orthog_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Least Sq. time: " << std::right << std::setw(right_flush_width);
+		std::cout << least_sq_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Update g time: " << std::right << std::setw(right_flush_width);
+		std::cout << update_g_time  << "[s]" << std::endl;
+	}
 	std::cout << std::left << std::setw(left_flush_width) << "| | Sample time: " << std::right << std::setw(right_flush_width);
 	std::cout << sample_time  << "[s]" << std::endl;
 	std::cout << std::left << std::setw(left_flush_width) << "| | Exchange time: " << std::right << std::setw(right_flush_width);
 	std::cout << exchange_time  << "[s]" << std::endl;
+	if(cli_args->solver_type == "gmres"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | Restart time: " << std::right << std::setw(right_flush_width);
+		std::cout << restart_time << "[s]" << std::endl;
+	}
 	std::cout << std::left << std::setw(left_flush_width) << "| | Save x* time: " << std::right << std::setw(right_flush_width);
 	std::cout << save_x_star_time  << "[s]" << std::endl;
 	std::cout << std::left << std::setw(left_flush_width) << "| Postprocessing time: " << std::right << std::setw(right_flush_width);
@@ -210,18 +266,12 @@ void extract_L_U(
 					++D_nz_count;
 			}
 			else{
-					printf("ERROR: extract_L_U: nz_idx %i cannot be segmented.\n", nz_idx);
-					exit(1);
+				SanityChecker::print_extract_L_U_error(nz_idx);
 			}
 	}
 
-	// Sanity checks; TODO: Make optional
 	// All elements from full_coo_mtx need to be accounted for
-	int copied_elems_count = coo_mat_L->nnz + coo_mat_U->nnz + D_nz_count; 
-	if(copied_elems_count != coo_mat->nnz){
-			printf("ERROR: extract_L_U: only %i out of %li elements were copied from coo_mat.\n", copied_elems_count, coo_mat->nnz);
-			exit(1);
-	}
+	SanityChecker::check_copied_L_U_elements(coo_mat->nnz, coo_mat_L->nnz, coo_mat_U->nnz, D_nz_count);
 }
 
 void extract_D(

@@ -12,13 +12,16 @@ void solve(Args *cli_args, Solver *solver, Timers *timers){
 		// SanityChecker::print_vector<double>(solver->residual, solver->crs_mat->n_cols, "residual");
 
 		// Main solver iteration
-		TIME(timers->iterate, solver->iterate())
+		TIME(timers->iterate, solver->iterate(timers))
 
 		// Sample the residual every "residual_check_len" iterations
 		TIME(timers->sample, solver->sample_residual(timers->per_iteration_time))
 
 		// Swap x_old and x_new
 		TIME(timers->exchange, solver->exchange_arrays())
+
+		// Restart solver if certain conditions are met
+		TIME(timers->restart, solver->check_restart())
 
 		++solver->iter_count;
 	} while (!solver->check_stopping_criteria());

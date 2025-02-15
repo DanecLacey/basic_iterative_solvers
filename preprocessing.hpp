@@ -30,6 +30,7 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers){
 
 	// Initialize structs to be used in the solver
 	IF_DEBUG_MODE(printf("Initializing structs\n"))
+	solver->allocate_structs();
 	solver->init_structs();
 
 	// Compute the initial residual vector
@@ -41,8 +42,9 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers){
 	IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
 	solver->init_stopping_criteria();
 
-	// It is convenient for gauss-seidel methods to have strict
-	// lower and upper triangular copies
+	// It is convenient for gauss-seidel methods to have 
+	// strict lower and upper triangular copies. While not 
+	// explicitly necessary for all methods, it's just nice to have.
 	MatrixCOO *coo_mat_L = new MatrixCOO;
 	MatrixCOO *coo_mat_U = new MatrixCOO;
 	extract_L_U(coo_mat, coo_mat_L, coo_mat_U);
