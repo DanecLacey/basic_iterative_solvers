@@ -76,9 +76,15 @@ struct Timers
 	Stopwatch *per_iteration_time;
 	Stopwatch *iterate_time;
 	Stopwatch *spmv_time;
+	Stopwatch *dgemm_time;
+	Stopwatch *dgemv_time;
 	Stopwatch *normalize_time;
 	Stopwatch *dot_time;
 	Stopwatch *sum_time;
+	Stopwatch *copy1_time;
+	Stopwatch *copy2_time;
+	Stopwatch *norm_time;
+	Stopwatch *scale_time;
 	Stopwatch *spltsv_time;
 	Stopwatch *orthog_time;
 	Stopwatch *least_sq_time;
@@ -129,6 +135,41 @@ public:
 	static void print_gmres_iter_counts(int iter_count, int restart_count){
     printf("gmres solve iter_count = %i\n", iter_count);
     printf("gmres solve restart_count = %i\n", restart_count);
+	}
+
+	static void print_bicgstab_vectors(
+		int N,
+		double *x_new,
+		double *x_old,
+		double *tmp,
+		double *p_new,
+		double *p_old,
+		double *residual_new,
+		double *residual_old,
+		double *residual_0,
+		double *v,
+		double *h,
+		double *s,
+		double *t,
+		double rho_new,
+		double rho_old,
+		std::string phase
+	){
+		std::cout << phase << std::endl;
+		print_vector<double>(x_new, N, "x_new");
+		print_vector<double>(x_old, N, "x_old");
+		print_vector<double>(tmp, N, "tmp");
+		print_vector<double>(p_new, N, "p_new");
+		print_vector<double>(p_old, N, "p_old");
+		print_vector<double>(residual_new, N, "residual_new");
+		print_vector<double>(residual_old, N, "residual_old");
+		print_vector<double>(residual_0, N, "residual_0");
+		print_vector<double>(v, N, "v");
+		print_vector<double>(h, N, "h");
+		print_vector<double>(s, N, "s");
+		print_vector<double>(t, N, "t");
+		printf("rho_new = %f\n", rho_new);
+		printf("rho_old = %f\n", rho_old);
 	}
 
 	static void check_V_orthonormal(

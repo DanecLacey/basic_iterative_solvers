@@ -47,13 +47,20 @@ public:
 	double *residual; // General
 	double *D; // General
 	double *x_0; // General
-	double *x_new; // Jacobi + CG
-	double *x_old; // Jacobi + CG + GMRES
+	double *x_new; // Jacobi + CG + BiCGSTAB
+	double *x_old; // Jacobi + CG + GMRES + BiCGSTAB
 	double *x; // GS + GMRES
-	double *p_old; // CG
-	double *p_new; // CG
-	double *residual_old; // CG
-	double *residual_new; // CG
+	double *p_old; // CG + BiCGSTAB
+	double *p_new; // CG + BiCGSTAB
+	double *residual_0;
+	double *residual_old; // CG + BiCGSTAB
+	double *residual_new; // CG + BiCGSTAB
+	double *v; // BiCGSTAB
+	double *h; // BiCGSTAB
+	double *s; // BiCGSTAB
+	double *t; // BiCGSTAB
+	double rho_old; // BiCGSTAB
+	double rho_new; // BiCGSTAB
 	double *V; // GMRES
 	double *Vy; // GMRES
 	double *y; // GMRES
@@ -66,7 +73,7 @@ public:
 	double *R; // GMRES
 	double *g; // GMRES
 	double *g_tmp; // GMRES
-	double gmres_beta; // GMRES 
+	double beta; // GMRES 
 
 	// Misc
 	double *collected_residual_norms;
@@ -102,12 +109,13 @@ public:
 	// NOTE: We only initialize the structs needed for the solver
 	// and preconditioner selected
 	void allocate_structs(){
-		x_star =   new double [this->crs_mat->n_cols];
-		x_0 =   new double [this->crs_mat->n_cols];
-		b =        new double [this->crs_mat->n_cols];
-		tmp =      new double [this->crs_mat->n_cols];
-		residual = new double [this->crs_mat->n_cols];
-		D =        new double [this->crs_mat->n_cols];
+		x_star =     new double [this->crs_mat->n_cols];
+		x_0 =        new double [this->crs_mat->n_cols];
+		b =          new double [this->crs_mat->n_cols];
+		tmp =        new double [this->crs_mat->n_cols];
+		residual =   new double [this->crs_mat->n_cols];
+		residual_0 = new double [this->crs_mat->n_cols];
+		D =          new double [this->crs_mat->n_cols];
 
 		// Solver-specific structs
 		if(solver_type == "jacobi"){
@@ -141,19 +149,29 @@ public:
 			g_tmp =  new double [this->gmres_restart_len + 1];
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			x_new = new double [this->crs_mat->n_cols];
+			x_old = new double [this->crs_mat->n_cols];
+			p_new = new double [this->crs_mat->n_cols];
+			p_old = new double [this->crs_mat->n_cols];
+			residual_new = new double [this->crs_mat->n_cols];
+			residual_old = new double [this->crs_mat->n_cols];
+			v = new double [this->crs_mat->n_cols];
+			h = new double [this->crs_mat->n_cols];
+			s = new double [this->crs_mat->n_cols];
+			t = new double [this->crs_mat->n_cols];
 		}
 	}
 
 	void init_structs(){
 		#pragma omp parallel for
 		for(int i = 0; i < this->crs_mat->n_cols; ++i){
-			x_star[i] =   0.0;
-			x_0[i] =      INIT_X_VAL;
-			b[i] =        B_VAL;
-			tmp[i] =      0.0;
-			residual[i] = 0.0;
-			D[i] =        0.0;
+			x_star[i] =     0.0;
+			x_0[i] =        INIT_X_VAL;
+			b[i] =          B_VAL;
+			tmp[i] =        0.0;
+			residual[i] =   0.0;
+			residual_0[i] = 0.0;
+			D[i] =          0.0;
 		}
 
 		// Solver-specific structs
@@ -217,7 +235,19 @@ public:
 			init_dense_identity_matrix(Q_tmp, (this->gmres_restart_len + 1), (this->gmres_restart_len + 1));
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			#pragma omp parallel for
+			for(int i = 0; i < this->crs_mat->n_cols; ++i){
+				x_new[i] = 0.0;
+				x_old[i] = x_0[i];
+				p_new[i] = 0.0;
+				p_old[i] = 0.0;
+				residual_new[i] = 0.0;
+				residual_old[i] = 0.0;
+				v[i] = 0.0;
+				h[i] = 0.0;
+				s[i] = 0.0;
+				t[i] = 0.0;
+			}
 		}
 	}
 
@@ -232,11 +262,10 @@ public:
 		}
 		else if(solver_type == "conjugate-gradient"){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
+			
 			// Make copies of initial residual for solver
-			for(int i = 0; i < this->crs_mat->n_cols; ++i){
-				this->p_old[i] = this->residual[i];
-				this->residual_old[i] = this->residual[i];
-			}
+			copy_vector(this->p_old, this->residual, this->crs_mat->n_cols);
+			copy_vector(this->residual_old, this->residual, this->crs_mat->n_cols);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		else if (solver_type == "gmres"){
@@ -245,21 +274,28 @@ public:
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp);
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x2"));
 			this->residual_norm = euclidean_vec_norm(this->residual, this->crs_mat->n_cols);
-			this->gmres_beta = this->residual_norm; // NOTE: Beta should be according to euclidean norm (Saad)
+			this->beta = this->residual_norm; // NOTE: Beta should be according to euclidean norm (Saad)
 			
-			this->g[0] = this->gmres_beta;
-			this->g_tmp[0] = this->gmres_beta;
+			this->g[0] = this->beta;
+			this->g_tmp[0] = this->beta;
 
 			// V[0] <- r / beta
 			// i.e. The first row of V (orthonormal search vectors) gets scaled initial residual
-			scale(this->V, this->residual, 1.0/this->gmres_beta, this->crs_mat->n_cols);
+			scale(this->V, this->residual, 1.0/this->beta, this->crs_mat->n_cols);
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "init_residual"));
 			IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", this->residual_norm))
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->V, this->crs_mat->n_cols, "init_v"));
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
+			
+			// Make copies of initial residual for solver
+			copy_vector(this->p_old, this->residual, this->crs_mat->n_cols);
+			copy_vector(this->residual_old, this->residual, this->crs_mat->n_cols);
+			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+			this->rho_old = dot(this->residual_old, this->residual, this->crs_mat->n_cols);
 		}
+		copy_vector(this->residual_0, this->residual, this->crs_mat->n_cols);
 	}
 
 	void init_stopping_criteria(){
@@ -312,15 +348,33 @@ public:
 				this->g_tmp,
 				this->b,
 				this->x,
-				this->gmres_beta
+				this->beta
 			);
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			bicgstab_separate_iteration(
+				timers,
+				crs_mat,
+				x_new,
+				x_old,
+				tmp,
+				p_new,
+				p_old,
+				residual_new,
+				residual_old,
+				residual_0,
+				v,
+				h,
+				s,
+				t,
+				rho_new,
+				rho_old
+			);
+			std::swap(this->residual, this->residual_new);
 		}
 	}
 
-	void exchange_arrays(){
+	void exchange(){
 		if(solver_type == "jacobi"){
 			std::swap(this->x_old, this->x_new);
 		}
@@ -336,7 +390,10 @@ public:
 			// Nothing to exchange
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			std::swap(this->p_old, this->p_new);
+			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
+			std::swap(this->x_old, this->x_new);
+			std::swap(this->rho_old, this->rho_new);
 		}
 	}
 
@@ -344,22 +401,23 @@ public:
 		IF_DEBUG_MODE(printf("Saving x*\n"))
 		if(solver_type == "jacobi"){
 			std::swap(this->x_old, this->x_star);
-			compute_residual(this->crs_mat, this->x_star, this->b, this->residual, this->tmp);
-			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		else if (solver_type == "gauss-seidel"){
 			std::swap(this->x, this->x_star);
-			compute_residual(this->crs_mat, this->x_star, this->b, this->residual, this->tmp);
-			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+		}
+		else if (solver_type == "conjugate-gradient"){
+			std::swap(this->x_star, this->x_old);
 		}
 		else if (solver_type == "gmres"){
 			this->get_explicit_x();
 			std::swap(this->x, this->x_star);
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			std::swap(this->x_star, this->x_old);
 		}
 
+		compute_residual(this->crs_mat, this->x_star, this->b, this->residual, this->tmp);
+		this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		this->collected_residual_norms[this->collected_residual_norms_count] = this->residual_norm;
 	}
 
@@ -372,11 +430,14 @@ public:
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
+		else if (solver_type == "conjugate-gradient"){
+			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+		}
 		else if (solver_type == "gmres"){
 			// TODO
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		
 		this->collected_residual_norms[this->collected_residual_norms_count] = this->residual_norm;
@@ -484,6 +545,7 @@ public:
 		delete[] D;
 		delete[] tmp;
 		delete[] residual;
+		delete[] residual_0;
 
 		// Solver-specific structs
 		if(solver_type == "jacobi"){
@@ -517,7 +579,16 @@ public:
 			delete[] x_old;
 		}
 		else if (solver_type == "bicgstab"){
-			// TODO
+			delete[] x_new;
+			delete[] x_old;
+			delete[] p_new;
+			delete[] p_old;
+			delete[] residual_new;
+			delete[] residual_old;
+			delete[] v;
+			delete[] h;
+			delete[] s;
+			delete[] t;
 		}
 	}
 

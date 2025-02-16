@@ -88,9 +88,15 @@ void init_timers(Timers *timers){
 	CREATE_STOPWATCH(iterate)
 	CREATE_STOPWATCH(spmv)
 	CREATE_STOPWATCH(dot)
+	CREATE_STOPWATCH(copy1)
+	CREATE_STOPWATCH(copy2)
 	CREATE_STOPWATCH(normalize)
 	CREATE_STOPWATCH(sum)
+	CREATE_STOPWATCH(norm)
+	CREATE_STOPWATCH(scale)
 	CREATE_STOPWATCH(spltsv)
+	CREATE_STOPWATCH(dgemm)
+	CREATE_STOPWATCH(dgemv)
 	CREATE_STOPWATCH(orthog)
 	CREATE_STOPWATCH(least_sq)
 	CREATE_STOPWATCH(update_g)
@@ -107,9 +113,15 @@ void print_timers(Args *cli_args, Timers *timers){
 	long double solve_time = timers->solve_time->get_wtime();
 	long double iterate_time = timers->iterate_time->get_wtime();
 	long double spmv_time = timers->spmv_time->get_wtime();
+	long double dgemm_time = timers->dgemm_time->get_wtime();
+	long double dgemv_time = timers->dgemv_time->get_wtime();
 	long double normalize_time = timers->normalize_time->get_wtime();
 	long double dot_time = timers->dot_time->get_wtime();
+	long double copy1_time = timers->copy1_time->get_wtime();
+	long double copy2_time = timers->copy2_time->get_wtime();
 	long double sum_time = timers->sum_time->get_wtime();
+	long double scale_time = timers->scale_time->get_wtime();
+	long double norm_time = timers->norm_time->get_wtime();
 	long double spltsv_time = timers->spltsv_time->get_wtime();
 	long double orthog_time = timers->orthog_time->get_wtime();
 	long double least_sq_time = timers->least_sq_time->get_wtime();
@@ -157,10 +169,32 @@ void print_timers(Args *cli_args, Timers *timers){
 	else if(cli_args->solver_type == "gmres"){
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Orthog. time: " << std::right << std::setw(right_flush_width);
 		std::cout << orthog_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Dot time: " << std::right << std::setw(right_flush_width);
+		std::cout << dot_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Sum time: " << std::right << std::setw(right_flush_width);
+		std::cout << sum_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Norm time: " << std::right << std::setw(right_flush_width);
+		std::cout << norm_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Scale time: " << std::right << std::setw(right_flush_width);
+		std::cout << scale_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Least Sq. time: " << std::right << std::setw(right_flush_width);
 		std::cout << least_sq_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | DGEMM time: " << std::right << std::setw(right_flush_width);
+		std::cout << dgemm_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Copy time: " << std::right << std::setw(right_flush_width);
+		std::cout << copy1_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Update g time: " << std::right << std::setw(right_flush_width);
 		std::cout << update_g_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | DGEMV time: " << std::right << std::setw(right_flush_width);
+		std::cout << dgemv_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Copy time: " << std::right << std::setw(right_flush_width);
+		std::cout << copy2_time  << "[s]" << std::endl;
+	}
+	else if(cli_args->solver_type == "bicgstab"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Dot time: " << std::right << std::setw(right_flush_width);
+		std::cout << dot_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
+		std::cout << sum_time  << "[s]" << std::endl;
 	}
 	std::cout << std::left << std::setw(left_flush_width) << "| | Sample time: " << std::right << std::setw(right_flush_width);
 	std::cout << sample_time  << "[s]" << std::endl;

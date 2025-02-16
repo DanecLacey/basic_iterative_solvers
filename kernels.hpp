@@ -23,12 +23,12 @@ void spmv(
 			double tmp = 0.0;
 			#pragma omp simd simdlen(SIMD_LENGTH) reduction(+:tmp)
 			for(int nz_idx = crs_mat->row_ptr[row_idx]; nz_idx < crs_mat->row_ptr[row_idx+1]; ++nz_idx){
-#ifdef DEBUG_MODE_FINE
-				printf("nz_idx = %i\n", nz_idx);
-				printf("crs_mat->val[nz_idx] = %f\n", crs_mat->val[nz_idx]);
-				printf("crs_mat->col[nz_idx] = %i\n", crs_mat->col[nz_idx]);
-				printf("x[crs_mat->col[nz_idx]] = %f\n", x[crs_mat->col[nz_idx]]);
-#endif
+// #ifdef DEBUG_MODE_FINE
+// 				printf("nz_idx = %i\n", nz_idx);
+// 				printf("crs_mat->val[nz_idx] = %f\n", crs_mat->val[nz_idx]);
+// 				printf("crs_mat->col[nz_idx] = %i\n", crs_mat->col[nz_idx]);
+// 				printf("x[crs_mat->col[nz_idx]] = %f\n", x[crs_mat->col[nz_idx]]);
+// #endif
 				tmp += crs_mat->val[nz_idx] * x[crs_mat->col[nz_idx]];
 			}
 			y[row_idx] = tmp;
@@ -272,12 +272,13 @@ void dgemv(
     double *y,
     int n_rows_A,
     int n_cols_A,
-    double alpha = 1.0,
-    double beta = 1.0
+    double alpha = 1.0
+    // double beta = 1.0
 ){
-    for (int i = 0; i < n_rows_A; i++) {
-        y[i] *= beta;
-        for (int j = 0; j < n_cols_A; j++) {
+    for (int i = 0; i < n_rows_A; ++i) {
+        // y[i] *= beta;
+        y[i] = 0.0;
+        for (int j = 0; j < n_cols_A; ++j) {
             y[i] += alpha * A[i*n_cols_A + j] * x[j];
         }
     }

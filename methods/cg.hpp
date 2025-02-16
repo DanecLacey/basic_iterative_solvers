@@ -7,7 +7,7 @@
 
 void cg_separate_iteration(
 	Timers *timers,
-	MatrixCRS *crs_mat,
+	const MatrixCRS *crs_mat,
 	double *x_new,
 	double *x_old,
 	double *tmp,
@@ -23,6 +23,8 @@ void cg_separate_iteration(
 
 	// alpha <- (r_old, r_old) / (Ap_old, p_old)
 	TIME(timers->dot, double alpha = r_old_squared / dot(tmp, p_old, crs_mat->n_cols))
+
+	IF_DEBUG_MODE_FINE(printf("alpha = %f\n", alpha))
 	
 	// x_new <- x_old + alpha * p_old
 	TIME(timers->sum, sum_vectors(x_new, x_old, p_old, crs_mat->n_cols, alpha))
@@ -32,6 +34,8 @@ void cg_separate_iteration(
 
 	// beta <- (r_new, r_new) / (r_old, r_old)
 	TIME(timers->dot, double beta = dot(residual_new, residual_new, crs_mat->n_cols) / r_old_squared)
+
+	IF_DEBUG_MODE_FINE(printf("beta = %f\n", beta))
 
 	// p_new <- r_new + beta * p_old
 	TIME(timers->sum, sum_vectors(p_new, residual_new, p_old, crs_mat->n_cols, beta))

@@ -17,8 +17,8 @@ void solve(Args *cli_args, Solver *solver, Timers *timers){
 		// Sample the residual every "residual_check_len" iterations
 		TIME(timers->sample, solver->sample_residual(timers->per_iteration_time))
 
-		// Swap x_old and x_new
-		TIME(timers->exchange, solver->exchange_arrays())
+		// Swap old <-> structs
+		TIME(timers->exchange, solver->exchange())
 
 		// Restart solver if certain conditions are met
 		TIME(timers->restart, solver->check_restart())
