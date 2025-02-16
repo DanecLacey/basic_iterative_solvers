@@ -32,19 +32,23 @@ void summary_output(Args *cli_args, Solver *solver){
 
 	print_residuals(solver->collected_residual_norms, solver->time_per_iteration, solver->collected_residual_norms_count, solver->residual_check_len);
 
+	std::cout << "\nSolver: " << solver->solver_type;
+	if(!solver->preconditioner_type.empty()){
+		std::cout << " with preconditioner: " << solver->preconditioner_type;
+	}
 	if(solver->convergence_flag){
-		// x_new ~ A^{-1}b
-		std::cout << "\n" << solver->solver_type << " solver converged in: " << solver->iter_count << " iterations." << std::endl;
+		// x_star = A^{-1}b
+		std::cout << " converged in: " << solver->iter_count << " iterations." << std::endl;
 	}
 	else{
-		// x_new !~ A^{-1}b
-		std::cout << "\n" << solver->solver_type << " solver did not converge after " << solver->iter_count << " iterations." << std::endl;
+		// x_star != A^{-1}b
+		std::cout << " did not converge after " << solver->iter_count << " iterations." << std::endl;
 	}
 
-    std::cout << "With the stopping criteria \"tol * ||Ax_0 - b||_infty\" is: " << solver->stopping_criteria << std::endl;
+	std::cout << "With the stopping criteria \"tol * ||Ax_0 - b||_infty\" is: " << solver->stopping_criteria << std::endl;
 
-    std::cout << "The residual of the final iteration is: ||A*x_star - b||_infty = " <<
-    std::scientific << solver->collected_residual_norms[solver->collected_residual_norms_count - 1] << ".\n";
+	std::cout << "The residual of the final iteration is: ||A*x_star - b||_infty = " <<
+	std::scientific << solver->collected_residual_norms[solver->collected_residual_norms_count - 1] << ".\n";
 
 
 }

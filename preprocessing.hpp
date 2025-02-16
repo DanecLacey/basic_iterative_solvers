@@ -33,15 +33,6 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers){
 	solver->allocate_structs();
 	solver->init_structs();
 
-	// Compute the initial residual vector
-	IF_DEBUG_MODE(printf("Initializing residual vector\n"))
-	solver->init_residual();
-
-	// Use the initial residual and the tolerance to compute 
-	// the stopping criteria (tolerance * ||Ax_0 - b||_infty)
-	IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
-	solver->init_stopping_criteria();
-
 	// It is convenient for gauss-seidel methods to have 
 	// strict lower and upper triangular copies. While not 
 	// explicitly necessary for all methods, it's just nice to have.
@@ -57,6 +48,15 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers){
 
 	solver->crs_mat_L = crs_mat_L;
 	solver->crs_mat_U = crs_mat_U;
+
+	// Compute the initial residual vector
+	IF_DEBUG_MODE(printf("Initializing residual vector\n"))
+	solver->init_residual();
+
+	// Use the initial residual and the tolerance to compute 
+	// the stopping criteria (tolerance * ||Ax_0 - b||_infty)
+	IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
+	solver->init_stopping_criteria();
 
 	delete coo_mat;
 	delete coo_mat_L;

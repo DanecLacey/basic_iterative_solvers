@@ -62,6 +62,28 @@ void spltsv(
 #endif
 }
 
+void backwards_spltsv(
+    const MatrixCRS *crs_mat_U,
+    double *x,
+    const double *D,
+    const double *b
+)
+{
+#ifdef USE_LIKWID
+	LIKWID_MARKER_START("spltsv");
+#endif
+	for(int row_idx = crs_mat_U->n_rows; row_idx >= 0; --row_idx){
+		double sum = 0.0;
+		for(int nz_idx = crs_mat_U->row_ptr[row_idx]; nz_idx < crs_mat_U->row_ptr[row_idx+1]; ++nz_idx){
+			sum += crs_mat_U->val[nz_idx] * x[crs_mat_U->col[nz_idx]];
+		}
+		x[row_idx] = (b[row_idx] - sum) / D[row_idx];
+	}
+#ifdef USE_LIKWID
+	LIKWID_MARKER_STOP("spltsv");
+#endif
+}
+
 void subtract_vectors(
     double *result_vec,
     const double *vec1,
@@ -82,10 +104,35 @@ void sum_vectors(
     const int N,
     const double scale = 1.0
 ){
-
     #pragma omp parallel for
     for (int i = 0; i < N; ++i){
         result_vec[i] = vec1[i] + scale*vec2[i];
+    }
+}
+
+void elemwise_mult_vectors(
+    double *result_vec,
+    const double *vec1,
+    const double *vec2,
+    const int N,
+    const double scale = 1.0
+){
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i){
+        result_vec[i] = vec1[i] * scale*vec2[i];
+    }
+}
+
+void elemwise_div_vectors(
+    double *result_vec,
+    const double *vec1,
+    const double *vec2,
+    const int N,
+    const double scale = 1.0
+){
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i){
+        result_vec[i] = vec1[i] / (scale*vec2[i]);
     }
 }
 
@@ -281,6 +328,34 @@ void dgemv(
         for (int j = 0; j < n_cols_A; ++j) {
             y[i] += alpha * A[i*n_cols_A + j] * x[j];
         }
+    }
+}
+
+// Computes z <- M^{-1}y
+void apply_preconditioner(
+    const MatrixCRS *crs_mat_L,
+    const MatrixCRS *crs_mat_U,
+    const std::string preconditioner_type,
+    double *vec,
+    double *rhs,
+    double *D
+){
+    int N = crs_mat_L->n_cols;
+    if(preconditioner_type == "jacobi"){
+        elemwise_div_vectors(vec, rhs, D, N);
+    }
+    else if (preconditioner_type == "gauss-seidel"){
+        spltsv(crs_mat_L, vec, D, rhs);
+    }
+    else if (preconditioner_type == "backwards-gauss-seidel"){
+        backwards_spltsv(crs_mat_U, vec, D, rhs);
+    }
+    else if (preconditioner_type == "symmetric-gauss-seidel"){
+        spltsv(crs_mat_L, vec, D, rhs);
+        backwards_spltsv(crs_mat_U, vec, D, rhs);
+    }
+    else{
+        copy_vector(vec, rhs, N);
     }
 }
 

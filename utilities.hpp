@@ -35,49 +35,59 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 				"\n-[p]gm ([Preconditioned] GMRES)" \
 				"\n-[p]cg ([Preconditioned] Conjugate Gradient)" \
 				"\n-[p]bi ([Preconditioned] BiCGSTAB)\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 	}
 
-	// // Scan remaining incoming args
-	// int args_start_index = 3;
-	// for (int i = args_start_index; i < argc; ++i)
-	// {
-	// 		std::string arg = argv[i];
-	// 		if (arg == "-p"){
-	// 			 std::string pt = argv[++i];
+	// Scan remaining incoming args
+	int args_start_index = 3;
+	for (int i = args_start_index; i < argc; ++i){
+		std::string arg = argv[i];
+		if (arg == "-p"){
+			std::string pt = argv[++i];
 
-	// 				if (pt == "j"){
-	// 						args->preconditioner_type = "jacobi";
-	// 				}
-	// 				else if (pt == "gs"){
-	// 						args->preconditioner_type = "gauss-seidel";
-	// 				}
-	// 				else{
-	// 						printf("ERROR: assign_cli_inputs: Please choose an available preconditioner type:\n-j (Jacobi)\n-gs (Gauss-Seidel)\n");
-	// 						exit(1);
-	// 				}
-	// 		}
-	// 		if (arg == "-scale"){
-	// 			 std::string scale = argv[++i];
+			if (pt == "j"){
+				cli_args->preconditioner_type = "jacobi";
+			}
+			else if (pt == "gs"){
+				cli_args->preconditioner_type = "gauss-seidel";
+			}
+			else if (pt == "bgs"){
+				cli_args->preconditioner_type = "backwards-gauss-seidel";
+			}
+			else if (pt == "sgs"){
+				cli_args->preconditioner_type = "symmetric-gauss-seidel";
+			}
+			else{
+				fprintf(stderr,"ERROR: assign_cli_inputs: Please choose an available preconditioner type: " \
+					"\n-j (Jacobi)" \
+					"\n-gs (Gauss-Seidel)" \
+					"\n-bgs (Backwards Gauss-Seidel)" \
+					"\n-sgs (Symmetric Gauss-Seidel)");
+				exit(EXIT_FAILURE);
+			}
+		}
+		// TODO: reintroduce matrix scaling
+		// if (arg == "-scale"){
+		// 	 std::string scale = argv[++i];
 
-	// 				if (scale == "max"){
-	// 						args->scale_type = "max";
-	// 				}
-	// 				else if (scale == "diag"){
-	// 						args->scale_type = "diag";
-	// 				}
-	// 				else if (scale == "none"){
-	// 						args->scale_type = "none";
-	// 				}
-	// 				else{
-	// 						printf("ERROR: assign_cli_inputs: Please choose an available matrix scaling type:\nmax (Max row/col element)\ndiag (Diagonal)\nnone\n");
-	// 						exit(1);
-	// 				}
-	// 		}
-	// 		else{
-	// 				std::cout << "ERROR: assign_cli_inputs: Arguement \"" << arg << "\" not recongnized." << std::endl;
-	// 		}
-	// }
+		// 		if (scale == "max"){
+		// 				args->scale_type = "max";
+		// 		}
+		// 		else if (scale == "diag"){
+		// 				args->scale_type = "diag";
+		// 		}
+		// 		else if (scale == "none"){
+		// 				args->scale_type = "none";
+		// 		}
+		// 		else{
+		// 				printf("ERROR: assign_cli_inputs: Please choose an available matrix scaling type:\nmax (Max row/col element)\ndiag (Diagonal)\nnone\n");
+		// 				exit(1);
+		// 		}
+		// }
+		else{
+			std::cout << "ERROR: assign_cli_inputs: Arguement \"" << arg << "\" not recongnized." << std::endl;
+		}
+	}
 };
 
 void init_timers(Timers *timers){
@@ -87,6 +97,7 @@ void init_timers(Timers *timers){
 	CREATE_STOPWATCH(per_iteration)
 	CREATE_STOPWATCH(iterate)
 	CREATE_STOPWATCH(spmv)
+	CREATE_STOPWATCH(precond)
 	CREATE_STOPWATCH(dot)
 	CREATE_STOPWATCH(copy1)
 	CREATE_STOPWATCH(copy2)
@@ -111,6 +122,7 @@ void print_timers(Args *cli_args, Timers *timers){
 	long double total_time = timers->total_time->get_wtime();
 	long double preprocessing_time = timers->preprocessing_time->get_wtime();
 	long double solve_time = timers->solve_time->get_wtime();
+	long double precond_time = timers->precond_time->get_wtime();
 	long double iterate_time = timers->iterate_time->get_wtime();
 	long double spmv_time = timers->spmv_time->get_wtime();
 	long double dgemm_time = timers->dgemm_time->get_wtime();
@@ -150,6 +162,8 @@ void print_timers(Args *cli_args, Timers *timers){
 	std::cout << iterate_time  << "[s]" << std::endl;
 	std::cout << std::left << std::setw(left_flush_width) << "| | | SpMV time: " << std::right << std::setw(right_flush_width);
 	std::cout << spmv_time  << "[s]" << std::endl;
+	std::cout << std::left << std::setw(left_flush_width) << "| | | Precond. time: " << std::right << std::setw(right_flush_width);
+	std::cout << precond_time  << "[s]" << std::endl;
 	if(cli_args->solver_type == "jacobi"){
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
 		std::cout << normalize_time  << "[s]" << std::endl;
@@ -311,19 +325,20 @@ void extract_L_U(
 void extract_D(
     const MatrixCOO *coo_mat,
     double *D,
+		bool gmres_restarted = false,
     bool take_sqrt = false
 ){
-    #pragma omp parallel for schedule (static)
-    for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx){
-        if(coo_mat->I[nz_idx] == coo_mat->J[nz_idx]){
-            if(take_sqrt){
-                D[coo_mat->I[nz_idx]] = std::sqrt(std::abs(coo_mat->values[nz_idx]));
-            }
-            else{
-                D[coo_mat->I[nz_idx]] = coo_mat->values[nz_idx];
-            }
-        }
-    }
+	#pragma omp parallel for schedule (static)
+	for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx){
+		if(coo_mat->I[nz_idx] == coo_mat->J[nz_idx]){
+			if(take_sqrt){
+				D[coo_mat->I[nz_idx]] = std::sqrt(std::abs(coo_mat->values[nz_idx]));
+			}
+			else{
+				D[coo_mat->I[nz_idx]] = coo_mat->values[nz_idx];
+			}
+		}
+	}
 }
 
 #ifdef USE_LIKWID

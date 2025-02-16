@@ -134,12 +134,15 @@ void update_g(
 
 void gmres_separate_iteration(
 	Timers *timers,
+	const std::string preconditioner_type,
 	const MatrixCRS *crs_mat,
+	const MatrixCRS *crs_mat_L,
+	const MatrixCRS *crs_mat_U,
+	double *D,
 	int n_solver_iters,
 	const int restart_count,
 	const int restart_len,
 	double &residual_norm,
-	double *D,
 	double *V,
 	double *H,
 	double *H_tmp,
@@ -165,7 +168,8 @@ void gmres_separate_iteration(
 	// w_j <- Av_j
 	TIME(timers->spmv, spmv(crs_mat, &V[n_solver_iters*N], w))
 
-	// TODO: Apply preconditioner
+	// w_j <- M^{-1}w_j
+	TIME(timers->precond, apply_preconditioner(crs_mat_L, crs_mat_U, preconditioner_type, w, w, D))
 
 	IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 
@@ -174,7 +178,6 @@ void gmres_separate_iteration(
 	TIME(timers->least_sq, least_squares(timers, N, n_solver_iters, restart_len, J, H, H_tmp, Q, Q_tmp, R))
 
 	TIME(timers->update_g, update_g(timers, N, n_solver_iters, restart_len, Q, g, g_tmp, residual_norm, beta))
-
 }
 
 #endif

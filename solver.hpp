@@ -38,7 +38,7 @@ public:
 
 	// Flags
 	bool convergence_flag = false;
-	bool gmres_copy_x_0 = true;
+	bool gmres_restarted = false;
 
 	// Vectors
 	double *x_star; // General
@@ -52,18 +52,23 @@ public:
 	double *x; // GS + GMRES
 	double *p_old; // CG + BiCGSTAB
 	double *p_new; // CG + BiCGSTAB
+	double *z_old; // CG
+	double *z_new; // CG
 	double *residual_0;
 	double *residual_old; // CG + BiCGSTAB
 	double *residual_new; // CG + BiCGSTAB
 	double *v; // BiCGSTAB
 	double *h; // BiCGSTAB
 	double *s; // BiCGSTAB
+	double *s_tmp; // BiCGSTAB
 	double *t; // BiCGSTAB
+	double *t_tmp; // BiCGSTAB
 	double rho_old; // BiCGSTAB
 	double rho_new; // BiCGSTAB
+	double *z; // BiCGSTAB
 	double *V; // GMRES
 	double *Vy; // GMRES
-	double *y; // GMRES
+	double *y; // GMRES + BiCGSTAB
 	double *H; // GMRES
 	double *H_tmp; // GMRES
 	double *J; // GMRES
@@ -102,10 +107,6 @@ public:
 		return norm_convergence || over_max_iters || divergence;
 	}
 
-	void apply_preconditioner(){
-		// TODO
-	}
-
 	// NOTE: We only initialize the structs needed for the solver
 	// and preconditioner selected
 	void allocate_structs(){
@@ -132,6 +133,8 @@ public:
 			p_old = new double [this->crs_mat->n_cols];
 			residual_new = new double [this->crs_mat->n_cols];
 			residual_old = new double [this->crs_mat->n_cols];
+			z_new = new double [this->crs_mat->n_cols];
+			z_old = new double [this->crs_mat->n_cols];
 		}
 		else if (solver_type == "gmres"){
 			x = 		 new double [this->crs_mat->n_cols];
@@ -155,23 +158,34 @@ public:
 			p_old = new double [this->crs_mat->n_cols];
 			residual_new = new double [this->crs_mat->n_cols];
 			residual_old = new double [this->crs_mat->n_cols];
-			v = new double [this->crs_mat->n_cols];
-			h = new double [this->crs_mat->n_cols];
-			s = new double [this->crs_mat->n_cols];
-			t = new double [this->crs_mat->n_cols];
+			v     = new double [this->crs_mat->n_cols];
+			h     = new double [this->crs_mat->n_cols];
+			s     = new double [this->crs_mat->n_cols];
+			s_tmp = new double [this->crs_mat->n_cols];
+			t     = new double [this->crs_mat->n_cols];
+			t_tmp = new double [this->crs_mat->n_cols];
+			y     = new double [this->crs_mat->n_cols];
+			z     = new double [this->crs_mat->n_cols];
 		}
 	}
 
 	void init_structs(){
 		#pragma omp parallel for
 		for(int i = 0; i < this->crs_mat->n_cols; ++i){
-			x_star[i] =     0.0;
-			x_0[i] =        INIT_X_VAL;
-			b[i] =          B_VAL;
 			tmp[i] =        0.0;
 			residual[i] =   0.0;
 			residual_0[i] = 0.0;
-			D[i] =          0.0;
+		}
+
+		if(!this->gmres_restarted){
+			// We don't want to overwrite these when restarting GMRES
+			#pragma omp parallel for
+			for(int i = 0; i < this->crs_mat->n_cols; ++i){
+				x_star[i] =     0.0;
+				x_0[i] =        INIT_X_VAL;
+				b[i] =          B_VAL;
+				D[i] = 0.0;
+			}
 		}
 
 		// Solver-specific structs
@@ -197,19 +211,20 @@ public:
 				p_old[i] = 0.0;
 				residual_new[i] = 0.0;
 				residual_old[i] = 0.0;
+				z_new[i] = 0.0;
+				z_old[i] = 0.0;
 			}
 		}
 		else if (solver_type == "gmres"){
 			// NOTE: We only want to copy x <- x_0 on the first invocation of this routine.
 			// All other invocations will be due to resets, in which case the approximate x vector
 			// will be explicity computed.
-			if(this->gmres_copy_x_0){
+			if(!this->gmres_restarted){
 				#pragma omp parallel for
 				for(int i = 0; i < this->crs_mat->n_cols; ++i){
 					x[i] = x_0[i];
 					x_old[i] = x_0[i];
 				}
-				this->gmres_copy_x_0 = false;
 			}
 
 			#pragma omp parallel for
@@ -243,10 +258,12 @@ public:
 				p_old[i] = 0.0;
 				residual_new[i] = 0.0;
 				residual_old[i] = 0.0;
-				v[i] = 0.0;
-				h[i] = 0.0;
-				s[i] = 0.0;
-				t[i] = 0.0;
+				v[i]     = 0.0;
+				h[i]     = 0.0;
+				s[i]     = 0.0;
+				s_tmp[i] = 0.0;
+				t[i]     = 0.0;
+				t_tmp[i] = 0.0;
 			}
 		}
 	}
@@ -262,16 +279,26 @@ public:
 		}
 		else if(solver_type == "conjugate-gradient"){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
-			
+
+			// Precondition the initial residual
+			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
+			apply_preconditioner(this->crs_mat_L, this->crs_mat_U, this->preconditioner_type, this->z_old, this->residual, this->D);
+			IF_DEBUG_MODE(SanityChecker::print_vector(this->z_old, this->crs_mat->n_cols, "residual after preconditioning"));
+
 			// Make copies of initial residual for solver
-			copy_vector(this->p_old, this->residual, this->crs_mat->n_cols);
+			copy_vector(this->p_old, this->z_old, this->crs_mat->n_cols);
 			copy_vector(this->residual_old, this->residual, this->crs_mat->n_cols);
-			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+			this->residual_norm = infty_vec_norm(this->z_old, this->crs_mat->n_cols);
 		}
 		else if (solver_type == "gmres"){
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x1"));
-
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp);
+
+			// Precondition the initial residual
+			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
+			apply_preconditioner(this->crs_mat_L, this->crs_mat_U, this->preconditioner_type, this->residual, this->residual, this->D);
+			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual after preconditioning"));
+
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x2"));
 			this->residual_norm = euclidean_vec_norm(this->residual, this->crs_mat->n_cols);
 			this->beta = this->residual_norm; // NOTE: Beta should be according to euclidean norm (Saad)
@@ -288,7 +315,7 @@ public:
 		}
 		else if (solver_type == "bicgstab"){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
-			
+
 			// Make copies of initial residual for solver
 			copy_vector(this->p_old, this->residual, this->crs_mat->n_cols);
 			copy_vector(this->residual_old, this->residual, this->crs_mat->n_cols);
@@ -316,26 +343,35 @@ public:
 		else if(solver_type == "conjugate-gradient"){
 			cg_separate_iteration(
 				timers,
+				this->preconditioner_type,
 				this->crs_mat,
+				this->crs_mat_L,
+				this->crs_mat_U,
+				this->D,
 				this->x_new,
 				this->x_old,
 				this->tmp,
 				this->p_new,
 				this->p_old,
 				this->residual_new,
-				this->residual_old
+				this->residual_old,
+				this->z_new,
+				this->z_old
 			);
 			std::swap(this->residual, this->residual_new);
 		}
 		else if (solver_type == "gmres"){
 			gmres_separate_iteration(
 				timers,
+				this->preconditioner_type,
 				this->crs_mat,
+				this->crs_mat_L,
+				this->crs_mat_U,
+				this->D,
 				this->iter_count,
 				this->gmres_restart_count,
 				this->gmres_restart_len,
 				this->residual_norm,
-				this->D,
 				this->V,
 				this->H,
 				this->H_tmp,
@@ -352,23 +388,31 @@ public:
 			);
 		}
 		else if (solver_type == "bicgstab"){
-			bicgstab_separate_iteration(
+			pbicgstab_separate_iteration(
 				timers,
-				crs_mat,
-				x_new,
-				x_old,
-				tmp,
-				p_new,
-				p_old,
-				residual_new,
-				residual_old,
-				residual_0,
-				v,
-				h,
-				s,
-				t,
-				rho_new,
-				rho_old
+				this->preconditioner_type,
+				this->crs_mat,
+				this->crs_mat_L,
+				this->crs_mat_U,
+				this->D,
+				this->x_new,
+				this->x_old,
+				this->tmp,
+				this->p_new,
+				this->p_old,
+				this->residual_new,
+				this->residual_old,
+				this->residual_0,
+				this->v,
+				this->h,
+				this->s,
+				this->s_tmp,
+				this->t,
+				this->t_tmp,
+				this->y,
+				this->z,
+				this->rho_new,
+				this->rho_old
 			);
 			std::swap(this->residual, this->residual_new);
 		}
@@ -383,6 +427,7 @@ public:
 		}
 		else if(solver_type == "conjugate-gradient"){
 			std::swap(this->p_old, this->p_new);
+			std::swap(this->z_old, this->z_new);
 			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
 			std::swap(this->x_old, this->x_new);
 		}
@@ -512,6 +557,7 @@ public:
 			bool over_max_iters = this->iter_count >= this->max_iters;
 			bool restart_cycle_reached = (this->iter_count + 1) % (this->gmres_restart_len) == 0;
 			if(!norm_convergence && !over_max_iters && restart_cycle_reached){
+				this->gmres_restarted = true;
 
 				IF_DEBUG_MODE(printf("GMRES restart: %i\n", this->gmres_restart_count))
 				// x <- x_0 + Vy
@@ -562,6 +608,8 @@ public:
 			delete[] p_old;
 			delete[] residual_new;
 			delete[] residual_old;
+			delete[] z_new;
+			delete[] z_old;
 		}
 		else if (solver_type == "gmres"){
 			delete[] V;
@@ -589,6 +637,8 @@ public:
 			delete[] h;
 			delete[] s;
 			delete[] t;
+			delete[] y;
+			delete[] z;
 		}
 	}
 

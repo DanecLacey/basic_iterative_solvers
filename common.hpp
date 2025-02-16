@@ -76,6 +76,7 @@ struct Timers
 	Stopwatch *per_iteration_time;
 	Stopwatch *iterate_time;
 	Stopwatch *spmv_time;
+	Stopwatch *precond_time;
 	Stopwatch *dgemm_time;
 	Stopwatch *dgemv_time;
 	Stopwatch *normalize_time;
