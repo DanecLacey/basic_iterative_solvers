@@ -1,10 +1,12 @@
+# basic_iterative_solvers #
+
 <p align="center">
   <img src="HPCG_compare_convergence.png" width="45%">
   <img src="HPCG_compare_time_per_iter.png" width="45%">
 </p>
 
 
-This is a basic set of (preconditioned) iterative solvers for `x` in `Ax = b`, where `A` is typically assumed to be a large sparse matrix. The format of `A` is CRS, and only left-preconditioning is implemented. This code is mainly for performance investigations.
+This is a set of (preconditioned) iterative solvers for `x` in `Ax = b`, where `A` is typically assumed to be a large sparse matrix. The format of `A` is CRS, and only left-preconditioning is implemented. This code is mainly for performance investigations.
 
 ### Examples ###
 * `./basic_iterative_solvers HPCG-128.mtx -cg`
