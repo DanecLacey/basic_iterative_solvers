@@ -32,9 +32,9 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 			printf("ERROR: parse_cli: Please choose an available solver type:" \
 				"\n-j (Jacobi)" \
 				"\n-gs (Gauss-Seidel)" \
-				"\n-[p]gm ([Preconditioned] GMRES)" \
-				"\n-[p]cg ([Preconditioned] Conjugate Gradient)" \
-				"\n-[p]bi ([Preconditioned] BiCGSTAB)\n");
+				"\n-gm ([Preconditioned] GMRES)" \
+				"\n-cg ([Preconditioned] Conjugate Gradient)" \
+				"\n-bi ([Preconditioned] BiCGSTAB)\n");
 			exit(EXIT_FAILURE);
 	}
 
@@ -59,10 +59,10 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 			}
 			else{
 				fprintf(stderr,"ERROR: assign_cli_inputs: Please choose an available preconditioner type: " \
-					"\n-j (Jacobi)" \
-					"\n-gs (Gauss-Seidel)" \
-					"\n-bgs (Backwards Gauss-Seidel)" \
-					"\n-sgs (Symmetric Gauss-Seidel)");
+					"\n-p j (Jacobi)" \
+					"\n-p gs (Gauss-Seidel)" \
+					"\n-p bgs (Backwards Gauss-Seidel)" \
+					"\n-p sgs (Symmetric Gauss-Seidel)");
 				exit(EXIT_FAILURE);
 			}
 		}

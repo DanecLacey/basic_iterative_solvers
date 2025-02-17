@@ -155,6 +155,7 @@ void gmres_separate_iteration(
 	double *g_tmp,
 	double *b,
 	double *x,
+	double *tmp,
 	double beta
 ){
 	/* NOTES:
@@ -169,7 +170,7 @@ void gmres_separate_iteration(
 	TIME(timers->spmv, spmv(crs_mat, &V[n_solver_iters*N], w))
 
 	// w_j <- M^{-1}w_j
-	TIME(timers->precond, apply_preconditioner(crs_mat_L, crs_mat_U, preconditioner_type, w, w, D))
+	TIME(timers->precond, apply_preconditioner(preconditioner_type, crs_mat_L, crs_mat_U, D, w, w, tmp))
 
 	IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 

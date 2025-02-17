@@ -39,7 +39,7 @@ void cg_separate_iteration(
 	TIME(timers->sum, subtract_vectors(r_new, r_old, tmp, crs_mat->n_cols, alpha))
 
 	// z_new <- M^{-1}r_new
-	TIME(timers->precond, apply_preconditioner(crs_mat_L, crs_mat_U, preconditioner_type, z_new, r_new, D))
+	TIME(timers->precond, apply_preconditioner(preconditioner_type, crs_mat_L, crs_mat_U, D, z_new, r_new, tmp))
 
 	// beta <- (r_new, r_new) / (r_old, r_old)
 	TIME(timers->dot, double beta = dot(r_new, z_new, crs_mat->n_cols) / tmp_dot)

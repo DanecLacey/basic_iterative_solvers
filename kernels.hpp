@@ -333,12 +333,13 @@ void dgemv(
 
 // Computes z <- M^{-1}y
 void apply_preconditioner(
+    const std::string preconditioner_type,
     const MatrixCRS *crs_mat_L,
     const MatrixCRS *crs_mat_U,
-    const std::string preconditioner_type,
+    double *D,
     double *vec,
     double *rhs,
-    double *D
+    double *tmp
 ){
     int N = crs_mat_L->n_cols;
     if(preconditioner_type == "jacobi"){
@@ -351,8 +352,14 @@ void apply_preconditioner(
         backwards_spltsv(crs_mat_U, vec, D, rhs);
     }
     else if (preconditioner_type == "symmetric-gauss-seidel"){
-        spltsv(crs_mat_L, vec, D, rhs);
-        backwards_spltsv(crs_mat_U, vec, D, rhs);
+        // tmp <- (L+D)^{-1}*r
+        spltsv(crs_mat_L, tmp, D, rhs);
+
+        // tmp <- D(L+D)^{-1}*r
+        elemwise_mult_vectors(tmp, tmp, D, N);
+
+        // z <- (L+U)^{-1}*tmp
+        backwards_spltsv(crs_mat_U, vec, D, tmp);
     }
     else{
         copy_vector(vec, rhs, N);

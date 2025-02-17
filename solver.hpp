@@ -282,7 +282,7 @@ public:
 
 			// Precondition the initial residual
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
-			apply_preconditioner(this->crs_mat_L, this->crs_mat_U, this->preconditioner_type, this->z_old, this->residual, this->D);
+			apply_preconditioner(this->preconditioner_type, this->crs_mat_L, this->crs_mat_U, this->D, this->z_old, this->residual, this->tmp);
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->z_old, this->crs_mat->n_cols, "residual after preconditioning"));
 
 			// Make copies of initial residual for solver
@@ -296,7 +296,7 @@ public:
 
 			// Precondition the initial residual
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
-			apply_preconditioner(this->crs_mat_L, this->crs_mat_U, this->preconditioner_type, this->residual, this->residual, this->D);
+			apply_preconditioner(this->preconditioner_type, this->crs_mat_L, this->crs_mat_U, this->D, this->residual, this->residual, this->tmp);
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual after preconditioning"));
 
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x2"));
@@ -384,11 +384,12 @@ public:
 				this->g_tmp,
 				this->b,
 				this->x,
+				this->tmp,
 				this->beta
 			);
 		}
 		else if (solver_type == "bicgstab"){
-			pbicgstab_separate_iteration(
+			bicgstab_separate_iteration(
 				timers,
 				this->preconditioner_type,
 				this->crs_mat,
@@ -568,6 +569,7 @@ public:
 				// NOTE: x is the only struct which is not re-initialized
 				this->init_structs();
 
+				// TODO: This shouldn't be necessary
 				// Re-initialize residual with new inital x approximation
 				this->init_residual();
 
