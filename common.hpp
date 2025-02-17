@@ -281,7 +281,7 @@ public:
 	static void check_copied_L_U_elements(int total_nnz, int L_nnz, int U_nnz, int D_nnz){
 		int copied_elems_count = L_nnz + U_nnz + D_nnz; 
 		if(copied_elems_count != total_nnz){
-				fprintf(stderr, "ERROR: extract_L_U: %i out of %li elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
+				fprintf(stderr, "ERROR: extract_L_U: %i out of %i elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
 				exit(EXIT_FAILURE);
 		}
 	}

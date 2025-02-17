@@ -83,6 +83,8 @@ struct MatrixCOO
             ++J[nz_idx];
         }
 
+				char arg_str[] = "MCRG";
+
         mm_write_mtx_crd(
             &file_name[0], 
             n_rows, 
@@ -91,7 +93,7 @@ struct MatrixCOO
             &(I)[0], 
             &(J)[0], 
             &(values)[0], 
-            "MCRG" // TODO: <- make more general, i.e. flexible based on the matrix. Read from original mtx?
+            arg_str // TODO: <- make more general, i.e. flexible based on the matrix. Read from original mtx?
         );
     }
 
@@ -120,7 +122,7 @@ struct MatrixCOO
 			// bool compatible_flag = (mm_is_sparse(matcode) && (mm_is_real(matcode)||mm_is_pattern(matcode))) && (mm_is_symmetric(matcode) || mm_is_general(matcode));
 			bool compatible_flag = (mm_is_sparse(matcode) && (mm_is_real(matcode)||mm_is_pattern(matcode)||mm_is_integer(matcode))) && (mm_is_symmetric(matcode) || mm_is_general(matcode));
 			bool symm_flag = mm_is_symmetric(matcode);
-			bool pattern_flag = mm_is_pattern(matcode);
+			// bool pattern_flag = mm_is_pattern(matcode); // Not used ATM
 	
 			if(!compatible_flag)
 			{

@@ -29,7 +29,7 @@ ifeq ($(COMPILER),icx)
   CXX       = icpx
   OPT_LEVEL = -O3
   OPT_ARCH  = -xhost
-  AVX512_fix= -Xclang -target-feature -Xclang +prefer-no-gather -xCORE-AVX512 -qopt-zmm-usage=high
+  AVX512_fix= -Xclang -target-feature -Xclang +prefer-no-gather
   CXXFLAGS += $(OPT_LEVEL) -Wall -fopenmp $(AVX512_fix) $(OPT_ARCH) -std=$(CPP_VERSION)
 endif
 
