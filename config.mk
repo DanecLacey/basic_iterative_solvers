@@ -11,9 +11,11 @@ MAX_ITERS=5000
 # [float]
 TOL=1e-14
 # [int]
-GMRES_RESTART_LEN=100
+GMRES_RESTART_LEN=50
 # [int]
 RES_CHECK_LEN=1
+# [int]
+PRECOND_ITERS=1
 # [float]
 INIT_X_VAL=0.1
 # [float]

@@ -360,27 +360,29 @@ void apply_preconditioner(
 ){
     int N = crs_mat_L->n_cols;
 
-    if(preconditioner_type == "jacobi"){
-        elemwise_div_vectors(vec, rhs, D, N);
-    }
-    else if (preconditioner_type == "gauss-seidel"){
-        spltsv(crs_mat_L, vec, D, rhs);
-    }
-    else if (preconditioner_type == "backwards-gauss-seidel"){
-        backwards_spltsv(crs_mat_U, vec, D, rhs);
-    }
-    else if (preconditioner_type == "symmetric-gauss-seidel"){
-        // tmp <- (L+D)^{-1}*r
-        spltsv(crs_mat_L, tmp, D, rhs);
+    for(int i = 0; i < PRECOND_ITERS; ++i){
+        if(preconditioner_type == "jacobi"){
+            elemwise_div_vectors(vec, rhs, D, N);
+        }
+        else if (preconditioner_type == "gauss-seidel"){
+            spltsv(crs_mat_L, vec, D, rhs);
+        }
+        else if (preconditioner_type == "backwards-gauss-seidel"){
+            backwards_spltsv(crs_mat_U, vec, D, rhs);
+        }
+        else if (preconditioner_type == "symmetric-gauss-seidel"){
+            // tmp <- (L+D)^{-1}*r
+            spltsv(crs_mat_L, tmp, D, rhs);
 
-        // tmp <- D(L+D)^{-1}*r
-        elemwise_mult_vectors(tmp, tmp, D, N);
+            // tmp <- D(L+D)^{-1}*r
+            elemwise_mult_vectors(tmp, tmp, D, N);
 
-        // z <- (L+U)^{-1}*tmp
-        backwards_spltsv(crs_mat_U, vec, D, tmp);
-    }
-    else{
-        copy_vector(vec, rhs, N);
+            // z <- (L+U)^{-1}*tmp
+            backwards_spltsv(crs_mat_U, vec, D, tmp);
+        }
+        else{
+            copy_vector(vec, rhs, N);
+        }
     }
 }
 
