@@ -30,15 +30,16 @@ make
 * Matrices can be read from `.mtx` files, or generated with `SCAMAC` library (https://alvbit.bitbucket.io/scamac_docs/index.html) 
 
 ### Supported Solvers ###
+* **Richardson** `-r`
 * **Jacobi** `-j`
-* **Gauss-Seidel** `-gs`
+* (Forward/Symmetric)**Gauss-Seidel** `-gs / -sgs`
 * (Preconditioned) **Conjugate-Gradient** `-cg`
 * (Preconditioned) (Restarted) **GMRES** `-gm`
 * (Preconditioned) **BiCGSTAB** `-bi`
 
 ### Supported Preconditioners ###
 * **Jacobi** `-p j`
-* (Forward/Backward/Symmetric) **Gauss-Seidel** `-p (gs/bgs/sgs)`
+* (Forward/Backward/Symmetric/FFBB) **Gauss-Seidel** `-p (gs/bgs/sgs/ffbbgs)`
 
 ### Notes ###
 * The sparse matrix storage format of `A` is **CRS**.
