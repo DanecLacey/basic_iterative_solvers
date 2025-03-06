@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "sparse_matrix.hpp"
 #include "kernels.hpp"
+#include "methods/richardson.hpp"
 #include "methods/jacobi.hpp"
 #include "methods/gauss_seidel.hpp"
 #include "methods/cg.hpp"
@@ -47,8 +48,8 @@ public:
 	double *residual; // General
 	double *D; // General
 	double *x_0; // General
-	double *x_new; // Jacobi + CG + BiCGSTAB
-	double *x_old; // Jacobi + CG + GMRES + BiCGSTAB
+	double *x_new; // Richardson + Jacobi + CG + BiCGSTAB
+	double *x_old; // Richardson + Jacobi + CG + GMRES + BiCGSTAB
 	double *x; // GS + GMRES
 	double *p_old; // CG + BiCGSTAB
 	double *p_new; // CG + BiCGSTAB
@@ -78,6 +79,7 @@ public:
 	double *R; // GMRES
 	double *g; // GMRES
 	double *g_tmp; // GMRES
+	double alpha; // Richardson 
 	double beta; // GMRES 
 
 	// Misc
@@ -119,11 +121,15 @@ public:
 		D =          new double [this->crs_mat->n_cols];
 
 		// Solver-specific structs
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
 			x_new = new double [this->crs_mat->n_cols];
 			x_old = new double [this->crs_mat->n_cols];
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if(solver_type == "jacobi"){
+			x_new = new double [this->crs_mat->n_cols];
+			x_old = new double [this->crs_mat->n_cols];
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			x = new double [this->crs_mat->n_cols];
 		}
 		else if (solver_type == "conjugate-gradient"){
@@ -189,14 +195,24 @@ public:
 		}
 
 		// Solver-specific structs
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
+			#pragma omp parallel for
+			for(int i = 0; i < this->crs_mat->n_cols; ++i){
+				x_new[i] = 0.0;
+				x_old[i] = x_0[i];
+			}
+
+			this->alpha = 1.0 / infty_mat_norm(this->crs_mat);
+			IF_DEBUG_MODE(printf("||A||_\\infty = %f\n", infty_mat_norm(this->crs_mat)))
+		}
+		else if(solver_type == "jacobi"){
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x_new[i] = 0.0;
 				x_old[i] = x_0[i];
 			}
 		}
-		else if (solver_type == "gauss-seidel"){	
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){	
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x[i] = x_0[i];
@@ -269,11 +285,15 @@ public:
 	}
 
 	void init_residual(){
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if(solver_type == "jacobi"){
+			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp);
+			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
@@ -332,13 +352,21 @@ public:
 	void iterate(
 		Timers *timers
 	){
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
+			richardson_separate_iteration(timers, this->crs_mat, this->b, this->x_new, this->x_old, this->tmp, this->residual, this->alpha);
+		}
+		else if(solver_type == "jacobi"){
 			// jacobi_fused_iteration(this->crs_mat, this->b, this->x_new, this->x_old);
-			jacobi_separate_iteration(timers, this->crs_mat, this->D, this->b,  this->x_new, this->x_old);
+			jacobi_separate_iteration(timers, this->crs_mat, this->D, this->b, this->x_new, this->x_old);
 		}
 		else if (solver_type == "gauss-seidel"){
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
 			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
+		}
+		else if (solver_type == "symmetric-gauss-seidel"){
+			// gs_fused_iteration(this->crs_mat, this->b, this->x);
+			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
+			bgs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
 		}
 		else if(solver_type == "conjugate-gradient"){
 			cg_separate_iteration(
@@ -420,10 +448,13 @@ public:
 	}
 
 	void exchange(){
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
 			std::swap(this->x_old, this->x_new);
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if(solver_type == "jacobi"){
+			std::swap(this->x_old, this->x_new);
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			// Nothing to exchange
 		}
 		else if(solver_type == "conjugate-gradient"){
@@ -445,21 +476,24 @@ public:
 
 	void save_x_star(){
 		IF_DEBUG_MODE(printf("Saving x*\n"))
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
 			std::swap(this->x_old, this->x_star);
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if(solver_type == "jacobi"){
+			std::swap(this->x_old, this->x_star);
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			std::swap(this->x, this->x_star);
 		}
 		else if (solver_type == "conjugate-gradient"){
-			std::swap(this->x_star, this->x_old);
+			std::swap(this->x_old, this->x_star);
 		}
 		else if (solver_type == "gmres"){
 			this->get_explicit_x();
 			std::swap(this->x, this->x_star);
 		}
 		else if (solver_type == "bicgstab"){
-			std::swap(this->x_star, this->x_old);
+			std::swap(this->x_old, this->x_star);
 		}
 
 		compute_residual(this->crs_mat, this->x_star, this->b, this->residual, this->tmp);
@@ -468,11 +502,15 @@ public:
 	}
 
 	void record_residual_norm(){
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
+			// Residual vector is updated implicitly, so do not need to compute it
+			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
+		}
+		else if(solver_type == "jacobi"){
 			compute_residual(this->crs_mat, this->x_new, this->b, this->residual, this->tmp);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp);
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
@@ -480,7 +518,7 @@ public:
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		else if (solver_type == "gmres"){
-			// TODO
+			// Nothing to do here, since residual vector norm is computed implicitly
 		}
 		else if (solver_type == "bicgstab"){
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
@@ -596,11 +634,15 @@ public:
 		delete[] residual_0;
 
 		// Solver-specific structs
-		if(solver_type == "jacobi"){
+		if(solver_type == "richardson"){
 			delete[] x_new;
 			delete[] x_old;
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if(solver_type == "jacobi"){
+			delete[] x_new;
+			delete[] x_old;
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			delete[] x;
 		}
 		else if(solver_type == "conjugate-gradient"){

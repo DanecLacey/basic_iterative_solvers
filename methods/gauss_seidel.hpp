@@ -45,4 +45,23 @@ void gs_separate_iteration(
 	TIME(timers->spltsv, spltsv(crs_mat_L, x, D, tmp))
 }
 
+void bgs_separate_iteration(
+	Timers *timers,
+	const MatrixCRS *crs_mat_U,
+	const MatrixCRS *crs_mat_L, 
+	double *tmp,
+	const double *D, 
+	const double *b, 
+	double *x
+){
+	// tmp <- Ux
+	TIME(timers->spmv, spmv(crs_mat_L, x, tmp))
+
+	// tmp <- b - tmp
+	TIME(timers->sum, subtract_vectors(tmp, b, tmp, crs_mat_L->n_rows))
+
+	// x <- (D+L)^{-1}(tmp)
+	TIME(timers->spltsv, backwards_spltsv(crs_mat_U, x, D, tmp))
+}
+
 #endif

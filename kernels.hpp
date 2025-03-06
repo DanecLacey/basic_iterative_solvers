@@ -165,6 +165,23 @@ double infty_vec_norm(
     return max_abs;
 }
 
+double infty_mat_norm(
+    const MatrixCRS *crs_mat
+){
+    double max_row_sum = 0.0;
+
+    #pragma omp parallel for reduction(max: max_row_sum)
+    for (int row = 0; row < crs_mat->n_rows; ++row) {
+        double row_sum = 0.0;
+        for (int idx = crs_mat->row_ptr[row]; idx < crs_mat->row_ptr[row + 1]; ++idx) {
+            row_sum += std::abs(crs_mat->val[idx]);
+        }
+        max_row_sum = std::max(max_row_sum, row_sum);
+    }
+
+    return max_row_sum;
+}
+
 double euclidean_vec_norm(
     const double *vec,
     int N
@@ -342,6 +359,7 @@ void apply_preconditioner(
     double *tmp
 ){
     int N = crs_mat_L->n_cols;
+
     if(preconditioner_type == "jacobi"){
         elemwise_div_vectors(vec, rhs, D, N);
     }

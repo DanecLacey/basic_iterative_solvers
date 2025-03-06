@@ -13,11 +13,17 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 
 	std::string st = argv[2];
 
-	if(st == "-j"){
+	if(st == "-r"){
+		cli_args->solver_type = "richardson"; 
+	}
+	else if(st == "-j"){
 			cli_args->solver_type = "jacobi"; 
 	}
 	else if(st == "-gs"){
 		cli_args->solver_type = "gauss-seidel";
+	}
+	else if(st == "-sgs"){
+		cli_args->solver_type = "symmetric-gauss-seidel";
 	}
 	else if(st == "-cg"){
 		cli_args->solver_type = "conjugate-gradient";
@@ -30,8 +36,10 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 	}
 	else{
 			printf("ERROR: parse_cli: Please choose an available solver type:" \
+				"\n-r (Richardson)" \
 				"\n-j (Jacobi)" \
 				"\n-gs (Gauss-Seidel)" \
+				"\n-sgs (Symmetric Gauss-Seidel)" \
 				"\n-gm ([Preconditioned] GMRES)" \
 				"\n-cg ([Preconditioned] Conjugate Gradient)" \
 				"\n-bi ([Preconditioned] BiCGSTAB)\n");
@@ -164,7 +172,11 @@ void print_timers(Args *cli_args, Timers *timers){
 	std::cout << spmv_time  << "[s]" << std::endl;
 	std::cout << std::left << std::setw(left_flush_width) << "| | | Precond. time: " << std::right << std::setw(right_flush_width);
 	std::cout << precond_time  << "[s]" << std::endl;
-	if(cli_args->solver_type == "jacobi"){
+	if(cli_args->solver_type == "richardson"){
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
+		std::cout << sum_time  << "[s]" << std::endl;
+	}
+	else if(cli_args->solver_type == "jacobi"){
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
 		std::cout << normalize_time  << "[s]" << std::endl;
 	}
