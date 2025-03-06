@@ -380,6 +380,17 @@ void apply_preconditioner(
             // z <- (L+U)^{-1}*tmp
             backwards_spltsv(crs_mat_U, vec, D, tmp);
         }
+        else if (preconditioner_type == "ffbb-gauss-seidel"){
+            // TODO
+            spltsv(crs_mat_L, tmp, D, rhs);
+            spltsv(crs_mat_L, tmp, D, rhs);
+
+            elemwise_mult_vectors(tmp, tmp, D, N);
+            elemwise_mult_vectors(tmp, tmp, D, N);
+
+            backwards_spltsv(crs_mat_U, vec, D, tmp);
+            backwards_spltsv(crs_mat_U, vec, D, tmp);
+        }
         else{
             copy_vector(vec, rhs, N);
         }

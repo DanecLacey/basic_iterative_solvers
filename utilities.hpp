@@ -65,12 +65,17 @@ void parse_cli(Args *cli_args, int argc, char *argv[]){
 			else if (pt == "sgs"){
 				cli_args->preconditioner_type = "symmetric-gauss-seidel";
 			}
+			else if (pt == "ffbbgs"){
+				cli_args->preconditioner_type = "ffbb-gauss-seidel";
+			}
 			else{
 				fprintf(stderr,"ERROR: assign_cli_inputs: Please choose an available preconditioner type: " \
 					"\n-p j (Jacobi)" \
 					"\n-p gs (Gauss-Seidel)" \
 					"\n-p bgs (Backwards Gauss-Seidel)" \
-					"\n-p sgs (Symmetric Gauss-Seidel)");
+					"\n-p sgs (Symmetric Gauss-Seidel)" \
+					"\n-p ffbbgs (Forward-Forward-Backward-Backward Gauss-Seidel)" \
+				);
 				exit(EXIT_FAILURE);
 			}
 		}
