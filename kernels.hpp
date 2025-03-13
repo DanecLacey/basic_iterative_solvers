@@ -72,7 +72,7 @@ void backwards_spltsv(
 #ifdef USE_LIKWID
 	LIKWID_MARKER_START("spltsv");
 #endif
-	for(int row_idx = crs_mat_U->n_rows; row_idx >= 0; --row_idx){
+	for(int row_idx = crs_mat_U->n_rows-1; row_idx >= 0; --row_idx){
 		double sum = 0.0;
 		for(int nz_idx = crs_mat_U->row_ptr[row_idx]; nz_idx < crs_mat_U->row_ptr[row_idx+1]; ++nz_idx){
 			sum += crs_mat_U->val[nz_idx] * x[crs_mat_U->col[nz_idx]];
