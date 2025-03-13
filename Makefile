@@ -77,6 +77,8 @@ ifeq ($(USE_SCAMAC),1)
   CXXFLAGS += -DUSE_SCAMAC
 endif
 
+REBUILD_DEPS=config.mk
+
 basic_iterative_solvers: main.o mmio.o
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) mmio.o main.o -o basic_iterative_solvers $(LIBS) $(INCLUDES)
 

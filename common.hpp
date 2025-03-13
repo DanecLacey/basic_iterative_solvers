@@ -95,6 +95,34 @@ struct Timers
 	Stopwatch *restart_time;
 	Stopwatch *save_x_star_time;
 	Stopwatch *postprocessing_time;
+	
+	~Timers(){
+		delete total_time;
+		delete preprocessing_time;
+		delete solve_time;
+		delete per_iteration_time;
+		delete iterate_time;
+		delete spmv_time;
+		delete precond_time;
+		delete dot_time;
+		delete copy1_time;
+		delete copy2_time;
+		delete normalize_time;
+		delete sum_time;
+		delete norm_time;
+		delete scale_time;
+		delete spltsv_time;
+		delete dgemm_time;
+		delete dgemv_time;
+		delete orthog_time;
+		delete least_sq_time;
+		delete update_g_time;
+		delete sample_time;
+		delete exchange_time;
+		delete restart_time;
+		delete save_x_star_time;
+		delete postprocessing_time;
+	}
 };
 
 struct Args {

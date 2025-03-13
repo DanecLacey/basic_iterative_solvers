@@ -656,6 +656,8 @@ public:
 			delete[] z_old;
 		}
 		else if (solver_type == "gmres"){
+			delete[] x;
+			delete[] x_old;
 			delete[] V;
 			delete[] Vy;
 			delete[] y;
@@ -667,8 +669,6 @@ public:
 			delete[] R;
 			delete[] g;
 			delete[] g_tmp;
-			delete[] x;
-			delete[] x_old;
 		}
 		else if (solver_type == "bicgstab"){
 			delete[] x_new;
@@ -680,7 +680,9 @@ public:
 			delete[] v;
 			delete[] h;
 			delete[] s;
+			delete[] s_tmp;
 			delete[] t;
+			delete[] t_tmp;
 			delete[] y;
 			delete[] z;
 		}
