@@ -16,8 +16,8 @@
 #define MIN_NUM_ITERS 100
 #define FLOPS_PER_NZ 2
 #define FLOPS_PER_ROW 2
+#define GF_TO_F 1000000000
 #define F_TO_GF 0.000000001
-
 #ifndef INIT_X_VAL
 #define INIT_X_VAL 0
 #endif
@@ -91,7 +91,6 @@ int main(int argc, char *argv[]){
 	spltsv_bench_harness->bench();
 	IF_DEBUG_MODE(printf("Bench complete\n"))
 
-
 	// Report results
 	int n_threads = 1;
 #ifdef _OPENMP
@@ -106,8 +105,8 @@ int main(int argc, char *argv[]){
 	std::cout << "Runtime: " << spltsv_runtime << std::endl;
 	std::cout << "Iterations: " << n_spltsv_iter << std::endl;
 
-	int flops_per_iter = (crs_mat_L->nnz * FLOPS_PER_NZ + crs_mat_L->n_rows * FLOPS_PER_ROW);
-	int iter_per_second = n_spltsv_iter / spltsv_runtime;
+	long flops_per_iter = (crs_mat_L->nnz * FLOPS_PER_NZ + crs_mat_L->n_rows * FLOPS_PER_ROW);
+	long iter_per_second = n_spltsv_iter / spltsv_runtime;
 	std::cout << "Performance: " << flops_per_iter * iter_per_second * F_TO_GF << " [GF/s]" << std::endl;
 	std::cout << "----------------" << std::endl;
 

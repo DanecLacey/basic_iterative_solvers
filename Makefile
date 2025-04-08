@@ -81,14 +81,26 @@ REBUILD_DEPS=config.mk methods/*
 REBUILD_DEPS+=preprocessing.hpp solver_harness.hpp solver.hpp postprocessing.hpp
 REBUILD_DEPS+=common.hpp kernels.hpp mmio.hpp sparse_matrix.hpp utilities.hpp
 
-basic_iterative_solvers: main.o mmio.o
-	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) mmio.o main.o -o basic_iterative_solvers $(LIBS) $(INCLUDES)
+TARGET=run_benchmarks
+
+# make clean every time
+.PHONY: default all clean
+
+default: prebuild all
+
+prebuild:
+	@$(MAKE) clean
+
+all: $(TARGET)
+
+clean:
+	rm -f *.o $(TARGET)
+
+$(TARGET): main.o mmio.o
+	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) mmio.o main.o -o $(TARGET) $(LIBS) $(INCLUDES)
 
 main.o: main.cpp $(REBUILD_DEPS)
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -c main.cpp -o main.o  $(LIBS) $(INCLUDES)
 
 mmio.o: mmio.cpp $(REBUILD_DEPS)
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -c mmio.cpp -o mmio.o
-
-clean:
-	-rm *.o

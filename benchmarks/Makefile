@@ -55,17 +55,22 @@ ifeq ($(USE_LIKWID),1)
   CXXFLAGS  += -DUSE_LIKWID -DLIKWID_PERFMON -llikwid
 endif
 
-# Target executable
 TARGET=run_benchmarks
 
 LINKS := $(filter-out ../main.o, $(wildcard ../*.o))
 
-.PHONY: all clean
+# make clean every time
+.PHONY: default all clean
+
+default: prebuild all
+
+prebuild:
+	@$(MAKE) clean
 
 all: $(TARGET)
 
 clean:
-	rm -f $(TARGET) run_benchmarks.o
+	rm -f *.o $(TARGET)
 
 # Link the object files to create the executable
 $(TARGET): run_benchmarks.o timing.o ${LINKS}
