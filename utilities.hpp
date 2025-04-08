@@ -8,43 +8,47 @@
 #include <iomanip>
 #include <cmath>
 
-void parse_cli(Args *cli_args, int argc, char *argv[]){
+void parse_cli(Args *cli_args, int argc, char *argv[], bool bench_mode = false){
 	cli_args->matrix_file_name = argv[1];
 
-	std::string st = argv[2];
+	if(!bench_mode){
+		std::string st = argv[2];
 
-	if(st == "-r"){
-		cli_args->solver_type = "richardson"; 
+		if(st == "-r"){
+			cli_args->solver_type = "richardson"; 
+		}
+		else if(st == "-j"){
+				cli_args->solver_type = "jacobi"; 
+		}
+		else if(st == "-gs"){
+			cli_args->solver_type = "gauss-seidel";
+		}
+		else if(st == "-sgs"){
+			cli_args->solver_type = "symmetric-gauss-seidel";
+		}
+		else if(st == "-cg"){
+			cli_args->solver_type = "conjugate-gradient";
+		}
+		else if(st == "-gm"){
+			cli_args->solver_type = "gmres";
+		}
+		else if(st == "-bi"){
+			cli_args->solver_type = "bicgstab";
+		}
+		else{
+				printf("ERROR: parse_cli: Please choose an available solver type:" \
+					"\n-r (Richardson)" \
+					"\n-j (Jacobi)" \
+					"\n-gs (Gauss-Seidel)" \
+					"\n-sgs (Symmetric Gauss-Seidel)" \
+					"\n-gm ([Preconditioned] GMRES)" \
+					"\n-cg ([Preconditioned] Conjugate Gradient)" \
+					"\n-bi ([Preconditioned] BiCGSTAB)\n");
+				exit(EXIT_FAILURE);
+		}
 	}
-	else if(st == "-j"){
-			cli_args->solver_type = "jacobi"; 
-	}
-	else if(st == "-gs"){
-		cli_args->solver_type = "gauss-seidel";
-	}
-	else if(st == "-sgs"){
-		cli_args->solver_type = "symmetric-gauss-seidel";
-	}
-	else if(st == "-cg"){
-		cli_args->solver_type = "conjugate-gradient";
-	}
-	else if(st == "-gm"){
-		cli_args->solver_type = "gmres";
-	}
-	else if(st == "-bi"){
-		cli_args->solver_type = "bicgstab";
-	}
-	else{
-			printf("ERROR: parse_cli: Please choose an available solver type:" \
-				"\n-r (Richardson)" \
-				"\n-j (Jacobi)" \
-				"\n-gs (Gauss-Seidel)" \
-				"\n-sgs (Symmetric Gauss-Seidel)" \
-				"\n-gm ([Preconditioned] GMRES)" \
-				"\n-cg ([Preconditioned] Conjugate Gradient)" \
-				"\n-bi ([Preconditioned] BiCGSTAB)\n");
-			exit(EXIT_FAILURE);
-	}
+	
+
 
 	// Scan remaining incoming args
 	int args_start_index = 3;

@@ -1,11 +1,15 @@
 #ifndef KERNELS_HPP
 #define KERNELS_HPP
 
+#ifndef PRECOND_ITERS
+#define PRECOND_ITERS 1
+#endif
+
 #include "common.hpp"
 #include "sparse_matrix.hpp"
 
 #ifdef USE_LIKWID
-#include <likwid-marker.h>
+    #include <likwid-marker.h>
 #endif
 
 void spmv(
@@ -43,12 +47,16 @@ void spltsv(
     const MatrixCRS *crs_mat_L,
     double *x,
     const double *D,
-    const double *b
+    const double *b,
+    bool warmup = false
 )
 {
 #ifdef USE_LIKWID
-	LIKWID_MARKER_START("spltsv");
+	if(!warmup){
+        LIKWID_MARKER_START("spltsv");
+    }
 #endif
+
 	double sum;
 	for(int row_idx = 0; row_idx < crs_mat_L->n_rows; ++row_idx){
 		sum = 0.0;
@@ -57,8 +65,11 @@ void spltsv(
 		}
 		x[row_idx] = (b[row_idx] - sum) / D[row_idx];
 	}
+
 #ifdef USE_LIKWID
-	LIKWID_MARKER_STOP("spltsv");
+	if(!warmup){
+        LIKWID_MARKER_STOP("spltsv");
+    }
 #endif
 }
 
