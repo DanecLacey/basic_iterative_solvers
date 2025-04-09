@@ -1,5 +1,14 @@
 include ../config.mk
 
+BENCH_MKL = 1
+
+ifeq ($(BENCH_MKL),1)
+CXXFLAGS += -DBENCH_MKL
+ifndef MKLROOT
+$(error BENCH_MKL is set to 1, but MKLROOT is not defined)
+endif
+endif
+
 # apply solver parameters
 CXXFLAGS += -DSIMD_LENGTH=$(SIMD_LENGTH)
 CXXFLAGS += -DINIT_X_VAL=$(INIT_X_VAL)
@@ -11,6 +20,11 @@ ifeq ($(COMPILER),gcc)
   OPT_LEVEL = -O3
   OPT_ARCH  = -march=native
   CXXFLAGS += $(OPT_LEVEL) -Wall -fopenmp $(OPT_ARCH) -std=$(CPP_VERSION)
+ifeq ($(BENCH_MKL),1)
+  MKL = -I${MKLROOT}/include -Wl,--no-as-needed -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -lpthread -lm -ldl
+  CXXFLAGS += $(MKL)
+  LIBS += -L${MKLROOT}/lib/intel64 
+endif
 endif
 
 ifeq ($(COMPILER),icc)
@@ -18,6 +32,10 @@ ifeq ($(COMPILER),icc)
   OPT_LEVEL = -O3
   OPT_ARCH  = -xhost
   CXXFLAGS += $(OPT_LEVEL) -Wall -fopenmp $(OPT_ARCH) -std=$(CPP_VERSION)
+ifeq ($(BENCH_MKL),1)
+  MKL = -qmkl
+  CXXFLAGS += $(MKL)
+endif
 endif
 
 ifeq ($(COMPILER),icx)
@@ -26,6 +44,10 @@ ifeq ($(COMPILER),icx)
   OPT_ARCH  = -xhost
   AVX512_fix= -Xclang -target-feature -Xclang +prefer-no-gather
   CXXFLAGS += $(OPT_LEVEL) -Wall -fopenmp $(AVX512_fix) $(OPT_ARCH) -std=$(CPP_VERSION)
+ifeq ($(BENCH_MKL),1)
+  MKL = -qmkl
+  CXXFLAGS += $(MKL)
+endif
 endif
 
 ifeq ($(COMPILER),clang)
@@ -33,6 +55,10 @@ ifeq ($(COMPILER),clang)
   OPT_LEVEL = -Ofast
   OPT_ARCH  = -march=native
   CXXFLAGS += $(OPT_LEVEL) -std=$(CPP_VERSION) -Wall -fopenmp $(OPT_ARCH)
+ifeq ($(BENCH_MKL),1)
+  MKL = -I${MKLROOT}/include -Wl,--no-as-needed -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -lpthread -lm -ldl
+  CXXFLAGS += $(MKL)
+endif
 endif
 
 ifeq ($(DEBUG_MODE),1)
@@ -59,6 +85,8 @@ TARGET=run_benchmarks
 
 LINKS := $(filter-out ../main.o, $(wildcard ../*.o))
 
+OBJECTS += run_benchmarks.o timing.o
+
 # make clean every time
 .PHONY: default all clean
 
@@ -73,13 +101,11 @@ clean:
 	rm -f *.o $(TARGET)
 
 # Link the object files to create the executable
-$(TARGET): run_benchmarks.o timing.o ${LINKS}
-	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -o $@ run_benchmarks.o timing.o ${LINKS} ${LIBS} ${INCLUDES}
+$(TARGET): $(OBJECTS) ${LINKS} 
+	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -o $@ $(OBJECTS) ${LINKS} ${LIBS} ${INCLUDES}
 
-# Compile run_benchmarks.c into an object file
 run_benchmarks.o: run_benchmarks.cpp
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) ${LINKS} ${INCLUDES} ${LIBS} -c -o $@  $<
 
-# Compile run_benchmarks.c into an object file
 timing.o: timing.c
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) -c -o $@ $<

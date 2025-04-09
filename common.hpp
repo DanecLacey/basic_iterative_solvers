@@ -161,6 +161,11 @@ public:
 		exit(EXIT_FAILURE);
 	}
 
+	static void print_extract_L_plus_D(int nz_idx){
+		fprintf(stderr, "ERROR: print_extract_L_plus_D: nz_idx %i cannot be segmented.\n", nz_idx);
+		exit(EXIT_FAILURE);
+	}
+
 	static void print_gmres_iter_counts(int iter_count, int restart_count){
     printf("gmres solve iter_count = %i\n", iter_count);
     printf("gmres solve restart_count = %i\n", restart_count);
@@ -310,6 +315,14 @@ public:
 		int copied_elems_count = L_nnz + U_nnz + D_nnz; 
 		if(copied_elems_count != total_nnz){
 				fprintf(stderr, "ERROR: extract_L_U: %i out of %i elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
+				exit(EXIT_FAILURE);
+		}
+	}
+
+	static void check_copied_L_plus_D_elements(int total_nnz, int L_plus_D_nnz, int U_nnz){
+		int copied_elems_count = L_plus_D_nnz + U_nnz; 
+		if(copied_elems_count != total_nnz){
+				fprintf(stderr, "ERROR: extract_L_plus_D: %i out of %i elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
 				exit(EXIT_FAILURE);
 		}
 	}

@@ -362,6 +362,41 @@ void extract_D(
 	}
 }
 
+// NOTE: very lazy way to do this
+void extract_L_plus_D(
+	MatrixCOO *coo_mat,
+	MatrixCOO *coo_mat_L_plus_D
+){
+	// Force same dimensions for consistency
+	coo_mat_L_plus_D->n_rows = coo_mat->n_rows;
+	coo_mat_L_plus_D->n_cols = coo_mat->n_cols;
+	coo_mat_L_plus_D->is_sorted = coo_mat->is_sorted;
+	coo_mat_L_plus_D->is_symmetric = false;
+	coo_mat_L_plus_D->nnz = 0;
+
+	int U_nz_count = 0;
+
+	for(int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx){
+			// If column and row less than i, this nz is in the L_plus_D matrix
+			if(coo_mat->J[nz_idx] <= coo_mat->I[nz_idx]){
+					// Copy element to lower matrix
+					coo_mat_L_plus_D->I.push_back(coo_mat->I[nz_idx]);
+					coo_mat_L_plus_D->J.push_back(coo_mat->J[nz_idx]);
+					coo_mat_L_plus_D->values.push_back(coo_mat->values[nz_idx]);
+					++coo_mat_L_plus_D->nnz;
+			}
+			else if(coo_mat->J[nz_idx] > coo_mat->I[nz_idx]){
+				++U_nz_count;
+			}
+			else{
+				SanityChecker::print_extract_L_U_error(nz_idx);
+			}
+	}
+
+	// All elements from full_coo_mtx need to be accounted for
+	SanityChecker::check_copied_L_plus_D_elements(coo_mat->nnz, coo_mat_L_plus_D->nnz, U_nz_count);
+}
+
 #ifdef USE_LIKWID
 void register_likwid_markers(){
 	#pragma omp parallel

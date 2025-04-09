@@ -81,7 +81,7 @@ REBUILD_DEPS=config.mk methods/*
 REBUILD_DEPS+=preprocessing.hpp solver_harness.hpp solver.hpp postprocessing.hpp
 REBUILD_DEPS+=common.hpp kernels.hpp mmio.hpp sparse_matrix.hpp utilities.hpp
 
-TARGET=run_benchmarks
+TARGET=basic_iterative_solvers
 
 # make clean every time
 .PHONY: default all clean

@@ -20,7 +20,7 @@ public:
 	{};
 	// ~BenchHarness();
 
-	void warmup(){
+	void warmup(bool warmup){
 		double warmup_begin_loop_time, warmup_end_loop_time;
     warmup_begin_loop_time = warmup_end_loop_time = 0.0;
 
@@ -30,7 +30,7 @@ public:
     do{
         warmup_begin_loop_time = getTimeStamp();
         for(int k = 0; k < warmup_n_iters; ++k) {
-            callback(true);
+            callback(warmup);
 #ifdef DEBUG_MODE_FINE
             std::cout << "Completed warmup_" << bench_name << " iter " << k << std::endl;
 #endif
@@ -44,14 +44,14 @@ public:
 		
 	};
 
-	void bench(){
+	void bench(bool warmup){
 		double begin_loop_time, end_loop_time;
     begin_loop_time = end_loop_time = 0.0;
 
     do{
         begin_loop_time = getTimeStamp();
         for(int k = 0; k < n_iters; ++k) {
-            callback(false);
+            callback(warmup);
 #ifdef DEBUG_MODE_FINE
             std::cout << "Completed " << bench_name << " iter " << k << std::endl;
 #endif
