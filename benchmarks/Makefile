@@ -1,6 +1,6 @@
 include ../config.mk
 
-BENCH_MKL = 1
+BENCH_MKL = 0
 
 ifeq ($(BENCH_MKL),1)
 CXXFLAGS += -DBENCH_MKL

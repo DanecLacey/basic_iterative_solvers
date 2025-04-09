@@ -26,9 +26,11 @@ make
 
 ### Features ###
 * Stacked timers around key code regions
-* Optional code instrumentation with `likwid` markers for collecting hardware performance counters already built-in (https://github.com/RRZE-HPC/likwid)
-* Matrices can be read from `.mtx` files, or generated with `SCAMAC` library (https://alvbit.bitbucket.io/scamac_docs/index.html) 
-* Kernel-specific benchmarking found in `/benchmarks`. To use, just `make && ./run_benchmarks <your_matrix>`
+* Optional code instrumentation with [likwid](https://github.com/RRZE-HPC/likwid) markers for collecting hardware performance counters already built-in
+* Matrices can be read from `.mtx` files, or generated with `SCAMAC` [library](https://alvbit.bitbucket.io/scamac_docs/index.html) 
+* Kernel-specific benchmarking found in `benchmarks/`
+  * To use, simply `cd benchmarks` and `make && ./run_benchmarks <your_matrix>`
+  * Users can toggle performance and accuracy validation against [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) with `BENCH_MKL` found in `benchmarks/Makefile`
 
 ### Supported Solvers ###
 * **Richardson** `-r`
