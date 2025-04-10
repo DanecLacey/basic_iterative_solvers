@@ -10,8 +10,12 @@
 
 void parse_cli(Args *cli_args, int argc, char *argv[], bool bench_mode = false){
 	cli_args->matrix_file_name = argv[1];
+	int args_start_index = 2;
 
 	if(!bench_mode){
+		// Account for manditory solver type
+		++args_start_index;
+
 		std::string st = argv[2];
 
 		if(st == "-r"){
@@ -51,7 +55,6 @@ void parse_cli(Args *cli_args, int argc, char *argv[], bool bench_mode = false){
 
 
 	// Scan remaining incoming args
-	int args_start_index = 3;
 	for (int i = args_start_index; i < argc; ++i){
 		std::string arg = argv[i];
 		if (arg == "-p"){
@@ -101,6 +104,27 @@ void parse_cli(Args *cli_args, int argc, char *argv[], bool bench_mode = false){
 		// 				exit(1);
 		// 		}
 		// }
+		if (arg == "-exp"){
+			std::string exp = argv[++i];
+
+			if (exp == "spltsv_lvl"){
+				cli_args->exp_kernels["spltsv"] = "lvl";
+			}
+			else if (exp == "spltsv_2stage"){
+				cli_args->exp_kernels["spltsv"] = "2stage";
+			} 
+			else if (exp == "spltsv_mc"){
+				cli_args->exp_kernels["spltsv"] = "mc";
+			} 
+			else{
+				fprintf(stderr,"ERROR: assign_cli_inputs: Please choose an available experimental kernel: " \
+					"\n-exp spltsv_lvl (Level-Scheduled SpLTSV)" \
+					"\n-exp spltsv_2stage (2-Stage SpLTSV)" \
+					"\n-exp spltsv_mc (Multicolor SpLTSV)" \
+				);
+				exit(EXIT_FAILURE);
+			}
+		}
 		else{
 			std::cout << "ERROR: assign_cli_inputs: Arguement \"" << arg << "\" not recongnized." << std::endl;
 		}

@@ -55,9 +55,34 @@ int kernel_benchmarks(int argc, char *argv[]){
 	LIKWID_MARKER_REGISTER("spltsv");
 #endif
 
+	// // TODO: JH
+	// // Select spltsv variant to bench
+	// std::function<void(bool)> lambda;
+	// std::string bench_name;
+
+	// if (cli_args->exp_kernels["spltsv"] == "lvl") {
+	// 	lambda = [crs_mat_L, x, D, b](bool warmup) { spltsv_lvl(crs_mat_L, x, D, b, warmup); };
+	// 	bench_name = "spltsv_lvl";
+	// } 
+	// else if (cli_args->exp_kernels["spltsv"] == "2gs") {
+	// 	lambda = [crs_mat_L, x, D, b](bool warmup) { spltsv_2stage(crs_mat_L, x, D, b, warmup); };
+	// 	bench_name = "spltsv_2stage";
+	// } 
+	// else if (cli_args->exp_kernels["spltsv"] == "2mc") {
+	// 	lambda = [crs_mat_L, x, D, b](bool warmup) { spltsv_2mc(crs_mat_L, x, D, b, warmup); };
+	// 	bench_name = "spltsv_2mc";
+	// } 
+	// else {
+	// 	lambda = [crs_mat_L, x, D, b](bool warmup) { spltsv(crs_mat_L, x, D, b, warmup); };
+	// 	bench_name = "spltsv";
+	// }
+
+	std::function<void(bool)> lambda = [crs_mat_L, x, D, b](bool warmup) { spltsv(crs_mat_L, x, D, b, warmup); };
+	std::string bench_name = "spltsv";
+
 	BenchHarness *spltsv_bench_harness = new BenchHarness(
-		"spltsv",
-		[crs_mat_L, x, D, b](bool warmup){ spltsv(crs_mat_L, x, D, b, warmup); },
+		bench_name,
+		lambda,
 		n_spltsv_iter,
 		spltsv_runtime, 
 		MIN_BENCH_TIME

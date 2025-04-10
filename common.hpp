@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <unordered_map>
 
 #ifndef ALIGNMENT
 #define ALIGNMENT 64
@@ -193,9 +194,10 @@ struct Timers
 };
 
 struct Args {
-		std::string matrix_file_name{};
+	std::string matrix_file_name{};
     std::string solver_type{};
     std::string preconditioner_type{};
+	std::unordered_map<std::string, std::string> exp_kernels{};
 };
 
 class SanityChecker {

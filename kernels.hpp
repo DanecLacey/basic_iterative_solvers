@@ -43,6 +43,28 @@ void spmv(
 	}
 }
 
+// TODO: JH
+// // Saad: Iterative Methods for Sparse Linear Systems (ch 11.6)
+// void spltsv_lvl(
+
+// ){
+//     // TODO
+// }
+
+// // https://www.nrel.gov/docs/fy22osti/80263.pdf
+// void spltsv_2stage(
+
+// ){
+//     // TODO
+// }
+
+// // Saad: Iterative Methods for Sparse Linear Systems (ch 12.4.3)
+// void spltsv_mc(
+
+// ){
+//     // TODO
+// }
+
 void spltsv(
     const MatrixCRS *crs_mat_L,
     double *x,
