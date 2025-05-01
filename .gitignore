@@ -4,3 +4,6 @@ basic_iterative_solvers
 benchmarks/*.o
 benchmarks/likwid_output/
 benchmarks/run_benchmarks
+scripts/
+build/
+third_party/

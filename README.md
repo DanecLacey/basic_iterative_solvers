@@ -20,17 +20,17 @@ This is a set of (preconditioned) iterative solvers for `Ax = b`, where `A` is t
 ``` bash
 git clone git@github.com:DanecLacey/basic_iterative_solvers.git
 cd basic_iterative_solvers
+mkdir build && cd build
+cmake ..
 make
 ```
-* **All user-defined solver parameters and configuration options can be found in `config.mk`**
 
 ### Features ###
 * Stacked timers around key code regions
-* Optional code instrumentation with [likwid](https://github.com/RRZE-HPC/likwid) markers for collecting hardware performance counters already built-in
-* Matrices can be read from `.mtx` files, or generated with `SCAMAC` [library](https://alvbit.bitbucket.io/scamac_docs/index.html) 
-* Kernel-specific benchmarking found in `benchmarks/`
-  * To use, simply `cd benchmarks` and `make && ./run_benchmarks <your_matrix>`
-  * Users can toggle performance and accuracy validation against [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) with `BENCH_MKL=1 make`
+* Optional third party libraries:
+  * Instrumentation with [likwid](https://github.com/RRZE-HPC/likwid) markers for collecting hardware performance counters  already built-inaround native kernels
+  * Matrices can be read from `.mtx` files, or generated with the [SCAMAC library](https://alvbit.bitbucket.io/scamac_docs/index.html) 
+  * Integration with [SmaxKernels library](https://github.com/DanecLacey/SmaxKernels) or [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) for optimized sparse kernel implementations
 
 ### Supported Solvers ###
 * **Richardson** `-r`
