@@ -1,6 +1,9 @@
 #ifndef KERNELS_HPP
 #define KERNELS_HPP
 
+#include <algorithm>
+#include <cstdlib>
+#include <omp.h>
 #ifndef PRECOND_ITERS
 #define PRECOND_ITERS 1
 #endif
@@ -45,11 +48,34 @@ void spmv(
 
 // TODO: JH
 // // Saad: Iterative Methods for Sparse Linear Systems (ch 11.6)
-// void spltsv_lvl(
+void spltsv_lvl(
+    const MatrixCRS *crs_mat_L,
+    double *x,
+    const double *D,
+    const double *b,
+    int **level_info,
+    bool warmup = false
+){
 
-// ){
-//     // TODO
-// }
+
+    int *crs_level = level_info[0];
+    int *row_level = level_info[1];
+    // Start actual solve
+    x[0] = b[0] / D[0];
+
+    for (int level_idx = 0; crs_level[level_idx + 1] != -1; level_idx++){
+#pragma omp parallel for // shared(x)
+        for (int crs_idx = crs_level[level_idx]; crs_idx < crs_level[level_idx + 1]; crs_idx++){
+            int row_idx = row_level[crs_idx];
+            double sum = 0.0;
+            for(int nz_idx = crs_mat_L->row_ptr[row_idx]; nz_idx < crs_mat_L->row_ptr[row_idx+1]; ++nz_idx){
+                sum += crs_mat_L->val[nz_idx] * x[crs_mat_L->col[nz_idx]];
+            }
+            x[row_idx] = (b[row_idx] - sum) / D[row_idx];
+        }
+    }
+
+}
 
 // // https://www.nrel.gov/docs/fy22osti/80263.pdf
 // void spltsv_2stage(

@@ -46,6 +46,51 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers){
 	convert_coo_to_crs(coo_mat_L, crs_mat_L);
 	convert_coo_to_crs(coo_mat_U, crs_mat_U);
 
+    if( cli_args->solver_type == "gauss-seidel" && cli_args->exp_kernels["spltsv"] ==  "lvl" ){
+        int *levels = (int *) malloc(sizeof(int) * crs_mat_L->n_rows);
+        int max_level = 0;
+
+        // Assign initial levels for matrix structure
+        for(int row_idx = 0; row_idx < crs_mat_L->n_rows; row_idx++){
+            levels[row_idx] = 0;
+            for (int nz_idx = crs_mat_L->row_ptr[row_idx]; nz_idx < crs_mat_L->row_ptr[row_idx + 1]; ++nz_idx) {
+                levels[row_idx] = std::max(levels[row_idx], levels[crs_mat_L->col[nz_idx]] + 1);
+                max_level = max_level<levels[row_idx]?levels[row_idx]:max_level;
+            }
+        }
+
+        solver->level[0] = new int[max_level + 2];
+        solver->level[1] = new int[crs_mat_L->n_rows];
+        int *crs_level = solver->level[0];
+        int *row_level = solver->level[1];
+
+        // Initially assign zero as all levels are treated as empty
+        for (int i = 0; i < max_level + 1; i++){
+            crs_level[i] = 0;
+        }
+
+        // Iterate over all rows
+        for (int i = 0; i < crs_mat_L->n_rows; i++){
+            // Shift all further entries in the array to the right s.t. the new entry fits in
+            for (int j = i; j > crs_level[levels[i]]; --j){
+                row_level[j] = row_level[j - 1];
+            }
+            for (int j = levels[i] + 1; j < max_level + 1; j++){
+                crs_level[j]++;
+            }
+            row_level[crs_level[levels[i]]] = i;
+        }
+        crs_level[max_level] = crs_mat_L->n_rows;
+        crs_level[max_level + 1] = -1;
+       
+        // TODO: permute matrix such that we have levels ordered
+        
+        // TODO: print files such that we can look at them
+        crs_mat->write_to_mtx_file("./crs_before");
+
+        free(levels);
+    }
+
 	solver->crs_mat_L = crs_mat_L;
 	solver->crs_mat_U = crs_mat_U;
 

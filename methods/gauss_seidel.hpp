@@ -33,7 +33,8 @@ void gs_separate_iteration(
 	double *tmp,
 	const double *D, 
 	const double *b, 
-	double *x
+	double *x,
+    int **level
 ){
 	// tmp <- Ux
 	TIME(timers->spmv, spmv(crs_mat_U, x, tmp))
@@ -42,7 +43,8 @@ void gs_separate_iteration(
 	TIME(timers->sum, subtract_vectors(tmp, b, tmp, crs_mat_U->n_rows))
 
 	// x <- (D+L)^{-1}(tmp)
-	TIME(timers->spltsv, spltsv(crs_mat_L, x, D, tmp))
+	TIME(timers->spltsv, spltsv_lvl(crs_mat_L, x, D, tmp, level))
+	// TIME(timers->spltsv, spltsv(crs_mat_L, x, D, tmp))
 }
 
 void bgs_separate_iteration(

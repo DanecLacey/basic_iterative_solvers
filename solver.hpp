@@ -85,6 +85,7 @@ public:
 	// Misc
 	double *collected_residual_norms;
 	double *time_per_iteration;
+    int *level[2]; // GS with level scheduling
 
 	Solver(Args *_cli_args) : cli_args(_cli_args) {
 		solver_type = cli_args->solver_type;
@@ -361,11 +362,11 @@ public:
 		}
 		else if (solver_type == "gauss-seidel"){
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
-			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
+			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x, this->level);
 		}
 		else if (solver_type == "symmetric-gauss-seidel"){
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
-			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
+			gs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x, this->level);
 			bgs_separate_iteration(timers, this->crs_mat_U, this->crs_mat_L, this->tmp, this->D, this->b, this->x);
 		}
 		else if(solver_type == "conjugate-gradient"){
@@ -644,6 +645,8 @@ public:
 		}
 		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
 			delete[] x;
+            // delete[] level[0];
+            // delete[] level[1];
 		}
 		else if(solver_type == "conjugate-gradient"){
 			delete[] x_new;
