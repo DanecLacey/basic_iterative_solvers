@@ -6,23 +6,24 @@
 #include "../sparse_matrix.hpp"
 
 void richardson_separate_iteration(
-	Timers *timers,
-	const MatrixCRS *crs_mat,
-	const double *b,
-	double *x_new,
-	const double *x_old,
-	double *tmp,
-	double *residual,
-	const double alpha
-){
-	int N = crs_mat->n_cols;
+#ifdef USE_SMAX
+    SMAX::Interface *smax,
+#endif
+    Timers *timers, const MatrixCRS *crs_mat, const double *b, double *x_new,
+    const double *x_old, double *tmp, double *residual, const double alpha) {
+    int N = crs_mat->n_cols;
 
-	// Update the residual r <- b - A*x
-	TIME(timers->spmv, spmv(crs_mat, x_new, tmp))
-	TIME(timers->sum, subtract_vectors(residual, b, tmp, N))
+    // Update the residual r <- b - A*x
+    TIME(timers->spmv, spmv(
+#ifdef USE_SMAX
+                           smax, "update_residual",
+#endif
+                           crs_mat, x_new, tmp))
 
-	// x_new <- x_old + alpha * r
-	TIME(timers->sum, sum_vectors(x_new, x_old, residual, N, alpha))
+    TIME(timers->sum, subtract_vectors(residual, b, tmp, N))
+
+    // x_new <- x_old + alpha * r
+    TIME(timers->sum, sum_vectors(x_new, x_old, residual, N, alpha))
 }
 
 #endif

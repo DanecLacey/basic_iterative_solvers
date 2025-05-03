@@ -1,23 +1,26 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
-#include <sys/time.h>
-#include <string>
-#include <iostream>
-#include <iomanip>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <sys/time.h>
 #include <unordered_map>
+
+#ifdef USE_SMAX
+#include "SmaxKernels/interface.hpp"
+#endif
 
 #ifndef ALIGNMENT
 #define ALIGNMENT 64
 #endif
 
-void* aligned_malloc (size_t bytesize)
-{
+void *aligned_malloc(size_t bytesize) {
     int errorCode;
-    void* ptr;
+    void *ptr;
 
-    errorCode =  posix_memalign(&ptr, ALIGNMENT, bytesize);
+    errorCode = posix_memalign(&ptr, ALIGNMENT, bytesize);
 
     if (errorCode) {
         if (errorCode == EINVAL) {
@@ -41,360 +44,350 @@ void* aligned_malloc (size_t bytesize)
 }
 
 // Overload new and delete for alignement
-void * operator new(size_t bytesize)
-{
-	// printf("Overloading new operator with size: %lu\n", bytesize);
-	int errorCode;
-	void* ptr;
-	errorCode =  posix_memalign(&ptr, ALIGNMENT, bytesize);
+void *operator new(size_t bytesize) {
+    // printf("Overloading new operator with size: %lu\n", bytesize);
+    int errorCode;
+    void *ptr;
+    errorCode = posix_memalign(&ptr, ALIGNMENT, bytesize);
 
-	if (errorCode) {
-		if (errorCode == EINVAL) {
-			fprintf(stderr,
-					"Error: Alignment parameter is not a power of two\n");
-			exit(EXIT_FAILURE);
-		}
-		if (errorCode == ENOMEM) {
-			fprintf(stderr,
-					"Error: Insufficient memory to fulfill the request for space\n");
-			exit(EXIT_FAILURE);
-		}
-	}
+    if (errorCode) {
+        if (errorCode == EINVAL) {
+            fprintf(stderr,
+                    "Error: Alignment parameter is not a power of two\n");
+            exit(EXIT_FAILURE);
+        }
+        if (errorCode == ENOMEM) {
+            fprintf(stderr, "Error: Insufficient memory to fulfill the request "
+                            "for space\n");
+            exit(EXIT_FAILURE);
+        }
+    }
 
-	if (ptr == NULL) {
-		fprintf(stderr, "Error: posix_memalign failed!\n");
-		exit(EXIT_FAILURE);
-	}
+    if (ptr == NULL) {
+        fprintf(stderr, "Error: posix_memalign failed!\n");
+        exit(EXIT_FAILURE);
+    }
 
-	return ptr;
+    return ptr;
 }
 
-void operator delete(void * p)
-{
-	// printf("Overloading delete operator\n");
-	free(p);
+void operator delete(void *p) {
+    // printf("Overloading delete operator\n");
+    free(p);
 }
 
-class Stopwatch
-{
+class Stopwatch {
 
-long double wtime{};
+    long double wtime{};
 
-public:
-	timeval *begin;
-	timeval *end;
-	Stopwatch(timeval *_begin, timeval *_end) : begin(_begin), end(_end) {};
-	Stopwatch() : begin(), end() {};
+  public:
+    timeval *begin;
+    timeval *end;
+    Stopwatch(timeval *_begin, timeval *_end) : begin(_begin), end(_end) {};
+    Stopwatch() : begin(), end() {};
 
-	void start(void)
-	{
-			gettimeofday(begin, 0);
-	}
+    void start(void) { gettimeofday(begin, 0); }
 
-	void stop(void)
-	{
-			gettimeofday(end, 0);
-			long seconds = end->tv_sec - begin->tv_sec;
-			long microseconds = end->tv_usec - begin->tv_usec;
-			wtime += seconds + microseconds*1e-6;
-	}
+    void stop(void) {
+        gettimeofday(end, 0);
+        long seconds = end->tv_sec - begin->tv_sec;
+        long microseconds = end->tv_usec - begin->tv_usec;
+        wtime += seconds + microseconds * 1e-6;
+    }
 
-	long double check(void)
-	{
-			gettimeofday(end, 0);
-			long seconds = end->tv_sec - begin->tv_sec;
-			long microseconds = end->tv_usec - begin->tv_usec;
-			return seconds + microseconds*1e-6;
-	}
+    long double check(void) {
+        gettimeofday(end, 0);
+        long seconds = end->tv_sec - begin->tv_sec;
+        long microseconds = end->tv_usec - begin->tv_usec;
+        return seconds + microseconds * 1e-6;
+    }
 
-	long double get_wtime(
-	){
-			return wtime;
-	}
+    long double get_wtime() { return wtime; }
 };
 
-#define CREATE_STOPWATCH(timer_name) \
-    timeval *timer_name##_time_start = new timeval; \
-    timeval *timer_name##_time_end = new timeval; \
-    Stopwatch *timer_name##_time = new Stopwatch(timer_name##_time_start, timer_name##_time_end); \
+#define CREATE_STOPWATCH(timer_name)                                           \
+    timeval *timer_name##_time_start = new timeval;                            \
+    timeval *timer_name##_time_end = new timeval;                              \
+    Stopwatch *timer_name##_time =                                             \
+        new Stopwatch(timer_name##_time_start, timer_name##_time_end);         \
     timers->timer_name##_time = timer_name##_time;
 
-#define TIME(timer_name, routine) \
-		timer_name##_time->start(); \
-		routine; \
-		timer_name##_time->stop();
+#define TIME(timer_name, routine)                                              \
+    timer_name##_time->start();                                                \
+    routine;                                                                   \
+    timer_name##_time->stop();
 
 #ifdef DEBUG_MODE
-    #define IF_DEBUG_MODE(print_statement) print_statement;
+#define IF_DEBUG_MODE(print_statement) print_statement;
 #else
-    #define IF_DEBUG_MODE(print_statement)
+#define IF_DEBUG_MODE(print_statement)
 #endif
 
 #ifdef DEBUG_MODE_FINE
-    #define IF_DEBUG_MODE_FINE(print_statement) print_statement;
+#define IF_DEBUG_MODE_FINE(print_statement) print_statement;
 #else
-    #define IF_DEBUG_MODE_FINE(print_statement)
+#define IF_DEBUG_MODE_FINE(print_statement)
 #endif
 
-struct Timers
-{
-	Stopwatch *total_time;
-	Stopwatch *preprocessing_time;
-	Stopwatch *solve_time;
-	Stopwatch *per_iteration_time;
-	Stopwatch *iterate_time;
-	Stopwatch *spmv_time;
-	Stopwatch *precond_time;
-	Stopwatch *dgemm_time;
-	Stopwatch *dgemv_time;
-	Stopwatch *normalize_time;
-	Stopwatch *dot_time;
-	Stopwatch *sum_time;
-	Stopwatch *copy1_time;
-	Stopwatch *copy2_time;
-	Stopwatch *norm_time;
-	Stopwatch *scale_time;
-	Stopwatch *spltsv_time;
-	Stopwatch *orthog_time;
-	Stopwatch *least_sq_time;
-	Stopwatch *update_g_time;
-	Stopwatch *sample_time;
-	Stopwatch *exchange_time;
-	Stopwatch *restart_time;
-	Stopwatch *save_x_star_time;
-	Stopwatch *postprocessing_time;
-	
-	~Timers(){
-		delete total_time;
-		delete preprocessing_time;
-		delete solve_time;
-		delete per_iteration_time;
-		delete iterate_time;
-		delete spmv_time;
-		delete precond_time;
-		delete dot_time;
-		delete copy1_time;
-		delete copy2_time;
-		delete normalize_time;
-		delete sum_time;
-		delete norm_time;
-		delete scale_time;
-		delete spltsv_time;
-		delete dgemm_time;
-		delete dgemv_time;
-		delete orthog_time;
-		delete least_sq_time;
-		delete update_g_time;
-		delete sample_time;
-		delete exchange_time;
-		delete restart_time;
-		delete save_x_star_time;
-		delete postprocessing_time;
-	}
+struct Timers {
+    Stopwatch *total_time;
+    Stopwatch *preprocessing_time;
+    Stopwatch *solve_time;
+    Stopwatch *per_iteration_time;
+    Stopwatch *iterate_time;
+    Stopwatch *spmv_time;
+    Stopwatch *precond_time;
+    Stopwatch *dgemm_time;
+    Stopwatch *dgemv_time;
+    Stopwatch *normalize_time;
+    Stopwatch *dot_time;
+    Stopwatch *sum_time;
+    Stopwatch *copy1_time;
+    Stopwatch *copy2_time;
+    Stopwatch *norm_time;
+    Stopwatch *scale_time;
+    Stopwatch *sptsv_time;
+    Stopwatch *orthog_time;
+    Stopwatch *least_sq_time;
+    Stopwatch *update_g_time;
+    Stopwatch *sample_time;
+    Stopwatch *exchange_time;
+    Stopwatch *restart_time;
+    Stopwatch *save_x_star_time;
+    Stopwatch *postprocessing_time;
+
+    ~Timers() {
+        delete total_time;
+        delete preprocessing_time;
+        delete solve_time;
+        delete per_iteration_time;
+        delete iterate_time;
+        delete spmv_time;
+        delete precond_time;
+        delete dot_time;
+        delete copy1_time;
+        delete copy2_time;
+        delete normalize_time;
+        delete sum_time;
+        delete norm_time;
+        delete scale_time;
+        delete sptsv_time;
+        delete dgemm_time;
+        delete dgemv_time;
+        delete orthog_time;
+        delete least_sq_time;
+        delete update_g_time;
+        delete sample_time;
+        delete exchange_time;
+        delete restart_time;
+        delete save_x_star_time;
+        delete postprocessing_time;
+    }
 };
 
 struct Args {
-	std::string matrix_file_name{};
+    std::string matrix_file_name{};
     std::string solver_type{};
     std::string preconditioner_type{};
-	std::unordered_map<std::string, std::string> exp_kernels{};
+    std::unordered_map<std::string, std::string> exp_kernels{};
 };
 
 class SanityChecker {
-public:
-	template<typename VT>
-	static void print_vector(VT *vector, int size, std::string vector_name){
-		std::cout << vector_name << " : [" << std::endl;
-		for(int i = 0; i < size; ++i){
-			std::cout << vector[i] << ", ";
-		}
-		std::cout << "]" << std::endl;
-	}
-
-	template<typename VT>
-	static void print_dense_mat(VT *A, int n_rows, int n_cols, std::string mat_name){
-		int fixed_width = 12;
-		std::cout << mat_name << ": [" << std::endl;
-		for(int row_idx = 0; row_idx < n_rows; ++row_idx){
-				for(int col_idx = 0; col_idx < n_cols; ++col_idx){
-						std::cout << std::setw(fixed_width);
-						std::cout << A[(n_cols*row_idx) + col_idx]  << ", ";
-				}
-				std::cout << std::endl;
-		}
-		std::cout << "]" << std::endl;
-	}
-
-	static void print_extract_L_U_error(int nz_idx){
-		fprintf(stderr, "ERROR: extract_L_U: nz_idx %i cannot be segmented.\n", nz_idx);
-		exit(EXIT_FAILURE);
-	}
-
-	static void print_extract_L_plus_D(int nz_idx){
-		fprintf(stderr, "ERROR: print_extract_L_plus_D: nz_idx %i cannot be segmented.\n", nz_idx);
-		exit(EXIT_FAILURE);
-	}
-
-	static void print_gmres_iter_counts(int iter_count, int restart_count){
-    printf("gmres solve iter_count = %i\n", iter_count);
-    printf("gmres solve restart_count = %i\n", restart_count);
-	}
-
-	static void print_bicgstab_vectors(
-		int N,
-		double *x_new,
-		double *x_old,
-		double *tmp,
-		double *p_new,
-		double *p_old,
-		double *residual_new,
-		double *residual_old,
-		double *residual_0,
-		double *v,
-		double *h,
-		double *s,
-		double *t,
-		double rho_new,
-		double rho_old,
-		std::string phase
-	){
-		std::cout << phase << std::endl;
-		print_vector<double>(x_new, N, "x_new");
-		print_vector<double>(x_old, N, "x_old");
-		print_vector<double>(tmp, N, "tmp");
-		print_vector<double>(p_new, N, "p_new");
-		print_vector<double>(p_old, N, "p_old");
-		print_vector<double>(residual_new, N, "residual_new");
-		print_vector<double>(residual_old, N, "residual_old");
-		print_vector<double>(residual_0, N, "residual_0");
-		print_vector<double>(v, N, "v");
-		print_vector<double>(h, N, "h");
-		print_vector<double>(s, N, "s");
-		print_vector<double>(t, N, "t");
-		printf("rho_new = %f\n", rho_new);
-		printf("rho_old = %f\n", rho_old);
-	}
-
-	static void check_V_orthonormal(
-		double *V,
-		int iter_count,
-		int N
-	){
-		// Check if all basis vectors in V are orthonormal
-		double tol=1e-14;
-
-		// Computing euclidean norm
-    for(int k = 0; k < iter_count+1; ++k){
-			double tmp = 0.0;
-			for(int i = 0; i < N; ++i){
-        tmp += V[k*N + i] * V[k*N + i];
-    	}
-			double tmp_2_norm = std::sqrt(tmp);
-
-			if(std::abs(tmp_2_norm) > 1+tol){
-				printf("GMRES WARNING: basis vector v_%i has a norm of %.17g, \n \
-								and does not have a norm of 1.0 as was expected.\n", k, tmp_2_norm);
-			}
-			else{
-				for(int j = iter_count; j > 0; --j){
-					double tmp_dot;
-					// Takes new v_k, and compares with all other basis vectors in V
-					
-					// Computing dot product
-					double sum = 0.0;
-					for (int i = 0; i < N; ++i){
-						sum += V[(iter_count+1)*N + i] * V[j*N + i];
-					}
-					tmp_dot = sum;
-
-
-					if(std::abs(tmp_dot) > tol){
-						printf("GMRES WARNING: basis vector v_%i is not orthogonal to basis vector v_%i, \n \
-										their dot product is %.17g, and not 0.0 as was expected.\n", k, j, tmp_dot);
-					}
-				}
-			}
-    }
-	}
-
-	static void check_H(
-		double *H,
-		double *R,
-		double *Q,
-		int restart_len
-	){
-		// Validate that H == Q_tR [(m+1 x m) == (m+1 x m+1)(m+1 x m)]
-		double tol=1e-14;
-		
-		double *Q_t = new double[(restart_len+1) * (restart_len+1)];
-
-		// init
-		#pragma omp parallel for
-    for(int i = 0; i < (restart_len+1) * (restart_len+1); ++i){
-			Q_t[i] = 0.0;
+  public:
+    template <typename VT>
+    static void print_vector(VT *vector, int size, std::string vector_name) {
+        std::cout << vector_name << " : [" << std::endl;
+        for (int i = 0; i < size; ++i) {
+            std::cout << vector[i] << ", ";
+        }
+        std::cout << "]" << std::endl;
     }
 
-		// transpose
-		for(int row_idx = 0; row_idx < (restart_len + 1); ++row_idx){
-			for(int col_idx = 0; col_idx < (restart_len + 1); ++col_idx){
-					Q_t[col_idx*(restart_len+1) + row_idx] = Q[row_idx*(restart_len+1) + col_idx]; 
-			}
-		}
-
-		print_dense_mat<double>(Q_t, (restart_len + 1), (restart_len + 1), "Q_t");
-
-		double *Q_tR = new double[(restart_len+1) * (restart_len)];
-
-		// init
-		#pragma omp parallel for
-    for(int i = 0; i < (restart_len+1) * restart_len; ++i){
-			Q_tR[i] = 0.0;
+    template <typename VT>
+    static void print_dense_mat(VT *A, int n_rows, int n_cols,
+                                std::string mat_name) {
+        int fixed_width = 12;
+        std::cout << mat_name << ": [" << std::endl;
+        for (int row_idx = 0; row_idx < n_rows; ++row_idx) {
+            for (int col_idx = 0; col_idx < n_cols; ++col_idx) {
+                std::cout << std::setw(fixed_width);
+                std::cout << A[(n_cols * row_idx) + col_idx] << ", ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << "]" << std::endl;
     }
 
-		// Compute Q_tR <- Q_t*R [(m+1 x m) <- (m+1 x m+1)(m+1 x m)]
-		for(int row_idx = 0; row_idx <= restart_len; ++row_idx){
-				for(int col_idx = 0; col_idx < restart_len; ++col_idx){
-						double sum = 0.0;
-						for (int i = 0; i < (restart_len + 1); ++i){
-							sum += Q_t[row_idx*(restart_len+1) + i] * R[col_idx + i*restart_len];
-						}
-						Q_tR[(row_idx*restart_len) + col_idx] = sum;
-				}
-		}
+    static void print_extract_L_U_error(int nz_idx) {
+        fprintf(stderr, "ERROR: extract_L_U: nz_idx %i cannot be segmented.\n",
+                nz_idx);
+        exit(EXIT_FAILURE);
+    }
 
-		print_dense_mat<double>(Q_tR, (restart_len + 1), restart_len, "Q_tR");
+    static void print_extract_L_plus_D(int nz_idx) {
+        fprintf(
+            stderr,
+            "ERROR: print_extract_L_plus_D: nz_idx %i cannot be segmented.\n",
+            nz_idx);
+        exit(EXIT_FAILURE);
+    }
 
-		// Scan and validate H=Q_tR
-		for(int row_idx = 0; row_idx <= restart_len; ++row_idx){
-				for(int col_idx = 0; col_idx < restart_len; ++col_idx){
-						int idx = row_idx*restart_len + col_idx;
-						if(std::abs(static_cast<double>(Q_tR[idx] - H[idx])) > tol){
-								printf("GMRES WARNING: The Q_tR factorization of H at index %i has a value %.17g, \n \
-										and does not have a value of %.17g as was expected.\n", \
-										row_idx*restart_len + col_idx, Q_tR[idx], H[row_idx*restart_len + col_idx]);
-						}
-				}
-		}
+    static void print_gmres_iter_counts(int iter_count, int restart_count) {
+        printf("gmres solve iter_count = %i\n", iter_count);
+        printf("gmres solve restart_count = %i\n", restart_count);
+    }
 
-		delete[] Q_t;
-		delete[] Q_tR;
-	}
+    static void print_bicgstab_vectors(int N, double *x_new, double *x_old,
+                                       double *tmp, double *p_new,
+                                       double *p_old, double *residual_new,
+                                       double *residual_old, double *residual_0,
+                                       double *v, double *h, double *s,
+                                       double *t, double rho_new,
+                                       double rho_old, std::string phase) {
+        std::cout << phase << std::endl;
+        print_vector<double>(x_new, N, "x_new");
+        print_vector<double>(x_old, N, "x_old");
+        print_vector<double>(tmp, N, "tmp");
+        print_vector<double>(p_new, N, "p_new");
+        print_vector<double>(p_old, N, "p_old");
+        print_vector<double>(residual_new, N, "residual_new");
+        print_vector<double>(residual_old, N, "residual_old");
+        print_vector<double>(residual_0, N, "residual_0");
+        print_vector<double>(v, N, "v");
+        print_vector<double>(h, N, "h");
+        print_vector<double>(s, N, "s");
+        print_vector<double>(t, N, "t");
+        printf("rho_new = %f\n", rho_new);
+        printf("rho_old = %f\n", rho_old);
+    }
 
-	static void check_copied_L_U_elements(int total_nnz, int L_nnz, int U_nnz, int D_nnz){
-		int copied_elems_count = L_nnz + U_nnz + D_nnz; 
-		if(copied_elems_count != total_nnz){
-				fprintf(stderr, "ERROR: extract_L_U: %i out of %i elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
-				exit(EXIT_FAILURE);
-		}
-	}
+    static void check_V_orthonormal(double *V, int iter_count, int N) {
+        // Check if all basis vectors in V are orthonormal
+        double tol = 1e-14;
 
-	static void check_copied_L_plus_D_elements(int total_nnz, int L_plus_D_nnz, int U_nnz){
-		int copied_elems_count = L_plus_D_nnz + U_nnz; 
-		if(copied_elems_count != total_nnz){
-				fprintf(stderr, "ERROR: extract_L_plus_D: %i out of %i elements were copied from coo_mat.\n", copied_elems_count, total_nnz);
-				exit(EXIT_FAILURE);
-		}
-	}
+        // Computing euclidean norm
+        for (int k = 0; k < iter_count + 1; ++k) {
+            double tmp = 0.0;
+            for (int i = 0; i < N; ++i) {
+                tmp += V[k * N + i] * V[k * N + i];
+            }
+            double tmp_2_norm = std::sqrt(tmp);
+
+            if (std::abs(tmp_2_norm) > 1 + tol) {
+                printf(
+                    "GMRES WARNING: basis vector v_%i has a norm of %.17g, \n \
+								and does not have a norm of 1.0 as was expected.\n",
+                    k, tmp_2_norm);
+            } else {
+                for (int j = iter_count; j > 0; --j) {
+                    double tmp_dot;
+                    // Takes new v_k, and compares with all other basis vectors
+                    // in V
+
+                    // Computing dot product
+                    double sum = 0.0;
+                    for (int i = 0; i < N; ++i) {
+                        sum += V[(iter_count + 1) * N + i] * V[j * N + i];
+                    }
+                    tmp_dot = sum;
+
+                    if (std::abs(tmp_dot) > tol) {
+                        printf(
+                            "GMRES WARNING: basis vector v_%i is not orthogonal to basis vector v_%i, \n \
+										their dot product is %.17g, and not 0.0 as was expected.\n",
+                            k, j, tmp_dot);
+                    }
+                }
+            }
+        }
+    }
+
+    static void check_H(double *H, double *R, double *Q, int restart_len) {
+        // Validate that H == Q_tR [(m+1 x m) == (m+1 x m+1)(m+1 x m)]
+        double tol = 1e-14;
+
+        double *Q_t = new double[(restart_len + 1) * (restart_len + 1)];
+
+// init
+#pragma omp parallel for
+        for (int i = 0; i < (restart_len + 1) * (restart_len + 1); ++i) {
+            Q_t[i] = 0.0;
+        }
+
+        // transpose
+        for (int row_idx = 0; row_idx < (restart_len + 1); ++row_idx) {
+            for (int col_idx = 0; col_idx < (restart_len + 1); ++col_idx) {
+                Q_t[col_idx * (restart_len + 1) + row_idx] =
+                    Q[row_idx * (restart_len + 1) + col_idx];
+            }
+        }
+
+        print_dense_mat<double>(Q_t, (restart_len + 1), (restart_len + 1),
+                                "Q_t");
+
+        double *Q_tR = new double[(restart_len + 1) * (restart_len)];
+
+// init
+#pragma omp parallel for
+        for (int i = 0; i < (restart_len + 1) * restart_len; ++i) {
+            Q_tR[i] = 0.0;
+        }
+
+        // Compute Q_tR <- Q_t*R [(m+1 x m) <- (m+1 x m+1)(m+1 x m)]
+        for (int row_idx = 0; row_idx <= restart_len; ++row_idx) {
+            for (int col_idx = 0; col_idx < restart_len; ++col_idx) {
+                double sum = 0.0;
+                for (int i = 0; i < (restart_len + 1); ++i) {
+                    sum += Q_t[row_idx * (restart_len + 1) + i] *
+                           R[col_idx + i * restart_len];
+                }
+                Q_tR[(row_idx * restart_len) + col_idx] = sum;
+            }
+        }
+
+        print_dense_mat<double>(Q_tR, (restart_len + 1), restart_len, "Q_tR");
+
+        // Scan and validate H=Q_tR
+        for (int row_idx = 0; row_idx <= restart_len; ++row_idx) {
+            for (int col_idx = 0; col_idx < restart_len; ++col_idx) {
+                int idx = row_idx * restart_len + col_idx;
+                if (std::abs(static_cast<double>(Q_tR[idx] - H[idx])) > tol) {
+                    printf(
+                        "GMRES WARNING: The Q_tR factorization of H at index %i has a value %.17g, \n \
+										and does not have a value of %.17g as was expected.\n",
+                        row_idx * restart_len + col_idx, Q_tR[idx],
+                        H[row_idx * restart_len + col_idx]);
+                }
+            }
+        }
+
+        delete[] Q_t;
+        delete[] Q_tR;
+    }
+
+    static void check_copied_L_U_elements(int total_nnz, int L_nnz, int U_nnz,
+                                          int D_nnz) {
+        int copied_elems_count = L_nnz + U_nnz + D_nnz;
+        if (copied_elems_count != total_nnz) {
+            fprintf(stderr,
+                    "ERROR: extract_L_U: %i out of %i elements were copied "
+                    "from coo_mat.\n",
+                    copied_elems_count, total_nnz);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    static void check_copied_L_plus_D_elements(int total_nnz, int L_plus_D_nnz,
+                                               int U_nnz) {
+        int copied_elems_count = L_plus_D_nnz + U_nnz;
+        if (copied_elems_count != total_nnz) {
+            fprintf(stderr,
+                    "ERROR: extract_L_plus_D: %i out of %i elements were "
+                    "copied from coo_mat.\n",
+                    copied_elems_count, total_nnz);
+            exit(EXIT_FAILURE);
+        }
+    }
 };
 
 #endif

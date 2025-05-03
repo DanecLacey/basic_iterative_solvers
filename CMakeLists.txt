@@ -4,9 +4,10 @@ project(basic_iterative_solvers CXX)
 # ========= User Configuration Options =========
 
 # Set default build type if not defined
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+if(CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
 endif()
+
 # Provide options for build type
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -124,16 +125,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(COMPILER STREQUAL "gcc")
     set(CMAKE_CXX_COMPILER g++)
-    add_compile_options(-O3 -Wall -march=native)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -march=native")
 elseif(COMPILER STREQUAL "icc")
     set(CMAKE_CXX_COMPILER icpc)
-    add_compile_options(-O3 -Wall -xhost)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -march=native")
 elseif(COMPILER STREQUAL "icx")
     set(CMAKE_CXX_COMPILER icpx)
-    add_compile_options(-O3 -Wall -xhost -Xclang -target-feature -Xclang +prefer-no-gather)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -xhost -Xclang -target-feature -Xclang +prefer-no-gather")
 elseif(COMPILER STREQUAL "clang")
     set(CMAKE_CXX_COMPILER clang++)
-    add_compile_options(-Ofast -Wall -march=native)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
+    set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -Wall -march=native")
 endif()
 
 # ========== Preprocessor Definitions ==========
