@@ -74,9 +74,8 @@ struct MatrixCOO {
     std::vector<int> J;
     std::vector<double> values;
 
-    void write_to_mtx(int my_rank, std::string file_out_name) {
-        std::string file_name =
-            file_out_name + "_rank_" + std::to_string(my_rank) + ".mtx";
+    void write_to_mtx(std::string file_out_name) {
+        std::string file_name = file_out_name + ".mtx";
 
         for (int nz_idx = 0; nz_idx < nnz; ++nz_idx) {
             ++I[nz_idx];
