@@ -156,7 +156,7 @@ struct Timers {
     Stopwatch *copy2_time;
     Stopwatch *norm_time;
     Stopwatch *scale_time;
-    Stopwatch *sptsv_time;
+    Stopwatch *sptrsv_time;
     Stopwatch *orthog_time;
     Stopwatch *least_sq_time;
     Stopwatch *update_g_time;
@@ -181,7 +181,7 @@ struct Timers {
         delete sum_time;
         delete norm_time;
         delete scale_time;
-        delete sptsv_time;
+        delete sptrsv_time;
         delete dgemm_time;
         delete dgemv_time;
         delete orthog_time;
@@ -239,6 +239,16 @@ class SanityChecker {
             stderr,
             "ERROR: print_extract_L_plus_D: nz_idx %i cannot be segmented.\n",
             nz_idx);
+        exit(EXIT_FAILURE);
+    }
+
+    static void zero_diag(int row_idx) {
+        fprintf(stderr, "Zero detected on diagonal at row index %d\n", row_idx);
+        exit(EXIT_FAILURE);
+    }
+
+    static void no_diag(int row_idx) {
+        fprintf(stderr, "No diagonal to extract at row index %d\n", row_idx);
         exit(EXIT_FAILURE);
     }
 

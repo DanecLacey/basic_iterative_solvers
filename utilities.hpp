@@ -117,7 +117,7 @@ void init_timers(Timers *timers) {
     CREATE_STOPWATCH(sum)
     CREATE_STOPWATCH(norm)
     CREATE_STOPWATCH(scale)
-    CREATE_STOPWATCH(sptsv)
+    CREATE_STOPWATCH(sptrsv)
     CREATE_STOPWATCH(dgemm)
     CREATE_STOPWATCH(dgemv)
     CREATE_STOPWATCH(orthog)
@@ -146,7 +146,7 @@ void print_timers(Args *cli_args, Timers *timers) {
     long double sum_time = timers->sum_time->get_wtime();
     long double scale_time = timers->scale_time->get_wtime();
     long double norm_time = timers->norm_time->get_wtime();
-    long double sptsv_time = timers->sptsv_time->get_wtime();
+    long double sptrsv_time = timers->sptrsv_time->get_wtime();
     long double orthog_time = timers->orthog_time->get_wtime();
     long double least_sq_time = timers->least_sq_time->get_wtime();
     long double update_g_time = timers->update_g_time->get_wtime();
@@ -186,11 +186,11 @@ void print_timers(Args *cli_args, Timers *timers) {
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
 			std::cout << normalize_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "gauss-seidel"){
+		else if(cli_args->solver_type == "gauss-seidel" || cli_args->solver_type == "symmetric-gauss-seidel"){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
 			std::cout << sum_time  << "[s]" << std::endl;
-			std::cout << std::left << std::setw(left_flush_width) << "| | | sptsv time: " << std::right << std::setw(right_flush_width);
-			std::cout << sptsv_time  << "[s]" << std::endl;
+			std::cout << std::left << std::setw(left_flush_width) << "| | | SpTRSV time: " << std::right << std::setw(right_flush_width);
+			std::cout << sptrsv_time  << "[s]" << std::endl;
 		}
 		else if(cli_args->solver_type == "conjugate-gradient"){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Dot time: " << std::right << std::setw(right_flush_width);
@@ -286,7 +286,8 @@ void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 
 // NOTE: very lazy way to do this
 void extract_L_U(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L,
-                 MatrixCOO *coo_mat_U) {
+                 MatrixCOO *coo_mat_L_strict, MatrixCOO *coo_mat_U,
+                 MatrixCOO *coo_mat_U_strict) {
     int D_nz_count = 0;
 
     // Force same dimensions for consistency
@@ -295,38 +296,73 @@ void extract_L_U(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L,
     coo_mat_U->nnz = 0;
     coo_mat_U->is_sorted = coo_mat->is_sorted;
     coo_mat_U->is_symmetric = false;
+    coo_mat_U_strict->n_rows = coo_mat->n_rows;
+    coo_mat_U_strict->n_cols = coo_mat->n_cols;
+    coo_mat_U_strict->nnz = 0;
+    coo_mat_U_strict->is_sorted = coo_mat->is_sorted;
+    coo_mat_U_strict->is_symmetric = false;
     coo_mat_L->n_rows = coo_mat->n_rows;
     coo_mat_L->n_cols = coo_mat->n_cols;
     coo_mat_L->is_sorted = coo_mat->is_sorted;
     coo_mat_L->is_symmetric = false;
     coo_mat_L->nnz = 0;
+    coo_mat_L_strict->n_rows = coo_mat->n_rows;
+    coo_mat_L_strict->n_cols = coo_mat->n_cols;
+    coo_mat_L_strict->is_sorted = coo_mat->is_sorted;
+    coo_mat_L_strict->is_symmetric = false;
+    coo_mat_L_strict->nnz = 0;
 
     for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
+        bool bad_nz = true;
         // If column and row less than i, this nz is in the L matrix
-        if (coo_mat->J[nz_idx] < coo_mat->I[nz_idx]) {
+        if (coo_mat->J[nz_idx] <= coo_mat->I[nz_idx]) {
             // Copy element to lower matrix
             coo_mat_L->I.push_back(coo_mat->I[nz_idx]);
             coo_mat_L->J.push_back(coo_mat->J[nz_idx]);
             coo_mat_L->values.push_back(coo_mat->values[nz_idx]);
             ++coo_mat_L->nnz;
-        } else if (coo_mat->J[nz_idx] > coo_mat->I[nz_idx]) {
+
+            // Strict lower matrix
+            if (coo_mat->J[nz_idx] < coo_mat->I[nz_idx]) {
+                coo_mat_L_strict->I.push_back(coo_mat->I[nz_idx]);
+                coo_mat_L_strict->J.push_back(coo_mat->J[nz_idx]);
+                coo_mat_L_strict->values.push_back(coo_mat->values[nz_idx]);
+                ++coo_mat_L_strict->nnz;
+            }
+            bad_nz = false;
+        }
+        if (coo_mat->J[nz_idx] >= coo_mat->I[nz_idx]) {
             // Copy element to upper matrix
             coo_mat_U->I.push_back(coo_mat->I[nz_idx]);
             coo_mat_U->J.push_back(coo_mat->J[nz_idx]);
             coo_mat_U->values.push_back(coo_mat->values[nz_idx]);
             ++coo_mat_U->nnz;
-        } else if (coo_mat->I[nz_idx] == coo_mat->J[nz_idx]) {
+            // Strict upper matrix
+            if (coo_mat->J[nz_idx] > coo_mat->I[nz_idx]) {
+                coo_mat_U_strict->I.push_back(coo_mat->I[nz_idx]);
+                coo_mat_U_strict->J.push_back(coo_mat->J[nz_idx]);
+                coo_mat_U_strict->values.push_back(coo_mat->values[nz_idx]);
+                ++coo_mat_U_strict->nnz;
+            }
+            bad_nz = false;
+        }
+        if (coo_mat->I[nz_idx] == coo_mat->J[nz_idx]) {
             // Copy element to vector representing diagonal matrix
             // NOTE: We use a different routine to extract D
             ++D_nz_count;
-        } else {
-            SanityChecker::print_extract_L_U_error(nz_idx);
+            bad_nz = false;
         }
+        if (bad_nz)
+            SanityChecker::print_extract_L_U_error(nz_idx);
     }
 
     // All elements from full_coo_mtx need to be accounted for
+    // To account for the double reading of D
     SanityChecker::check_copied_L_U_elements(coo_mat->nnz, coo_mat_L->nnz,
-                                             coo_mat_U->nnz, D_nz_count);
+                                             coo_mat_U->nnz, -D_nz_count);
+
+    SanityChecker::check_copied_L_U_elements(
+        coo_mat->nnz, coo_mat_L_strict->nnz, coo_mat_U_strict->nnz, D_nz_count);
 }
 
 void extract_D(const MatrixCOO *coo_mat, double *D,
@@ -342,6 +378,35 @@ void extract_D(const MatrixCOO *coo_mat, double *D,
             }
         }
     }
+}
+
+inline void peel_diag_crs(MatrixCRS *A, double *D) {
+
+    for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
+        int row_start = A->row_ptr[row_idx];
+        int row_end = A->row_ptr[row_idx + 1] - 1;
+        int diag_j = -1; // Init diag col
+
+        // find the diag in this row_idx (since row need not be col sorted)
+        for (int j = row_start; j <= row_end; ++j) {
+            if (A->col[j] == row_idx) {
+                diag_j = j;
+                D[row_idx] = A->val[j]; // extract
+                if (std::abs(D[row_idx]) < 1e-16) {
+                    SanityChecker::zero_diag(row_idx);
+                }
+            }
+        }
+        if (diag_j < 0) {
+            SanityChecker::no_diag(row_idx);
+        }
+
+        // if it's not already at the end, swap it into the last slot
+        if (diag_j != row_end) {
+            std::swap(A->col[diag_j], A->col[row_end]);
+            std::swap(A->val[diag_j], A->val[row_end]);
+        }
+    };
 }
 
 // NOTE: very lazy way to do this
@@ -380,7 +445,7 @@ void register_likwid_markers() {
 #pragma omp parallel
     {
         LIKWID_MARKER_REGISTER("spmv");
-        LIKWID_MARKER_REGISTER("sptsv");
+        LIKWID_MARKER_REGISTER("sptrsv");
     }
 }
 #endif

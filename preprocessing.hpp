@@ -38,21 +38,34 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers) {
     solver->allocate_structs();
     solver->init_structs();
 
-    // It is convenient for gauss-seidel methods to have
-    // strict lower and upper triangular copies. While not
-    // explicitly necessary for all methods, it's just nice to have.
+    // It is convenient for gauss-seidel-like methods to have
+    // (strict) lower and upper triangular copies. While not
+    // explicitly necessary for all methods, it's just nice to have on hand.
     MatrixCOO *coo_mat_L = new MatrixCOO;
     MatrixCOO *coo_mat_U = new MatrixCOO;
-    extract_L_U(coo_mat, coo_mat_L, coo_mat_U);
-    extract_D(coo_mat, solver->D);
+    MatrixCOO *coo_mat_L_strict = new MatrixCOO;
+    MatrixCOO *coo_mat_U_strict = new MatrixCOO;
+    extract_L_U(coo_mat, coo_mat_L, coo_mat_L_strict, coo_mat_U,
+                coo_mat_U_strict);
 
     MatrixCRS *crs_mat_L = new MatrixCRS;
     MatrixCRS *crs_mat_U = new MatrixCRS;
+    MatrixCRS *crs_mat_L_strict = new MatrixCRS;
+    MatrixCRS *crs_mat_U_strict = new MatrixCRS;
     convert_coo_to_crs(coo_mat_L, crs_mat_L);
     convert_coo_to_crs(coo_mat_U, crs_mat_U);
+    convert_coo_to_crs(coo_mat_L_strict, crs_mat_L_strict);
+    convert_coo_to_crs(coo_mat_U_strict, crs_mat_U_strict);
+
+    // NOTE: The triangular matrix we use to peel D also is sorted in each row
+    // So, it's easier just to sort both L and U now
+    peel_diag_crs(crs_mat_L, solver->D);
+    peel_diag_crs(crs_mat_U, solver->D);
 
     solver->crs_mat_L = crs_mat_L;
     solver->crs_mat_U = crs_mat_U;
+    solver->crs_mat_L_strict = crs_mat_L_strict;
+    solver->crs_mat_U_strict = crs_mat_U_strict;
 
 #ifdef USE_SMAX
     solver->register_structs();
@@ -70,6 +83,8 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers) {
     delete coo_mat;
     delete coo_mat_L;
     delete coo_mat_U;
+    delete coo_mat_L_strict;
+    delete coo_mat_U_strict;
 };
 
 #endif

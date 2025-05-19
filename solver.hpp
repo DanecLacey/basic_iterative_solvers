@@ -23,7 +23,9 @@ private:
 public:
 	MatrixCRS *crs_mat;
 	MatrixCRS *crs_mat_L;
+	MatrixCRS *crs_mat_L_strict;
 	MatrixCRS *crs_mat_U;
+	MatrixCRS *crs_mat_U_strict;
 	std::string solver_type;
 	std::string preconditioner_type;
 #ifdef USE_SMAX
@@ -377,10 +379,17 @@ public:
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "x_new <- A*x_old", this->crs_mat, this->x_old, N, this->x_new, N);
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){	
+		else if (solver_type == "gauss-seidel"){	
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
-			register_spmv(this->smax, "tmp <- U*x", this->crs_mat_U, this->x, N, this->tmp, N);
-			register_spmv(this->smax, "tmp <- L*x", this->crs_mat_L, this->x, N, this->tmp, N);
+			register_spmv(this->smax, "tmp <- U*x", this->crs_mat_U_strict, this->x, N, this->tmp, N);
+			register_sptrsv(this->smax, "solve x <- (D+L)^{-1}(b-Ux)", this->crs_mat_L, this->x, N, this->tmp, N);
+		}
+		else if (solver_type == "symmetric-gauss-seidel"){	
+			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
+			register_spmv(this->smax, "tmp <- U*x", this->crs_mat_U_strict, this->x, N, this->tmp, N);
+			register_sptrsv(this->smax, "solve x <- (D+L)^{-1}(b-Ux)", this->crs_mat_L, this->x, N, this->tmp, N);
+			register_spmv(this->smax, "tmp <- L*x", this->crs_mat_L_strict, this->x, N, this->tmp, N);
+			register_sptrsv(this->smax, "solve x <- (U+L)^{-1}(b-Ux)", this->crs_mat_U, this->x, N, this->tmp, N, true);
 		}
 		else if (solver_type == "conjugate-gradient"){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
@@ -747,6 +756,8 @@ public:
 		delete crs_mat;
 		delete crs_mat_L;
 		delete crs_mat_U;
+		delete crs_mat_L_strict;
+		delete crs_mat_U_strict;
 		delete[] collected_residual_norms;
 		delete[] time_per_iteration;
 		delete[] x_star;

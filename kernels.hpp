@@ -50,10 +50,10 @@ void spmv(const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0,
 #endif
 }
 
-void native_sptsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
-                  const double *b) {
+void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
+                   const double *b) {
 #ifdef USE_LIKWID
-    LIKWID_MARKER_START("sptsv");
+    LIKWID_MARKER_START("sptrsv");
 #endif
 
     double sum;
@@ -67,25 +67,26 @@ void native_sptsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
     }
 
 #ifdef USE_LIKWID
-    LIKWID_MARKER_STOP("sptsv");
+    LIKWID_MARKER_STOP("sptrsv");
 #endif
 }
 
-void sptsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
-           const double *b) {
+void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
+            const double *b, int offset = 0, Interface *smax = nullptr,
+            const char *kernel_name = nullptr) {
 #ifdef USE_MKL
     // TODO: oneapi::mkl::sparse::trsv();
 #elif USE_SMAX
-    // TODO: smax->["sptsv"]->execute();
+    smax->kernel(kernel_name)->run(0, offset, 0);
 #else
-    native_sptsv(crs_mat_L, x, D, b);
+    native_sptrsv(crs_mat_L, x, D, b);
 #endif
 }
 
-void native_bsptsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
-                   const double *b) {
+void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
+                    const double *b) {
 #ifdef USE_LIKWID
-    LIKWID_MARKER_START("bsptsv");
+    LIKWID_MARKER_START("bsptrsv");
 #endif
     for (int row_idx = crs_mat_U->n_rows - 1; row_idx >= 0; --row_idx) {
         double sum = 0.0;
@@ -96,18 +97,19 @@ void native_bsptsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
         x[row_idx] = (b[row_idx] - sum) / D[row_idx];
     }
 #ifdef USE_LIKWID
-    LIKWID_MARKER_STOP("bsptsv");
+    LIKWID_MARKER_STOP("bsptrsv");
 #endif
 }
 
-void bsptsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
-            const double *b) {
+void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
+             const double *b, int offset = 0, Interface *smax = nullptr,
+             const char *kernel_name = nullptr) {
 #ifdef USE_MKL
     // TODO: oneapi::mkl::sparse::trsv();
 #elif USE_SMAX
-    // TODO: smax->["bsptsv"]->execute();
+    smax->kernel(kernel_name)->run(0, offset, 0);
 #else
-    native_bsptsv(crs_mat_U, x, D, b);
+    native_bsptrsv(crs_mat_U, x, D, b);
 #endif
 }
 
@@ -314,28 +316,28 @@ void apply_preconditioner(const std::string preconditioner_type,
         if (preconditioner_type == "jacobi") {
             elemwise_div_vectors(vec, rhs, D, N);
         } else if (preconditioner_type == "gauss-seidel") {
-            sptsv(crs_mat_L, vec, D, rhs);
+            sptrsv(crs_mat_L, vec, D, rhs);
         } else if (preconditioner_type == "backwards-gauss-seidel") {
-            bsptsv(crs_mat_U, vec, D, rhs);
+            bsptrsv(crs_mat_U, vec, D, rhs);
         } else if (preconditioner_type == "symmetric-gauss-seidel") {
             // tmp <- (L+D)^{-1}*r
-            sptsv(crs_mat_L, tmp, D, rhs);
+            sptrsv(crs_mat_L, tmp, D, rhs);
 
             // tmp <- D(L+D)^{-1}*r
             elemwise_mult_vectors(tmp, tmp, D, N);
 
             // z <- (L+U)^{-1}*tmp
-            bsptsv(crs_mat_U, vec, D, tmp);
+            bsptrsv(crs_mat_U, vec, D, tmp);
         } else if (preconditioner_type == "ffbb-gauss-seidel") {
             // TODO
-            sptsv(crs_mat_L, tmp, D, rhs);
-            sptsv(crs_mat_L, tmp, D, rhs);
+            sptrsv(crs_mat_L, tmp, D, rhs);
+            sptrsv(crs_mat_L, tmp, D, rhs);
 
             elemwise_mult_vectors(tmp, tmp, D, N);
             elemwise_mult_vectors(tmp, tmp, D, N);
 
-            bsptsv(crs_mat_U, vec, D, tmp);
-            bsptsv(crs_mat_U, vec, D, tmp);
+            bsptrsv(crs_mat_U, vec, D, tmp);
+            bsptrsv(crs_mat_U, vec, D, tmp);
         } else {
             copy_vector(vec, rhs, N);
         }
