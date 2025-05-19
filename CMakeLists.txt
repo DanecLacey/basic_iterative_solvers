@@ -1,20 +1,20 @@
 cmake_minimum_required(VERSION 3.23.1)
 project(basic_iterative_solvers CXX)
 
+set(CPP_VERSION c++17 CACHE STRING "C++ version")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+message(STATUS "C++ version: ${CPP_VERSION}")
+
 # ========= User Configuration Options =========
 
 # Set default build type if not defined
-if(CMAKE_BUILD_TYPE STREQUAL "")
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
 
 # Provide options for build type
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-
-# Set default values (you can override these via -D options when calling CMake)
-set(COMPILER "gcc" CACHE STRING "Compiler to use [gcc, icc, icx, clang]")
-set(CPP_VERSION c++14 CACHE STRING "C++ version")
 
 # Solver parameters
 set(_MAX_ITERS 1000 CACHE STRING "")
@@ -120,26 +120,48 @@ else()
 endif()
 
 # ========== Set Compiler and Flags ==========
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(COMPILER STREQUAL "gcc")
-    set(CMAKE_CXX_COMPILER g++)
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -march=native")
-elseif(COMPILER STREQUAL "icc")
-    set(CMAKE_CXX_COMPILER icpc)
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -march=native")
-elseif(COMPILER STREQUAL "icx")
-    set(CMAKE_CXX_COMPILER icpx)
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -xhost -Xclang -target-feature -Xclang +prefer-no-gather")
-elseif(COMPILER STREQUAL "clang")
-    set(CMAKE_CXX_COMPILER clang++)
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG_MODE -O0 -Wall -march=native")
-    set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -Wall -march=native")
+# If the user didn't specify a compiler, default to g++
+if(NOT DEFINED CMAKE_CXX_COMPILER)
+    set(CMAKE_CXX_COMPILER "g++" CACHE STRING "Default compiler" FORCE)
+    message(STATUS "No compiler selected, using default: ${CMAKE_CXX_COMPILER}")
 endif()
+
+# Display the selected compiler
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
+
+# Normalize compiler ID for consistent matching
+string(TOUPPER "${CMAKE_CXX_COMPILER_ID}" COMPILER_ID)
+
+# Compiler-specific flags
+if(COMPILER_ID STREQUAL "GNU")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fstrict-aliasing -O3")
+    elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG_MODE -g -O0 -Wall -Wextra -fno-omit-frame-pointer")
+    endif()
+elseif(COMPILER_ID STREQUAL "INTEL")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fno-alias -O3")
+    elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG_MODE -g -O0 -Wall -Wextra -fno-omit-frame-pointer")
+    endif()
+elseif(COMPILER_ID STREQUAL "INTELLLVM")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xHost -O3")
+    elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG_MODE -g -O0 -Wall -Wextra -fno-omit-frame-pointer -fp-model=precise")
+    endif()
+elseif(COMPILER_ID STREQUAL "CLANG")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-alias -O3")
+    elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG_MODE -g -O0 -Wall -Wextra -fno-omit-frame-pointer")
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
+endif()
+
 
 # ========== Preprocessor Definitions ==========
 add_definitions(

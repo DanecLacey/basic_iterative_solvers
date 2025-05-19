@@ -7,3 +7,6 @@ benchmarks/run_benchmarks
 scripts/
 build/
 third_party/
+
+CMakeCache.txt
+CMakeFiles/

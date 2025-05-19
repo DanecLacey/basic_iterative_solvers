@@ -39,19 +39,13 @@ void normalize_x(double *x_new, const double *x_old, const double *D,
     }
 }
 
-void jacobi_separate_iteration(
-#ifdef USE_SMAX
-    SMAX::Interface *smax,
-#endif
-    Timers *timers, const MatrixCRS *crs_mat, const double *D, const double *b,
-    double *x_new, const double *x_old) {
+void jacobi_separate_iteration(Timers *timers, const MatrixCRS *crs_mat,
+                               const double *D, const double *b, double *x_new,
+                               const double *x_old, Interface *smax = nullptr) {
 
     // x_new <- A*x_old
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "x_new <- A*x_old",
-#endif
-                           crs_mat, x_old, x_new))
+    TIME(timers->spmv,
+         spmv(crs_mat, x_old, x_new SMAX_ARGS(0, smax, "x_new <- A*x_old")));
 
     // x_new <- D^{-1}(b - (x_new - D))
     TIME(timers->normalize, normalize_x(x_new, x_old, D, b, crs_mat->n_rows))

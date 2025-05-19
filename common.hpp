@@ -12,6 +12,14 @@
 #include "SmaxKernels/interface.hpp"
 #endif
 
+#ifdef USE_SMAX
+using Interface = SMAX::Interface;
+#define SMAX_ARGS(...) , __VA_ARGS__
+#else
+using Interface = void *;
+#define SMAX_ARGS(...)
+#endif
+
 #ifndef ALIGNMENT
 #define ALIGNMENT 64
 #endif
@@ -113,9 +121,11 @@ class Stopwatch {
     timers->timer_name##_time = timer_name##_time;
 
 #define TIME(timer_name, routine)                                              \
-    timer_name##_time->start();                                                \
-    routine;                                                                   \
-    timer_name##_time->stop();
+    do {                                                                       \
+        timer_name##_time->start();                                            \
+        routine;                                                               \
+        timer_name##_time->stop();                                             \
+    } while (0);
 
 #ifdef DEBUG_MODE
 #define IF_DEBUG_MODE(print_statement) print_statement;

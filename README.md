@@ -21,7 +21,7 @@ This is a set of (preconditioned) iterative solvers for `Ax = b`, where `A` is t
 git clone git@github.com:DanecLacey/basic_iterative_solvers.git
 cd basic_iterative_solvers
 mkdir build && cd build
-cmake .. <-DCMAKE_PREFIX_PATH=install_path (if using TPLs)>
+cmake .. -DCMAKE_CXX_COMPILER=<CXX> -DCMAKE_PREFIX_PATH=install_path (if using TPLs)
 make
 ```
 

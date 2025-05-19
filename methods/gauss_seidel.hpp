@@ -22,18 +22,12 @@ void gs_fused_iteration(const MatrixCRS *crs_mat, const double *b, double *x) {
     }
 }
 
-void gs_separate_iteration(
-#ifdef USE_SMAX
-    SMAX::Interface *smax,
-#endif
-    Timers *timers, const MatrixCRS *crs_mat_U, const MatrixCRS *crs_mat_L,
-    double *tmp, const double *D, const double *b, double *x) {
+void gs_separate_iteration(Timers *timers, const MatrixCRS *crs_mat_U,
+                           const MatrixCRS *crs_mat_L, double *tmp,
+                           const double *D, const double *b, double *x,
+                           Interface *smax = nullptr) {
     // tmp <- U*x
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "tmp <- U*x",
-#endif
-                           crs_mat_U, x, tmp))
+    TIME(timers->spmv, spmv(crs_mat_U, x, tmp SMAX_ARGS(0, smax, "tmp <- U*x")))
 
     // tmp <- b - tmp
     TIME(timers->sum, subtract_vectors(tmp, b, tmp, crs_mat_U->n_rows))
@@ -42,18 +36,12 @@ void gs_separate_iteration(
     TIME(timers->sptsv, sptsv(crs_mat_L, x, D, tmp))
 }
 
-void bgs_separate_iteration(
-#ifdef USE_SMAX
-    SMAX::Interface *smax,
-#endif
-    Timers *timers, const MatrixCRS *crs_mat_U, const MatrixCRS *crs_mat_L,
-    double *tmp, const double *D, const double *b, double *x) {
+void bgs_separate_iteration(Timers *timers, const MatrixCRS *crs_mat_U,
+                            const MatrixCRS *crs_mat_L, double *tmp,
+                            const double *D, const double *b, double *x,
+                            Interface *smax = nullptr) {
     // tmp <- L*x
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "tmp <- L*x",
-#endif
-                           crs_mat_L, x, tmp))
+    TIME(timers->spmv, spmv(crs_mat_L, x, tmp SMAX_ARGS(0, smax, "tmp <- L*x")))
 
     // tmp <- b - tmp
     TIME(timers->sum, subtract_vectors(tmp, b, tmp, crs_mat_L->n_rows))

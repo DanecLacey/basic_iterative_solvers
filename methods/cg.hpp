@@ -5,27 +5,25 @@
 #include "../kernels.hpp"
 #include "../sparse_matrix.hpp"
 
-void cg_separate_iteration(
-#ifdef USE_SMAX
-    SMAX::Interface *smax,
-#endif
-    Timers *timers, const std::string preconditioner_type,
-    const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
-    const MatrixCRS *crs_mat_U, double *D, double *x_new, double *x_old,
-    double *tmp, double *p_new, double *p_old, double *r_new, double *r_old,
-    double *z_new, double *z_old) {
+void cg_separate_iteration(Timers *timers,
+                           const std::string preconditioner_type,
+                           const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
+                           const MatrixCRS *crs_mat_U, double *D, double *x_new,
+                           double *x_old, double *tmp, double *p_new,
+                           double *p_old, double *r_new, double *r_old,
+                           double *z_new, double *z_old,
+                           Interface *smax = nullptr) {
 
     // pre-compute tmp <- A*p_old
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "tmp <- A*p_old",
-#endif
-                           crs_mat, p_old, tmp))
+    TIME(timers->spmv,
+         spmv(crs_mat, p_old, tmp SMAX_ARGS(0, smax, "tmp <- A*p_old")))
 
-    TIME(timers->dot, double tmp_dot = dot(r_old, z_old, crs_mat->n_cols))
+    double tmp_dot;
+    TIME(timers->dot, tmp_dot = dot(r_old, z_old, crs_mat->n_cols))
 
     // alpha <- (r_old, z_old) / (Ap_old, p_old)
-    TIME(timers->dot, double alpha = tmp_dot / dot(tmp, p_old, crs_mat->n_cols))
+    double alpha;
+    TIME(timers->dot, alpha = tmp_dot / dot(tmp, p_old, crs_mat->n_cols))
 
     IF_DEBUG_MODE_FINE(printf("alpha = %f\n", alpha))
 
@@ -41,8 +39,8 @@ void cg_separate_iteration(
                                                crs_mat_U, D, z_new, r_new, tmp))
 
     // beta <- (r_new, r_new) / (r_old, r_old)
-    TIME(timers->dot,
-         double beta = dot(r_new, z_new, crs_mat->n_cols) / tmp_dot)
+    double beta;
+    TIME(timers->dot, beta = dot(r_new, z_new, crs_mat->n_cols) / tmp_dot)
 
     IF_DEBUG_MODE_FINE(printf("beta = %f\n", beta))
 

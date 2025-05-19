@@ -34,15 +34,17 @@ void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
     }
 }
 
-void spmv(
-#ifdef USE_SMAX
-    SMAX::Interface *smax, const char *kernel_name,
-#endif
-    const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0) {
+void spmv(const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0,
+          Interface *smax = nullptr, const char *kernel_name = nullptr) {
 #ifdef USE_MKL
     // TODO
 #elif USE_SMAX
-    smax->kernels[kernel_name]->run(0, offset, 0);
+    // auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel
+    // *>(smax->kernel(kernel_name)); std::cout << "A col in spmv: " <<
+    // spmv->args->A->col << std::endl; std::cout << "x val in spmv: " <<
+    // spmv->args->x->val << std::endl; std::cout << "y val in spmv: " <<
+    // spmv->args->y->val << std::endl;
+    smax->kernel(kernel_name)->run(0, offset, 0);
 #else
     native_spmv(crs_mat, x, y);
 #endif
@@ -144,18 +146,12 @@ void elemwise_div_vectors(double *result_vec, const double *vec1,
     }
 }
 
-void compute_residual(
-#ifdef USE_SMAX
-    SMAX::Interface *smax, const char *kernel_name,
-#endif
-    const MatrixCRS *crs_mat, const double *x, const double *b,
-    double *residual, double *tmp) {
+void compute_residual(const MatrixCRS *crs_mat, const double *x,
+                      const double *b, double *residual, double *tmp,
+                      Interface *smax = nullptr,
+                      const char *kernel_name = nullptr) {
 
-    spmv(
-#ifdef USE_SMAX
-        smax, kernel_name,
-#endif
-        crs_mat, x, tmp);
+    spmv(crs_mat, x, tmp SMAX_ARGS(0, smax, kernel_name));
     subtract_vectors(residual, b, tmp, crs_mat->n_cols);
 }
 

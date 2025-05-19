@@ -1,5 +1,4 @@
-#ifndef BICGSTAB_HPP
-#define BICGSTAB_HPP
+#pragma once
 
 #include "../common.hpp"
 #include "../kernels.hpp"
@@ -7,16 +6,13 @@
 
 // https://jiechenjiechen.github.io/pub/fbcgs.pdf
 void bicgstab_separate_iteration(
-#ifdef USE_SMAX
-    SMAX::Interface *smax,
-#endif
     Timers *timers, const std::string preconditioner_type,
     const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
     const MatrixCRS *crs_mat_U, double *D, double *x_new, double *x_old,
     double *tmp, double *p_new, double *p_old, double *residual_new,
     double *residual_old, double *residual_0, double *v, double *h, double *s,
     double *s_tmp, double *t, double *t_tmp, double *y, double *z,
-    double &rho_new, double rho_old) {
+    double &rho_new, double rho_old, Interface *smax = nullptr) {
 
     int N = crs_mat->n_cols;
 
@@ -29,14 +25,11 @@ void bicgstab_separate_iteration(
                                                crs_mat_U, D, y, p_old, tmp))
 
     // v <- A*y
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "v <- A*y",
-#endif
-                           crs_mat, y, v))
+    TIME(timers->spmv, spmv(crs_mat, y, v SMAX_ARGS(0, smax, "v <- A*y")))
 
     // alpha <- rho_old / (r_0, v)
-    TIME(timers->dot, double alpha = rho_old / dot(residual_0, v, N))
+    double alpha;
+    TIME(timers->dot, alpha = rho_old / dot(residual_0, v, N))
 
     IF_DEBUG_MODE_FINE(printf("alpha = %f\n", alpha))
 
@@ -48,13 +41,11 @@ void bicgstab_separate_iteration(
                                                crs_mat_U, D, s_tmp, s, tmp))
 
     // z <- A*s_tmp
-    TIME(timers->spmv, spmv(
-#ifdef USE_SMAX
-                           smax, "z <- A*s_tmp",
-#endif
-                           crs_mat, s_tmp, z))
+    TIME(timers->spmv,
+         spmv(crs_mat, s_tmp, z SMAX_ARGS(0, smax, "z <- A*s_tmp")))
 
-    TIME(timers->dot, double omega = dot(z, s, N) / dot(z, z, N))
+    double omega;
+    TIME(timers->dot, omega = dot(z, s, N) / dot(z, z, N))
 
     // h <- x_old + alpha*y
     TIME(timers->sum, sum_vectors(h, x_old, y, N, alpha))
@@ -87,5 +78,3 @@ void bicgstab_separate_iteration(
         crs_mat->n_cols, x_new, x_old, tmp, p_new, p_old, residual_new,
         residual_old, residual_0, v, h, s, t, rho_new, rho_old, "after"))
 }
-
-#endif
