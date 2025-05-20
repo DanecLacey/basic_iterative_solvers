@@ -60,7 +60,7 @@ void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
     for (int row_idx = 0; row_idx < crs_mat_L->n_rows; ++row_idx) {
         sum = 0.0;
         for (int nz_idx = crs_mat_L->row_ptr[row_idx];
-             nz_idx < crs_mat_L->row_ptr[row_idx + 1]; ++nz_idx) {
+             nz_idx < crs_mat_L->row_ptr[row_idx + 1] - 1; ++nz_idx) {
             sum += crs_mat_L->val[nz_idx] * x[crs_mat_L->col[nz_idx]];
         }
         x[row_idx] = (b[row_idx] - sum) / D[row_idx];
@@ -91,7 +91,7 @@ void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
     for (int row_idx = crs_mat_U->n_rows - 1; row_idx >= 0; --row_idx) {
         double sum = 0.0;
         for (int nz_idx = crs_mat_U->row_ptr[row_idx];
-             nz_idx < crs_mat_U->row_ptr[row_idx + 1]; ++nz_idx) {
+             nz_idx < crs_mat_U->row_ptr[row_idx + 1] - 1; ++nz_idx) {
             sum += crs_mat_U->val[nz_idx] * x[crs_mat_U->col[nz_idx]];
         }
         x[row_idx] = (b[row_idx] - sum) / D[row_idx];

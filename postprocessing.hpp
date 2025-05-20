@@ -5,6 +5,7 @@
 #include "solver.hpp"
 #include "sparse_matrix.hpp"
 
+// clang-format off
 void print_residuals(double *collected_residual_norms,
                      double *time_per_iteration,
                      int collected_residual_norms_count, int res_check_len) {
@@ -17,24 +18,27 @@ void print_residuals(double *collected_residual_norms,
     std::string formatted_spaces2(8, ' ');
 
     std::cout << std::endl;
-    std::cout << formatted_spaces0 << "Residual Norms" << formatted_spaces1
-              << "Time for iteration" << std::endl;
-    std::cout << "+------------------------------------------+"
-              << formatted_spaces2 << "+-------------------------+"
-              << std::endl;
-    for (int i = 0; i < collected_residual_norms_count; ++i) {
-        std::cout << "||A*x_" << i * res_check_len
-                  << " - b||_infty = " << collected_residual_norms[i];
-        std::cout << std::right << std::setw(right_flush_width)
-                  << time_per_iteration[i] << "[s]" << std::endl;
+    std::cout << formatted_spaces0 << "Residual Norms" << formatted_spaces1 << "Time for iteration" << std::endl;
+    std::cout << "+------------------------------------------+" << formatted_spaces2 << "+-------------------------+" << std::endl;
+    for (int i = 0; i < collected_residual_norms_count + 1; ++i) {
+        std::cout << "||A*x_" << i * res_check_len << " - b||_infty = " << collected_residual_norms[i];
+        if (i > 0){
+            std::cout << std::right << std::setw(right_flush_width) << time_per_iteration[i - 1] << "[s]";
+        }
+        std::cout << std::endl;
     }
 }
+// clang-format on
 
 void summary_output(Args *cli_args, Solver *solver) {
 
     print_residuals(
         solver->collected_residual_norms, solver->time_per_iteration,
         solver->collected_residual_norms_count, solver->residual_check_len);
+
+    // TODO: HACKY... Really find out how to account for the restarts properly
+    if (solver->solver_type == "gmres")
+        solver->iter_count -= solver->gmres_restart_count;
 
     std::cout << "\nSolver: " << solver->solver_type;
     if (!solver->preconditioner_type.empty()) {

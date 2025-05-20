@@ -57,8 +57,8 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers) {
     convert_coo_to_crs(coo_mat_L_strict, crs_mat_L_strict);
     convert_coo_to_crs(coo_mat_U_strict, crs_mat_U_strict);
 
-    // NOTE: The triangular matrix we use to peel D also is sorted in each row
-    // So, it's easier just to sort both L and U now
+    // NOTE: The triangular matrix we use to peel D must be sorted in each row
+    // It's easier just to sort both L and U now, eventhough we only need D once
     peel_diag_crs(crs_mat_L, solver->D);
     peel_diag_crs(crs_mat_U, solver->D);
 

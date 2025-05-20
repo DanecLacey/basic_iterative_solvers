@@ -359,6 +359,7 @@ public:
 			this->rho_old = dot(this->residual_old, this->residual, this->crs_mat->n_cols);
 		}
 		copy_vector(this->residual_0, this->residual, this->crs_mat->n_cols);
+		this->collected_residual_norms[this->collected_residual_norms_count] = this->residual_norm;
 		
 	}
 
@@ -430,7 +431,7 @@ public:
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
 			gs_separate_iteration(
 				timers,
-				this->crs_mat_U,
+				this->crs_mat_U_strict,
 				this->crs_mat_L,
 				this->tmp,
 				this->D,
@@ -442,7 +443,7 @@ public:
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
 			gs_separate_iteration(
 				timers, 
-				this->crs_mat_U, 
+				this->crs_mat_U_strict, 
 				this->crs_mat_L, 
 				this->tmp, 
 				this->D, 
@@ -452,7 +453,7 @@ public:
 			bgs_separate_iteration(
 				timers, 
 				this->crs_mat_U, 
-				this->crs_mat_L, 
+				this->crs_mat_L_strict, 
 				this->tmp, 
 				this->D, 
 				this->b, 
@@ -478,7 +479,6 @@ public:
 				this->z_old
 				SMAX_ARGS(this->smax)
 			);
-			// TODO: update w/ SMAX
 			std::swap(this->residual, this->residual_new);
 		}
 		else if (solver_type == "gmres"){
@@ -538,72 +538,63 @@ public:
 				this->rho_old
 				SMAX_ARGS(this->smax)
 			);
-			// TODO: update w/ SMAX
 			std::swap(this->residual, this->residual_new);
 		}
 	}
 
-	// TODO: update and make cleaner...
-	void exchange(){
-#ifdef USE_SMAX
+void exchange(){
 		if(solver_type == "richardson"){
-			// TODO: Very ugly to swap data registered to different kernels
+			std::swap(this->x_old, this->x_new);
+		}
+		else if(solver_type == "jacobi"){
+			std::swap(this->x_old, this->x_new);
+		}
+		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+			// Nothing to exchange
+		}
+		else if(solver_type == "conjugate-gradient"){
+			std::swap(this->p_old, this->p_new);
+			std::swap(this->z_old, this->z_new);
+			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
+			std::swap(this->x_old, this->x_new);
+
+		}
+		else if (solver_type == "gmres"){
+			// Nothing to exchange
+		}
+		else if (solver_type == "bicgstab"){
+			std::swap(this->p_old, this->p_new);
+			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
+			std::swap(this->x_old, this->x_new);
+			std::swap(this->rho_old, this->rho_new);
+		}
+#ifdef USE_SMAX
+		// In order to maintain consistent view of pointers inside of library
+		if(solver_type == "richardson"){
 			auto *residual_spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("residual_spmv"));
 			auto *update_spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("update_residual"));
 			std::swap(residual_spmv->args->x, update_spmv->args->x);
 		}
 		else if(solver_type == "jacobi"){
-			// Need to swap both to maintain consistency between library pointers and application
 			this->smax->kernel("x_new <- A*x_old")->swap_operands();
-			std::swap(this->x_old, this->x_new);
 		}
 		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
-			// Nothing to exchange
+			// Nothing to swap or copy
 		}
 		else if(solver_type == "conjugate-gradient"){
-			std::swap(this->p_old, this->p_new);
-			std::swap(this->z_old, this->z_new);
-			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
-			std::swap(this->x_old, this->x_new);
+			auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("tmp <- A*p_old"));
+			spmv->args->x->val = static_cast<void *>(this->p_old);
 		}
 		else if (solver_type == "gmres"){
-			// Nothing to exchange
+			// Nothing to swap or copy
 		}
 		else if (solver_type == "bicgstab"){
-			std::swap(this->p_old, this->p_new);
-			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
-			std::swap(this->x_old, this->x_new);
-			std::swap(this->rho_old, this->rho_new);
-		}
-#else
-		if(solver_type == "richardson"){
-			std::swap(this->x_old, this->x_new);
-		}
-		else if(solver_type == "jacobi"){
-			std::swap(this->x_old, this->x_new);
-		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
-			// Nothing to exchange
-		}
-		else if(solver_type == "conjugate-gradient"){
-			std::swap(this->p_old, this->p_new);
-			std::swap(this->z_old, this->z_new);
-			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
-			std::swap(this->x_old, this->x_new);
-		}
-		else if (solver_type == "gmres"){
-			// Nothing to exchange
-		}
-		else if (solver_type == "bicgstab"){
-			std::swap(this->p_old, this->p_new);
-			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
-			std::swap(this->x_old, this->x_new);
-			std::swap(this->rho_old, this->rho_new);
+			// Nothing to swap or copy
 		}
 #endif
 	}
 
-	// TODO: update w/ SMAX
+	// NOTE: Anything to update for SMAX?
 	void save_x_star(){
 		IF_DEBUG_MODE(printf("Saving x*\n"))
 		if(solver_type == "richardson"){
@@ -657,7 +648,7 @@ public:
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		
-		this->collected_residual_norms[this->collected_residual_norms_count] = this->residual_norm;
+		this->collected_residual_norms[this->collected_residual_norms_count + 1] = this->residual_norm;
 	}
 
 	void sample_residual(Stopwatch *per_iteration_time){
@@ -682,7 +673,7 @@ public:
 
 			// Backward triangular solve y <- R^{-1}(g) [(m+1 x m)(m x 1) = (m+1 x 1)]
 			// Traverse R \in \mathbb{R}^(m+1 x m) from last to first row
-			for(int row_idx = n_solver_iters; row_idx >= 0; --row_idx){
+			for(int row_idx = n_solver_iters - 1; row_idx >= 0; --row_idx){
 				double sum = 0.0;
 				for(int col_idx = row_idx; col_idx < this->gmres_restart_len; ++col_idx){
 						if(row_idx == col_idx){
@@ -726,8 +717,8 @@ public:
 		// NOTE: Only relevant for GMRES, so we don't worry about other solvers
 		if(solver_type == "gmres"){
 			bool norm_convergence = this->residual_norm < this->stopping_criteria;
-			bool over_max_iters = this->iter_count >= this->max_iters;
-			bool restart_cycle_reached = (this->iter_count + 1) % (this->gmres_restart_len) == 0;
+			bool over_max_iters = this->iter_count > this->max_iters;
+			bool restart_cycle_reached = (this->iter_count) % (this->gmres_restart_len) == 0;
 			if(!norm_convergence && !over_max_iters && restart_cycle_reached){
 				this->gmres_restarted = true;
 

@@ -71,7 +71,7 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
                         "\n-p bgs (Backwards Gauss-Seidel)"
                         "\n-p sgs (Symmetric Gauss-Seidel)"
                         "\n-p ffbbgs (Forward-Forward-Backward-Backward "
-                        "Gauss-Seidel)");
+                        "Gauss-Seidel !Experimental!)\n");
                 exit(EXIT_FAILURE);
             }
         }
