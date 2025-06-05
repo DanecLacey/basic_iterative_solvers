@@ -33,11 +33,7 @@ option(OUTPUT_SPARSITY "Enable sparsity output" OFF)
 # External libraries
 option(USE_LIKWID "Enable LIKWID performance monitoring" OFF)
 option(USE_SCAMAC "Enable SCAMAC matrix generator" OFF)
-option(USE_MKL "Enable MKL support" OFF)
 option(USE_SMAX "Enable SMAX support" OFF)
-if(USE_MKL AND USE_SMAX)
-    message(FATAL_ERROR "USE_MKL and USE_SMAX cannot both be enabled at the same time. Please choose only one.")
-endif()
 
 # ========== Sources and Targets ==========
 add_executable(basic_iterative_solvers
@@ -88,30 +84,13 @@ else()
     message(STATUS "SCAMAC support is disabled.")
 endif()
 
-# === MKL Support ===
-if(USE_MKL)
-    # Ensure we're using LP64 interface (32-bit integers) for MKL
-    # TODO: This isn't explicitly necessary. Make more flexible.
-    set(MKL_INTERFACE lp64)
-    find_package(MKL REQUIRED)
-    if(MKL_FOUND)
-        message(STATUS "MKL found, enabling MKL support.")
-        target_link_libraries(basic_iterative_solvers PUBLIC MKL::MKL)
-        target_compile_definitions(basic_iterative_solvers PUBLIC USE_MKL)
-    else()
-        message(FATAL_ERROR "MKL requested but not found.")
-    endif()
-else()
-    message(STATUS "MKL support is disabled.")
-endif()
-
 # === SMAX Support ===
 if(USE_SMAX)
     find_package(SmaxKernels REQUIRED)
     if(SmaxKernels_FOUND)
         message(STATUS "SMAX found, enabling SMAX support.")
-        target_link_libraries(basic_iterative_solvers PUBLIC SMAX::smaxkernels)
-        target_compile_definitions(basic_iterative_solvers PUBLIC USE_SMAX)
+        target_link_libraries(basic_iterative_solvers PRIVATE SMAX::smaxkernels)
+        target_compile_definitions(basic_iterative_solvers PRIVATE USE_SMAX)
     else()
         message(FATAL_ERROR "SMAX requested but not found.")
     endif()

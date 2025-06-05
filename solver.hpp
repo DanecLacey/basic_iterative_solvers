@@ -315,9 +315,9 @@ public:
 				SMAX_ARGS(this->smax, "residual_spmv"));
 
 			// Precondition the initial residual
-			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
-			apply_preconditioner(this->preconditioner_type, this->crs_mat_L, this->crs_mat_U, this->D, this->z_old, this->residual, this->tmp);
-			IF_DEBUG_MODE(SanityChecker::print_vector(this->z_old, this->crs_mat->n_cols, "residual after preconditioning"));
+			IF_DEBUG_MODE_FINE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
+			apply_preconditioner(this->preconditioner_type, this->crs_mat_L_strict, this->crs_mat_U_strict, this->D, this->z_old, this->residual, this->tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
+			IF_DEBUG_MODE_FINE(SanityChecker::print_vector(this->z_old, this->crs_mat->n_cols, "residual after preconditioning"));
 
 			// Make copies of initial residual for solver
 			copy_vector(this->p_old, this->z_old, this->crs_mat->n_cols);
@@ -395,6 +395,18 @@ public:
 		else if (solver_type == "conjugate-gradient"){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "tmp <- A*p_old", this->crs_mat, this->p_old, N, this->tmp, N);
+			if (preconditioner_type == "gauss-seidel") {
+				register_sptrsv(this->smax, "init M^{-1} * residual", this->crs_mat_L, this->z_old, N, this->residual, N);
+				register_sptrsv(this->smax, "M^{-1} * residual", this->crs_mat_L, this->z_new, N, this->residual_new, N);
+			} else if (preconditioner_type == "backwards-gauss-seidel") {
+				register_sptrsv(this->smax, "init M^{-1} * residual", this->crs_mat_U, this->z_old, N, this->residual, N, true);
+				register_sptrsv(this->smax, "M^{-1} * residual", this->crs_mat_U, this->z_new, N, this->residual_new, N, true);
+			} else if (preconditioner_type == "symmetric-gauss-seidel") {
+				register_sptrsv(this->smax, "init M^{-1} * residual_lower", this->crs_mat_L, this->tmp, N, this->residual, N);
+				register_sptrsv(this->smax, "init M^{-1} * residual_upper", this->crs_mat_U, this->z_old, N, this->tmp, N, true);
+				register_sptrsv(this->smax, "M^{-1} * residual_lower", this->crs_mat_L, this->tmp, N, this->residual_new, N);
+				register_sptrsv(this->smax, "M^{-1} * residual_upper", this->crs_mat_U, this->z_new, N, this->tmp, N, true);
+			}
 		}
 		else if (solver_type == "gmres"){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
@@ -432,7 +444,7 @@ public:
 			gs_separate_iteration(
 				timers,
 				this->crs_mat_U_strict,
-				this->crs_mat_L,
+				this->crs_mat_L_strict,
 				this->tmp,
 				this->D,
 				this->b,
@@ -444,7 +456,7 @@ public:
 			gs_separate_iteration(
 				timers, 
 				this->crs_mat_U_strict, 
-				this->crs_mat_L, 
+				this->crs_mat_L_strict, 
 				this->tmp, 
 				this->D, 
 				this->b, 
@@ -452,7 +464,7 @@ public:
 				SMAX_ARGS(this->smax));
 			bgs_separate_iteration(
 				timers, 
-				this->crs_mat_U, 
+				this->crs_mat_U_strict, 
 				this->crs_mat_L_strict, 
 				this->tmp, 
 				this->D, 
@@ -465,8 +477,8 @@ public:
 				timers,
 				this->preconditioner_type,
 				this->crs_mat,
-				this->crs_mat_L,
-				this->crs_mat_U,
+				this->crs_mat_L_strict,
+				this->crs_mat_U_strict,
 				this->D,
 				this->x_new,
 				this->x_old,
@@ -486,8 +498,8 @@ public:
 				timers,
 				this->preconditioner_type,
 				this->crs_mat,
-				this->crs_mat_L,
-				this->crs_mat_U,
+				this->crs_mat_L_strict,
+				this->crs_mat_U_strict,
 				this->D,
 				this->iter_count,
 				this->gmres_restart_count,
@@ -515,8 +527,8 @@ public:
 				timers,
 				this->preconditioner_type,
 				this->crs_mat,
-				this->crs_mat_L,
-				this->crs_mat_U,
+				this->crs_mat_L_strict,
+				this->crs_mat_U_strict,
 				this->D,
 				this->x_new,
 				this->x_old,
@@ -557,7 +569,6 @@ void exchange(){
 			std::swap(this->z_old, this->z_new);
 			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
 			std::swap(this->x_old, this->x_new);
-
 		}
 		else if (solver_type == "gmres"){
 			// Nothing to exchange
@@ -584,6 +595,20 @@ void exchange(){
 		else if(solver_type == "conjugate-gradient"){
 			auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("tmp <- A*p_old"));
 			spmv->args->x->val = static_cast<void *>(this->p_old);
+			if (preconditioner_type == "gauss-seidel" || preconditioner_type == "backwards-gauss-seidel") {
+				auto *sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual"));
+				sptrsv->args->x->val = static_cast<void *>(this->z_new);
+				sptrsv->args->y->val = static_cast<void *>(this->residual_new);
+			}
+			else if(preconditioner_type == "symmetric-gauss-seidel"){
+				auto *lower_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual_lower"));
+				lower_sptrsv->args->x->val = static_cast<void *>(this->tmp);
+				lower_sptrsv->args->y->val = static_cast<void *>(this->residual_new);\
+
+				auto *upper_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual_upper"));
+				upper_sptrsv->args->x->val = static_cast<void *>(this->z_new);
+				upper_sptrsv->args->y->val = static_cast<void *>(this->tmp);
+			}
 		}
 		else if (solver_type == "gmres"){
 			// Nothing to swap or copy

@@ -19,14 +19,14 @@ void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
         LIKWID_MARKER_START("spmv");
 #endif
 #pragma omp for schedule(static)
-        for (int row_idx = 0; row_idx < crs_mat->n_rows; ++row_idx) {
+        for (int row = 0; row < crs_mat->n_rows; ++row) {
             double tmp = 0.0;
 #pragma omp simd reduction(+ : tmp)
-            for (int nz_idx = crs_mat->row_ptr[row_idx];
-                 nz_idx < crs_mat->row_ptr[row_idx + 1]; ++nz_idx) {
+            for (int nz_idx = crs_mat->row_ptr[row];
+                 nz_idx < crs_mat->row_ptr[row + 1]; ++nz_idx) {
                 tmp += crs_mat->val[nz_idx] * x[crs_mat->col[nz_idx]];
             }
-            y[row_idx] = tmp;
+            y[row] = tmp;
         }
 #ifdef USE_LIKWID
         LIKWID_MARKER_STOP("spmv");
@@ -35,16 +35,9 @@ void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
 }
 
 void spmv(const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0,
-          Interface *smax = nullptr, const char *kernel_name = nullptr) {
-#ifdef USE_MKL
-    // TODO
-#elif USE_SMAX
-    // auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel
-    // *>(smax->kernel(kernel_name)); std::cout << "A col in spmv: " <<
-    // spmv->args->A->col << std::endl; std::cout << "x val in spmv: " <<
-    // spmv->args->x->val << std::endl; std::cout << "y val in spmv: " <<
-    // spmv->args->y->val << std::endl;
-    smax->kernel(kernel_name)->run(0, offset, 0);
+          Interface *smax = nullptr, const std::string kernel_name = "") {
+#if USE_SMAX
+    smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
     native_spmv(crs_mat, x, y);
 #endif
@@ -57,13 +50,17 @@ void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
 #endif
 
     double sum;
-    for (int row_idx = 0; row_idx < crs_mat_L->n_rows; ++row_idx) {
+    for (int row = 0; row < crs_mat_L->n_rows; ++row) {
         sum = 0.0;
-        for (int nz_idx = crs_mat_L->row_ptr[row_idx];
-             nz_idx < crs_mat_L->row_ptr[row_idx + 1] - 1; ++nz_idx) {
+        for (int nz_idx = crs_mat_L->row_ptr[row];
+             nz_idx < crs_mat_L->row_ptr[row + 1]; ++nz_idx) {
+            //  nz_idx < crs_mat_L->row_ptr[row + 1] - 1; ++nz_idx) {
             sum += crs_mat_L->val[nz_idx] * x[crs_mat_L->col[nz_idx]];
         }
-        x[row_idx] = (b[row_idx] - sum) / D[row_idx];
+        std::cout << (b[row] - sum) / D[row] << " = " << b[row] << " - " << sum
+                  << " / " << D[row] << std::endl;
+
+        x[row] = (b[row] - sum) / D[row];
     }
 
 #ifdef USE_LIKWID
@@ -73,11 +70,9 @@ void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
 
 void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
             const double *b, int offset = 0, Interface *smax = nullptr,
-            const char *kernel_name = nullptr) {
-#ifdef USE_MKL
-    // TODO: oneapi::mkl::sparse::trsv();
-#elif USE_SMAX
-    smax->kernel(kernel_name)->run(0, offset, 0);
+            const std::string kernel_name = "") {
+#ifdef USE_SMAX
+    smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
     native_sptrsv(crs_mat_L, x, D, b);
 #endif
@@ -88,13 +83,16 @@ void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
 #ifdef USE_LIKWID
     LIKWID_MARKER_START("bsptrsv");
 #endif
-    for (int row_idx = crs_mat_U->n_rows - 1; row_idx >= 0; --row_idx) {
+    for (int row = crs_mat_U->n_rows - 1; row >= 0; --row) {
         double sum = 0.0;
-        for (int nz_idx = crs_mat_U->row_ptr[row_idx];
-             nz_idx < crs_mat_U->row_ptr[row_idx + 1] - 1; ++nz_idx) {
+        for (int nz_idx = crs_mat_U->row_ptr[row];
+             nz_idx < crs_mat_U->row_ptr[row + 1]; ++nz_idx) {
             sum += crs_mat_U->val[nz_idx] * x[crs_mat_U->col[nz_idx]];
         }
-        x[row_idx] = (b[row_idx] - sum) / D[row_idx];
+
+        std::cout << (b[row] - sum) / D[row] << " = " << b[row] << " - " << sum
+                  << " / " << D[row] << std::endl;
+        x[row] = (b[row] - sum) / D[row];
     }
 #ifdef USE_LIKWID
     LIKWID_MARKER_STOP("bsptrsv");
@@ -103,11 +101,9 @@ void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
 
 void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
              const double *b, int offset = 0, Interface *smax = nullptr,
-             const char *kernel_name = nullptr) {
-#ifdef USE_MKL
-    // TODO: oneapi::mkl::sparse::trsv();
-#elif USE_SMAX
-    smax->kernel(kernel_name)->run(0, offset, 0);
+             const std::string kernel_name = "") {
+#if USE_SMAX
+    smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
     native_bsptrsv(crs_mat_U, x, D, b);
 #endif
@@ -151,7 +147,7 @@ void elemwise_div_vectors(double *result_vec, const double *vec1,
 void compute_residual(const MatrixCRS *crs_mat, const double *x,
                       const double *b, double *residual, double *tmp,
                       Interface *smax = nullptr,
-                      const char *kernel_name = nullptr) {
+                      const std::string kernel_name = "") {
 
     spmv(crs_mat, x, tmp SMAX_ARGS(0, smax, kernel_name));
     subtract_vectors(residual, b, tmp, crs_mat->n_cols);
@@ -239,17 +235,16 @@ void init_vector(double *vec, double val, long size) {
 
 void copy_dense_matrix(double *new_mat, const double *old_mat, const int n_rows,
                        const int n_cols) {
-    for (int row_idx = 0; row_idx < n_rows; ++row_idx) {
+    for (int row = 0; row < n_rows; ++row) {
         for (int col_idx = 0; col_idx < n_cols; ++col_idx) {
-            new_mat[n_cols * row_idx + col_idx] =
-                old_mat[n_cols * row_idx + col_idx];
+            new_mat[n_cols * row + col_idx] = old_mat[n_cols * row + col_idx];
         }
     }
 }
 
 void copy_vector(double *new_vec, const double *old_vec, const int n_rows) {
-    for (int row_idx = 0; row_idx < n_rows; ++row_idx) {
-        new_vec[row_idx] = old_vec[row_idx];
+    for (int row = 0; row < n_rows; ++row) {
+        new_vec[row] = old_vec[row];
     }
 }
 
@@ -307,41 +302,61 @@ void dgemv(const double *A, const double *x, double *y, int n_rows_A,
 
 // Computes z <- M^{-1}y
 void apply_preconditioner(const std::string preconditioner_type,
-                          const MatrixCRS *crs_mat_L,
-                          const MatrixCRS *crs_mat_U, double *D, double *vec,
-                          double *rhs, double *tmp) {
-    int N = crs_mat_L->n_cols;
+                          const MatrixCRS *crs_mat_L_strict,
+                          const MatrixCRS *crs_mat_U_strict, double *D,
+                          double *vec, double *rhs, double *tmp, int offset = 0,
+                          Interface *smax = nullptr,
+                          const std::string kernel_name = "") {
+    int N = crs_mat_L_strict->n_cols;
 
+    // clang-format off
     for (int i = 0; i < PRECOND_ITERS; ++i) {
         if (preconditioner_type == "jacobi") {
             elemwise_div_vectors(vec, rhs, D, N);
         } else if (preconditioner_type == "gauss-seidel") {
-            sptrsv(crs_mat_L, vec, D, rhs);
+
+            // auto *smax_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual"));
+
+            // SanityChecker::print_vector(static_cast<double *>(smax_sptrsv->args->x->val), N, "LHS");
+            // SanityChecker::print_vector(static_cast<double *>(smax_sptrsv->args->y->val), N, "RHS");
+            sptrsv(crs_mat_L_strict, vec, D, rhs SMAX_ARGS(0, smax, kernel_name));
+
         } else if (preconditioner_type == "backwards-gauss-seidel") {
-            bsptrsv(crs_mat_U, vec, D, rhs);
+            bsptrsv(crs_mat_U_strict, vec, D, rhs SMAX_ARGS(0, smax, kernel_name));
         } else if (preconditioner_type == "symmetric-gauss-seidel") {
             // tmp <- (L+D)^{-1}*r
-            sptrsv(crs_mat_L, tmp, D, rhs);
+            printf("lower triang solve\n");
+            IF_DEBUG_MODE(SanityChecker::print_vector(
+                tmp, N, "tmp before lower solve"));
+            sptrsv(crs_mat_L_strict, tmp, D, rhs SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
 
             // tmp <- D(L+D)^{-1}*r
+            IF_DEBUG_MODE(SanityChecker::print_vector(
+                tmp, N, "tmp before divide"));
             elemwise_mult_vectors(tmp, tmp, D, N);
 
             // z <- (L+U)^{-1}*tmp
-            bsptrsv(crs_mat_U, vec, D, tmp);
+            printf("upper triang solve\n");
+            IF_DEBUG_MODE(SanityChecker::print_vector(
+                tmp, N, "tmp before upper solve"));
+            bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         } else if (preconditioner_type == "ffbb-gauss-seidel") {
-            // TODO
-            sptrsv(crs_mat_L, tmp, D, rhs);
-            sptrsv(crs_mat_L, tmp, D, rhs);
+            printf("ffbb-gauss-seidel preconditioner not yet implemented.\n");
+            exit(EXIT_FAILURE);
+            // // TODO
+            // sptrsv(crs_mat_L, tmp, D, rhs);
+            // sptrsv(crs_mat_L, tmp, D, rhs);
 
-            elemwise_mult_vectors(tmp, tmp, D, N);
-            elemwise_mult_vectors(tmp, tmp, D, N);
+            // elemwise_mult_vectors(tmp, tmp, D, N);
+            // elemwise_mult_vectors(tmp, tmp, D, N);
 
-            bsptrsv(crs_mat_U, vec, D, tmp);
-            bsptrsv(crs_mat_U, vec, D, tmp);
+            // bsptrsv(crs_mat_U, vec, D, tmp);
+            // bsptrsv(crs_mat_U, vec, D, tmp);
         } else {
             copy_vector(vec, rhs, N);
         }
     }
+    // clang-format on
 }
 
 #endif
