@@ -19,8 +19,9 @@ void bicgstab_separate_iteration(
         residual_old, residual_0, v, h, s, t, rho_new, rho_old, "before"))
 
     // y <- M^{-1}p_old
-    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
-                                               crs_mat_U, D, y, p_old, tmp))
+    TIME(timers->precond,
+         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, y, p_old,
+                              tmp SMAX_ARGS(0, smax, "M^{-1} * p_old")))
 
     // v <- A*y
     TIME(timers->spmv, spmv(crs_mat, y, v SMAX_ARGS(0, smax, "v <- A*y")))
@@ -35,8 +36,9 @@ void bicgstab_separate_iteration(
     TIME(timers->sum, subtract_vectors(s, residual_old, v, N, alpha))
 
     // s_tmp <- M^{-1}s
-    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
-                                               crs_mat_U, D, s_tmp, s, tmp))
+    TIME(timers->precond,
+         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, s_tmp, s,
+                              tmp SMAX_ARGS(0, smax, "M^{-1} * s")))
 
     // z <- A*s_tmp
     TIME(timers->spmv,
@@ -140,8 +142,17 @@ class BiCGSTABSolver : public Solver {
     }
 
     void init_residual() override {
-        compute_residual(crs_mat, x_old, b, residual,
+        compute_residual(crs_mat, x_old, b, residual_old,
                          tmp SMAX_ARGS(smax, "residual_spmv"));
+
+        // Precondition the initial residual
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
+            residual_old, crs_mat->n_cols, "residual before preconditioning"));
+        apply_preconditioner(preconditioner, crs_mat_L_strict, crs_mat_U_strict,
+                             D, residual, residual_old,
+                             tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
+            residual, crs_mat->n_cols, "residual after preconditioning"));
 
         // Make copies of initial residual for solver
         copy_vector(p_old, residual, crs_mat->n_cols);
@@ -160,11 +171,36 @@ class BiCGSTABSolver : public Solver {
         std::swap(residual, residual_new);
     }
 
+    // clang-format off
     void exchange() override {
         std::swap(p_old, p_new);
         std::swap(residual_old, residual); // <- swapped r and r_new earlier
         std::swap(x_old, x_new);
         std::swap(rho_old, rho_new);
+#ifdef USE_SMAX
+        if (preconditioner == PrecondType::GaussSeidel ||
+            preconditioner == PrecondType::BackwardsGaussSeidel) {
+            auto *sptrsv1 = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * p_old"));
+            sptrsv1->args->x->val = static_cast<void *>(y);
+            sptrsv1->args->y->val = static_cast<void *>(p_old);
+            auto *sptrsv2 = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * s"));
+            sptrsv2->args->x->val = static_cast<void *>(s_tmp);
+            sptrsv2->args->y->val = static_cast<void *>(s);
+        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+            auto *sptrsv1_lower = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * p_old_lower"));
+            sptrsv1_lower->args->x->val = static_cast<void *>(tmp);
+            sptrsv1_lower->args->y->val = static_cast<void *>(p_old);
+            auto *sptrsv1_upper = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * p_old_upper"));
+            sptrsv1_upper->args->x->val = static_cast<void *>(y);
+            sptrsv1_upper->args->y->val = static_cast<void *>(tmp);
+            auto *sptrsv2_lower = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * s_lower"));
+            sptrsv2_lower->args->x->val = static_cast<void *>(tmp);
+            sptrsv2_lower->args->y->val = static_cast<void *>(s);
+            auto *sptrsv2_upper = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * s_upper"));
+            sptrsv2_upper->args->x->val = static_cast<void *>(s_tmp);
+            sptrsv2_upper->args->y->val = static_cast<void *>(tmp);
+        }
+#endif
     }
 
     void save_x_star() override {
@@ -183,8 +219,25 @@ class BiCGSTABSolver : public Solver {
         register_spmv(smax, "residual_spmv", crs_mat, x_old, N, tmp, N);
         register_spmv(smax, "v <- A*y", crs_mat, y, N, v, N);
         register_spmv(smax, "z <- A*s_tmp", crs_mat, s_tmp, N, z, N);
+        if (preconditioner == PrecondType::GaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L, residual, N, residual_old, N);
+            register_sptrsv(smax, "M^{-1} * p_old", crs_mat_L, y, N, p_old, N);
+            register_sptrsv(smax, "M^{-1} * s", crs_mat_L, s_tmp, N, s, N);
+        } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U, residual, N, residual_old, N, true);
+            register_sptrsv(smax, "M^{-1} * p_old", crs_mat_U, y, N, p_old, N, true);
+            register_sptrsv(smax, "M^{-1} * s", crs_mat_U, s_tmp, N, s, N, true);
+        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L, tmp, N, residual_old, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U, residual, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * p_old_lower", crs_mat_L, tmp, N, p_old, N);
+            register_sptrsv(smax, "M^{-1} * p_old_upper", crs_mat_U, y, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * s_lower", crs_mat_L, tmp, N, s, N);
+            register_sptrsv(smax, "M^{-1} * s_upper", crs_mat_U, s_tmp, N, tmp, N, true);
+        }
     }
 #endif
+    // clang-format on
 
     ~BiCGSTABSolver() override {
         delete[] x_new;

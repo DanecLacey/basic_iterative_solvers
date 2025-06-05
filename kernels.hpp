@@ -318,18 +318,15 @@ void apply_preconditioner(const PrecondType preconditioner,
             bsptrsv(crs_mat_U_strict, vec, D, rhs SMAX_ARGS(0, smax, kernel_name));
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
             // tmp <- (L+D)^{-1}*r
-            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
-                tmp, N, "tmp before lower solve"));
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before lower solve"));
             sptrsv(crs_mat_L_strict, tmp, D, rhs SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
 
             // tmp <- D(L+D)^{-1}*r
-            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
-                tmp, N, "tmp before divide"));
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before divide"));
             elemwise_mult_vectors(tmp, tmp, D, N);
 
             // z <- (L+U)^{-1}*tmp
-            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
-                tmp, N, "tmp before upper solve"));
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         } else {
             copy_vector(vec, rhs, N);

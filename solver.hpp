@@ -153,11 +153,11 @@ class Solver {
         bool divergence = residual_norm > DBL_MAX;
         IF_DEBUG_MODE_FINE(
 			if (norm_convergence)
-            	printf("norm convergence met: %f < %f\n", residual_norm, stopping_criteria)
+            	printf("norm convergence met: %f < %f\n", residual_norm, stopping_criteria);
 			if (over_max_iters)
-				printf("over max iters: %i >= %i\n", iter_count, max_iters)
+				printf("over max iters: %i >= %i\n", iter_count, max_iters);
 			if (divergence)
-				printf("divergence\n")
+				printf("divergence\n");
 		)
         return norm_convergence || over_max_iters || divergence;
     }

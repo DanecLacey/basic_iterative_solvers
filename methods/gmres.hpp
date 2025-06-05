@@ -71,24 +71,21 @@ void least_squares(Timers *timers, int N, int n_solver_iters, int restart_len,
     IF_DEBUG_MODE_FINE(SanityChecker::print_dense_mat<double>(
         H_tmp, (restart_len + 1), restart_len, "H_tmp_new"))
 
+    // clang-format off
     // Form Givens rotation matrix for next iteration
     double J_denom = std::sqrt(
         std::pow(H_tmp[(n_solver_iters * restart_len) + n_solver_iters], 2) +
-        std::pow(H_tmp[(n_solver_iters + 1) * restart_len + n_solver_iters],
-                 2));
+        std::pow(H_tmp[(n_solver_iters + 1) * restart_len + n_solver_iters],2)
+    );
 
     double c_i = H_tmp[n_solver_iters * restart_len + n_solver_iters] / J_denom;
-    double s_i =
-        H_tmp[((n_solver_iters + 1) * restart_len) + n_solver_iters] / J_denom;
+    double s_i = H_tmp[((n_solver_iters + 1) * restart_len) + n_solver_iters] / J_denom;
 
-    J[n_solver_iters * (restart_len + 1) + n_solver_iters] =
-        c_i; // J[0][0] locally
-    J[n_solver_iters * (restart_len + 1) + (n_solver_iters + 1)] =
-        s_i; // J[0][1] locally
-    J[(n_solver_iters + 1) * (restart_len + 1) + n_solver_iters] =
-        -1.0 * s_i; // J[1][0] locally
-    J[(n_solver_iters + 1) * (restart_len + 1) + (n_solver_iters + 1)] =
-        c_i; // J[1][1] locally
+    J[n_solver_iters * (restart_len + 1) + n_solver_iters] = c_i; // J[0][0] locally
+    J[n_solver_iters * (restart_len + 1) + (n_solver_iters + 1)] = s_i; // J[0][1] locally
+    J[(n_solver_iters + 1) * (restart_len + 1) + n_solver_iters] = -1.0 * s_i; // J[1][0] locally
+    J[(n_solver_iters + 1) * (restart_len + 1) + (n_solver_iters + 1)] = c_i; // J[1][1] locally
+    // clang-format on
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_dense_mat<double>(
         J, (restart_len + 1), (restart_len + 1), "J"))
@@ -165,8 +162,9 @@ void gmres_separate_iteration(
               w SMAX_ARGS(n_solver_iters * N, smax, "w_j <- A*v_j")))
 
     // w_j <- M^{-1}w_j
-    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
-                                               crs_mat_U, D, w, w, tmp))
+    TIME(timers->precond,
+         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, w, w,
+                              tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 
@@ -215,7 +213,7 @@ class GMRESSolver : public Solver {
         J = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
         Q = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
         Q_tmp = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
-        w = new double[crs_mat->n_cols]; // NOTE: Currently not used
+        w = new double[crs_mat->n_cols];
         R = new double[gmres_restart_len * (gmres_restart_len + 1)];
         g = new double[gmres_restart_len + 1];
         g_tmp = new double[gmres_restart_len + 1];
@@ -241,7 +239,7 @@ class GMRESSolver : public Solver {
 
         // TODO: Is there a better way to do this?
         init_vector(Vy, 0.0, crs_mat->n_cols);
-        init_vector(w, 0.0, crs_mat->n_cols); // NOTE: Currently not used
+        init_vector(w, 0.0, crs_mat->n_cols);
         init_vector(y, 0.0, gmres_restart_len);
         init_vector(g, 0.0, (gmres_restart_len + 1));
         init_vector(g_tmp, 0.0, (gmres_restart_len + 1));
@@ -265,8 +263,9 @@ class GMRESSolver : public Solver {
         // Precondition the initial residual
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual before preconditioning"));
-        apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, residual,
-                             residual, tmp);
+        apply_preconditioner(preconditioner, crs_mat_L_strict, crs_mat_U_strict,
+                             D, residual, residual,
+                             tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
 
@@ -295,13 +294,8 @@ class GMRESSolver : public Solver {
         gmres_separate_iteration(
             timers, preconditioner, crs_mat, crs_mat_L_strict, crs_mat_U_strict,
             D, iter_count, gmres_restart_count, gmres_restart_len,
-            residual_norm, V, H, H_tmp, J, Q, Q_tmp,
-            tmp, // TODO: Should this be a fresh w?
-            R, g, g_tmp, b, x, tmp, beta SMAX_ARGS(smax));
-    }
-
-    void exchange() override {
-        // Nothing to swap for GMRES
+            residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g, g_tmp, b, x, tmp,
+            beta SMAX_ARGS(smax));
     }
 
     void get_explicit_x() override {
@@ -373,7 +367,8 @@ class GMRESSolver : public Solver {
         // NOTE: Only relevant for GMRES, so we don't worry about other solvers
         bool norm_convergence = residual_norm < stopping_criteria;
         bool over_max_iters = iter_count > max_iters;
-        bool restart_cycle_reached = (iter_count) % (gmres_restart_len) == 0;
+        bool restart_cycle_reached =
+            ((iter_count) % (gmres_restart_len) == 0) && (iter_count != 0);
         if (!norm_convergence && !over_max_iters && restart_cycle_reached) {
             gmres_restarted = true;
 
@@ -394,14 +389,32 @@ class GMRESSolver : public Solver {
         }
     }
 
+    // clang-format off
+
+    void exchange() override {
+        // Nothing to exchange here
+    }
+
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
         register_spmv(smax, "residual_spmv", crs_mat, x, N, tmp, N);
-        register_spmv(smax, "w_j <- A*v_j", crs_mat, V,
-                      N * (gmres_restart_len + 1), tmp, N);
+        register_spmv(smax, "w_j <- A*v_j", crs_mat, V, N * (gmres_restart_len + 1), w, N);
+        if (preconditioner == PrecondType::GaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L, residual, N, residual, N);
+            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_L, w, N, w, N);
+        } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U, residual, N, residual, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_U, w, N, w, N, true);
+        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L, tmp, N, residual, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U, residual, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L, tmp, N, w, N);
+            register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U, w, N, tmp, N, true);
+        }
     }
 #endif
+    // clang-format on
 
     ~GMRESSolver() override {
         delete[] x;
