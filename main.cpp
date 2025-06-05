@@ -3,15 +3,45 @@
 #endif
 
 #include "common.hpp"
+#include "methods/bicgstab.hpp"
+#include "methods/cg.hpp"
+#include "methods/gauss_seidel.hpp"
+#include "methods/gmres.hpp"
+#include "methods/jacobi.hpp"
 #include "postprocessing.hpp"
 #include "preprocessing.hpp"
 #include "solver_harness.hpp"
+
 #include "utilities/utilities.hpp"
 
 void run(Args *cli_args, Timers *timers) {
 
     // Declare solver object
-    Solver *solver = new Solver(cli_args);
+    Solver *solver;
+
+    switch (cli_args->method) {
+    case SolverType::Jacobi:
+        solver = new JacobiSolver(cli_args);
+        break;
+    case SolverType::GaussSeidel:
+        solver = new GaussSeidelSolver(cli_args);
+        break;
+    case SolverType::SymmetricGaussSeidel:
+        solver = new SymmetricGaussSeidelSolver(cli_args);
+        break;
+    case SolverType::ConjugateGradient:
+        solver = new ConjugateGradientSolver(cli_args);
+        break;
+    case SolverType::GMRES:
+        solver = new GMRESSolver(cli_args);
+        break;
+    case SolverType::BiCGSTAB:
+        solver = new BiCGSTABSolver(cli_args);
+        break;
+    default:
+        std::cerr << "Error: Unknown or unsupported solver type.\n";
+        exit(EXIT_FAILURE);
+    }
 
     // Read in matrix from .mtx file, and allocate needed structs
     TIME(timers->preprocessing, preprocessing(cli_args, solver, timers))

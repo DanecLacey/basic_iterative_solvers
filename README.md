@@ -33,7 +33,6 @@ make
   * Integration with [SmaxKernels library](https://github.com/DanecLacey/SmaxKernels) for optimized sparse kernel implementations
 
 ### Supported Solvers ###
-* **Richardson** `-r`
 * **Jacobi** `-j`
 * (Forward/Symmetric)**Gauss-Seidel** `-gs / -sgs`
 * (Preconditioned) **Conjugate-Gradient** `-cg`

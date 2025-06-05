@@ -33,7 +33,6 @@ enum class PrecondType {
 };
 
 enum class SolverType {
-    Richardson,
     Jacobi,
     GaussSeidel,
     SymmetricGaussSeidel,
@@ -66,8 +65,6 @@ template <> inline std::string to_string(PrecondType type) {
 // SolverType specialization
 template <> inline std::string to_string(SolverType type) {
     switch (type) {
-    case SolverType::Richardson:
-        return "richardson";
     case SolverType::Jacobi:
         return "jacobi";
     case SolverType::GaussSeidel:

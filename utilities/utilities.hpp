@@ -19,9 +19,7 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
 
         std::string st = argv[2];
 
-        if (st == "-r") {
-            cli_args->method = SolverType::Richardson;
-        } else if (st == "-j") {
+        if (st == "-j") {
             cli_args->method = SolverType::Jacobi;
         } else if (st == "-gs") {
             cli_args->method = SolverType::GaussSeidel;
@@ -35,7 +33,6 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
             cli_args->method = SolverType::BiCGSTAB;
         } else {
             printf("ERROR: parse_cli: Please choose an available solver:"
-                   "\n-r (Richardson)"
                    "\n-j (Jacobi)"
                    "\n-gs (Gauss-Seidel)"
                    "\n-sgs (Symmetric Gauss-Seidel)"
@@ -175,11 +172,7 @@ void print_timers(Args *cli_args, Timers *timers) {
 		std::cout << spmv_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Precond. time: " << std::right << std::setw(right_flush_width);
 		std::cout << precond_time  << "[s]" << std::endl;
-		if(cli_args->method == SolverType::Richardson){
-			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
-			std::cout << sum_time  << "[s]" << std::endl;
-		}
-		else if(cli_args->method == SolverType::Jacobi){
+        if(cli_args->method == SolverType::Jacobi){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
 			std::cout << normalize_time  << "[s]" << std::endl;
 		}
