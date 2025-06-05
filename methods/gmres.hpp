@@ -144,13 +144,12 @@ void update_g(Timers *timers, int N, int n_solver_iters, int restart_len,
 }
 
 void gmres_separate_iteration(
-    Timers *timers, const std::string preconditioner_type,
-    const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
-    const MatrixCRS *crs_mat_U, double *D, int n_solver_iters,
-    const int restart_count, const int restart_len, double &residual_norm,
-    double *V, double *H, double *H_tmp, double *J, double *Q, double *Q_tmp,
-    double *w, double *R, double *g, double *g_tmp, double *b, double *x,
-    double *tmp, double beta, Interface *smax = nullptr) {
+    Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
+    const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
+    int n_solver_iters, const int restart_count, const int restart_len,
+    double &residual_norm, double *V, double *H, double *H_tmp, double *J,
+    double *Q, double *Q_tmp, double *w, double *R, double *g, double *g_tmp,
+    double *b, double *x, double *tmp, double beta, Interface *smax = nullptr) {
     /* NOTES:
             - The orthonormal vectors in V are stored as row vectors
     */
@@ -166,7 +165,7 @@ void gmres_separate_iteration(
               w SMAX_ARGS(n_solver_iters * N, smax, "w_j <- A*v_j")))
 
     // w_j <- M^{-1}w_j
-    TIME(timers->precond, apply_preconditioner(preconditioner_type, crs_mat_L,
+    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
                                                crs_mat_U, D, w, w, tmp))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))

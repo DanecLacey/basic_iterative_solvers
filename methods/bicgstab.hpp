@@ -6,13 +6,12 @@
 
 // https://jiechenjiechen.github.io/pub/fbcgs.pdf
 void bicgstab_separate_iteration(
-    Timers *timers, const std::string preconditioner_type,
-    const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
-    const MatrixCRS *crs_mat_U, double *D, double *x_new, double *x_old,
-    double *tmp, double *p_new, double *p_old, double *residual_new,
-    double *residual_old, double *residual_0, double *v, double *h, double *s,
-    double *s_tmp, double *t, double *t_tmp, double *y, double *z,
-    double &rho_new, double rho_old, Interface *smax = nullptr) {
+    Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
+    const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
+    double *x_new, double *x_old, double *tmp, double *p_new, double *p_old,
+    double *residual_new, double *residual_old, double *residual_0, double *v,
+    double *h, double *s, double *s_tmp, double *t, double *t_tmp, double *y,
+    double *z, double &rho_new, double rho_old, Interface *smax = nullptr) {
 
     int N = crs_mat->n_cols;
 
@@ -21,7 +20,7 @@ void bicgstab_separate_iteration(
         residual_old, residual_0, v, h, s, t, rho_new, rho_old, "before"))
 
     // y <- M^{-1}p_old
-    TIME(timers->precond, apply_preconditioner(preconditioner_type, crs_mat_L,
+    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
                                                crs_mat_U, D, y, p_old, tmp))
 
     // v <- A*y
@@ -37,7 +36,7 @@ void bicgstab_separate_iteration(
     TIME(timers->sum, subtract_vectors(s, residual_old, v, N, alpha))
 
     // s_tmp <- M^{-1}s
-    TIME(timers->precond, apply_preconditioner(preconditioner_type, crs_mat_L,
+    TIME(timers->precond, apply_preconditioner(preconditioner, crs_mat_L,
                                                crs_mat_U, D, s_tmp, s, tmp))
 
     // z <- A*s_tmp

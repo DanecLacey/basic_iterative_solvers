@@ -52,13 +52,12 @@ void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
     double sum;
     for (int row = 0; row < crs_mat_L->n_rows; ++row) {
         sum = 0.0;
-        for (int nz_idx = crs_mat_L->row_ptr[row];
-             nz_idx < crs_mat_L->row_ptr[row + 1]; ++nz_idx) {
-            //  nz_idx < crs_mat_L->row_ptr[row + 1] - 1; ++nz_idx) {
+        int row_start = crs_mat_L->row_ptr[row];
+        int row_stop = crs_mat_L->row_ptr[row + 1];
+
+        for (int nz_idx = row_start; nz_idx < row_stop; ++nz_idx) {
             sum += crs_mat_L->val[nz_idx] * x[crs_mat_L->col[nz_idx]];
         }
-        std::cout << (b[row] - sum) / D[row] << " = " << b[row] << " - " << sum
-                  << " / " << D[row] << std::endl;
 
         x[row] = (b[row] - sum) / D[row];
     }
@@ -81,21 +80,21 @@ void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
 void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
                     const double *b) {
 #ifdef USE_LIKWID
-    LIKWID_MARKER_START("bsptrsv");
+    LIKWID_MARKER_START("backwards-sptrsv");
 #endif
     for (int row = crs_mat_U->n_rows - 1; row >= 0; --row) {
         double sum = 0.0;
-        for (int nz_idx = crs_mat_U->row_ptr[row];
-             nz_idx < crs_mat_U->row_ptr[row + 1]; ++nz_idx) {
+        int row_start = crs_mat_U->row_ptr[row];
+        int row_stop = crs_mat_U->row_ptr[row + 1];
+
+        for (int nz_idx = row_start; nz_idx < row_stop; ++nz_idx) {
             sum += crs_mat_U->val[nz_idx] * x[crs_mat_U->col[nz_idx]];
         }
 
-        std::cout << (b[row] - sum) / D[row] << " = " << b[row] << " - " << sum
-                  << " / " << D[row] << std::endl;
         x[row] = (b[row] - sum) / D[row];
     }
 #ifdef USE_LIKWID
-    LIKWID_MARKER_STOP("bsptrsv");
+    LIKWID_MARKER_STOP("backwards-sptrsv");
 #endif
 }
 
@@ -301,7 +300,7 @@ void dgemv(const double *A, const double *x, double *y, int n_rows_A,
 }
 
 // Computes z <- M^{-1}y
-void apply_preconditioner(const std::string preconditioner_type,
+void apply_preconditioner(const PrecondType preconditioner,
                           const MatrixCRS *crs_mat_L_strict,
                           const MatrixCRS *crs_mat_U_strict, double *D,
                           double *vec, double *rhs, double *tmp, int offset = 0,
@@ -311,47 +310,27 @@ void apply_preconditioner(const std::string preconditioner_type,
 
     // clang-format off
     for (int i = 0; i < PRECOND_ITERS; ++i) {
-        if (preconditioner_type == "jacobi") {
+        if (preconditioner == PrecondType::Jacobi) {
             elemwise_div_vectors(vec, rhs, D, N);
-        } else if (preconditioner_type == "gauss-seidel") {
-
-            // auto *smax_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual"));
-
-            // SanityChecker::print_vector(static_cast<double *>(smax_sptrsv->args->x->val), N, "LHS");
-            // SanityChecker::print_vector(static_cast<double *>(smax_sptrsv->args->y->val), N, "RHS");
+        } else if (preconditioner == PrecondType::GaussSeidel) {
             sptrsv(crs_mat_L_strict, vec, D, rhs SMAX_ARGS(0, smax, kernel_name));
-
-        } else if (preconditioner_type == "backwards-gauss-seidel") {
+        } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
             bsptrsv(crs_mat_U_strict, vec, D, rhs SMAX_ARGS(0, smax, kernel_name));
-        } else if (preconditioner_type == "symmetric-gauss-seidel") {
+        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
             // tmp <- (L+D)^{-1}*r
-            printf("lower triang solve\n");
-            IF_DEBUG_MODE(SanityChecker::print_vector(
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
                 tmp, N, "tmp before lower solve"));
             sptrsv(crs_mat_L_strict, tmp, D, rhs SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
 
             // tmp <- D(L+D)^{-1}*r
-            IF_DEBUG_MODE(SanityChecker::print_vector(
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
                 tmp, N, "tmp before divide"));
             elemwise_mult_vectors(tmp, tmp, D, N);
 
             // z <- (L+U)^{-1}*tmp
-            printf("upper triang solve\n");
-            IF_DEBUG_MODE(SanityChecker::print_vector(
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
                 tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
-        } else if (preconditioner_type == "ffbb-gauss-seidel") {
-            printf("ffbb-gauss-seidel preconditioner not yet implemented.\n");
-            exit(EXIT_FAILURE);
-            // // TODO
-            // sptrsv(crs_mat_L, tmp, D, rhs);
-            // sptrsv(crs_mat_L, tmp, D, rhs);
-
-            // elemwise_mult_vectors(tmp, tmp, D, N);
-            // elemwise_mult_vectors(tmp, tmp, D, N);
-
-            // bsptrsv(crs_mat_U, vec, D, tmp);
-            // bsptrsv(crs_mat_U, vec, D, tmp);
         } else {
             copy_vector(vec, rhs, N);
         }

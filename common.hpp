@@ -24,6 +24,73 @@ using Interface = void *;
 #define ALIGNMENT 64
 #endif
 
+enum class PrecondType {
+    None,
+    Jacobi,
+    GaussSeidel,
+    BackwardsGaussSeidel,
+    SymmetricGaussSeidel
+};
+
+enum class SolverType {
+    Richardson,
+    Jacobi,
+    GaussSeidel,
+    SymmetricGaussSeidel,
+    GMRES,
+    ConjugateGradient,
+    BiCGSTAB
+};
+
+// Primary template (undefined to cause a compile error if not specialized)
+template <typename EnumType> std::string to_string(EnumType);
+
+// PrecondType specialization
+template <> inline std::string to_string(PrecondType type) {
+    switch (type) {
+    case PrecondType::Jacobi:
+        return "jacobi";
+    case PrecondType::GaussSeidel:
+        return "gauss-seidel";
+    case PrecondType::BackwardsGaussSeidel:
+        return "backwards-gauss-seidel";
+    case PrecondType::SymmetricGaussSeidel:
+        return "symmetric-gauss-seidel";
+    case PrecondType::None:
+        return "none";
+    default:
+        return "unknown";
+    }
+}
+
+// SolverType specialization
+template <> inline std::string to_string(SolverType type) {
+    switch (type) {
+    case SolverType::Richardson:
+        return "richardson";
+    case SolverType::Jacobi:
+        return "jacobi";
+    case SolverType::GaussSeidel:
+        return "gauss-seidel";
+    case SolverType::SymmetricGaussSeidel:
+        return "symmetric-gauss-seidel";
+    case SolverType::GMRES:
+        return "gmres";
+    case SolverType::ConjugateGradient:
+        return "conjugate-gradient";
+    case SolverType::BiCGSTAB:
+        return "bicgstab";
+    default:
+        return "unknown";
+    }
+}
+
+struct Args {
+    std::string matrix_file_name;
+    SolverType method;
+    PrecondType preconditioner;
+};
+
 void *aligned_malloc(size_t bytesize) {
     int errorCode;
     void *ptr;
@@ -193,13 +260,6 @@ struct Timers {
         delete save_x_star_time;
         delete postprocessing_time;
     }
-};
-
-struct Args {
-    std::string matrix_file_name{};
-    std::string solver_type{};
-    std::string preconditioner_type{};
-    std::unordered_map<std::string, std::string> exp_kernels{};
 };
 
 class SanityChecker {

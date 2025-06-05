@@ -42,7 +42,7 @@ make
 
 ### Supported Preconditioners ###
 * **Jacobi** `-p j`
-* (Forward/Backward/Symmetric/FFBB) **Gauss-Seidel** `-p (gs/bgs/sgs/ffbbgs)`
+* (Forward/Backward/Symmetric) **Gauss-Seidel** `-p (gs/bgs/sgs)`
 
 ### Notes ###
 * The sparse matrix storage format of `A` is **CRS**.

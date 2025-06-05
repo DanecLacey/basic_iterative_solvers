@@ -26,8 +26,8 @@ public:
 	MatrixCRS *crs_mat_L_strict;
 	MatrixCRS *crs_mat_U;
 	MatrixCRS *crs_mat_U_strict;
-	std::string solver_type;
-	std::string preconditioner_type;
+	SolverType method;
+	PrecondType preconditioner = PrecondType::None;
 #ifdef USE_SMAX
     SMAX::Interface *smax;
 #endif
@@ -94,8 +94,8 @@ public:
 	double *time_per_iteration;
 
 	Solver(Args *_cli_args) : cli_args(_cli_args) {
-		solver_type = cli_args->solver_type;
-		preconditioner_type = cli_args->preconditioner_type;
+		method = cli_args->method;
+		preconditioner = cli_args->preconditioner;
 
 		collected_residual_norms = new double[this->max_iters];
 		time_per_iteration = new double[this->max_iters];
@@ -129,18 +129,18 @@ public:
 		D =          new double [this->crs_mat->n_cols];
 
 		// Solver-specific structs
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			x_new = new double [this->crs_mat->n_cols];
 			x_old = new double [this->crs_mat->n_cols];
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			x_new = new double [this->crs_mat->n_cols];
 			x_old = new double [this->crs_mat->n_cols];
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			x = new double [this->crs_mat->n_cols];
 		}
-		else if (solver_type == "conjugate-gradient"){
+		else if (method == SolverType::ConjugateGradient){
 			x_new = new double [this->crs_mat->n_cols];
 			x_old = new double [this->crs_mat->n_cols];
 			p_new = new double [this->crs_mat->n_cols];
@@ -150,7 +150,7 @@ public:
 			z_new = new double [this->crs_mat->n_cols];
 			z_old = new double [this->crs_mat->n_cols];
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			x =      new double [this->crs_mat->n_cols];
 			x_old =  new double [this->crs_mat->n_cols];
 			V =      new double [this->crs_mat->n_cols * (this->gmres_restart_len + 1)];
@@ -166,7 +166,7 @@ public:
 			g =      new double [this->gmres_restart_len + 1];
 			g_tmp =  new double [this->gmres_restart_len + 1];
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			x_new = new double [this->crs_mat->n_cols];
 			x_old = new double [this->crs_mat->n_cols];
 			p_new = new double [this->crs_mat->n_cols];
@@ -204,7 +204,7 @@ public:
 		}
 
 		// Solver-specific structs
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x_new[i] = 0.0;
@@ -214,20 +214,20 @@ public:
 			this->alpha = 1.0 / infty_mat_norm(this->crs_mat);
 			IF_DEBUG_MODE(printf("||A||_\\infty = %f\n", infty_mat_norm(this->crs_mat)))
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x_new[i] = 0.0;
 				x_old[i] = x_0[i];
 			}
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){	
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){	
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x[i] = x_0[i];
 			}
 		}
-		else if (solver_type == "conjugate-gradient"){
+		else if (method == SolverType::ConjugateGradient){
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x_new[i] = 0.0;
@@ -240,7 +240,7 @@ public:
 				z_old[i] = 0.0;
 			}
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			// NOTE: We only want to copy x <- x_0 on the first invocation of this routine.
 			// All other invocations will be due to resets, in which case the approximate x vector
 			// will be explicity computed.
@@ -275,7 +275,7 @@ public:
 			init_dense_identity_matrix(Q, (this->gmres_restart_len + 1), (this->gmres_restart_len + 1));
 			init_dense_identity_matrix(Q_tmp, (this->gmres_restart_len + 1), (this->gmres_restart_len + 1));
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			#pragma omp parallel for
 			for(int i = 0; i < this->crs_mat->n_cols; ++i){
 				x_new[i] = 0.0;
@@ -295,28 +295,28 @@ public:
 	}
 
 	void init_residual(){
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if(solver_type == "conjugate-gradient"){
+		else if(method == SolverType::ConjugateGradient){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 
 			// Precondition the initial residual
 			IF_DEBUG_MODE_FINE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
-			apply_preconditioner(this->preconditioner_type, this->crs_mat_L_strict, this->crs_mat_U_strict, this->D, this->z_old, this->residual, this->tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
+			apply_preconditioner(this->preconditioner, this->crs_mat_L_strict, this->crs_mat_U_strict, this->D, this->z_old, this->residual, this->tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
 			IF_DEBUG_MODE_FINE(SanityChecker::print_vector(this->z_old, this->crs_mat->n_cols, "residual after preconditioning"));
 
 			// Make copies of initial residual for solver
@@ -324,14 +324,14 @@ public:
 			copy_vector(this->residual_old, this->residual, this->crs_mat->n_cols);
 			this->residual_norm = infty_vec_norm(this->z_old, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x1"));
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 
 			// Precondition the initial residual
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual before preconditioning"));
-			apply_preconditioner(this->preconditioner_type, this->crs_mat_L, this->crs_mat_U, this->D, this->residual, this->residual, this->tmp);
+			apply_preconditioner(this->preconditioner, this->crs_mat_L, this->crs_mat_U, this->D, this->residual, this->residual, this->tmp);
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->residual, this->crs_mat->n_cols, "residual after preconditioning"));
 
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->x, this->crs_mat->n_cols, "old_x2"));
@@ -348,7 +348,7 @@ public:
 			IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", this->residual_norm))
 			IF_DEBUG_MODE(SanityChecker::print_vector(this->V, this->crs_mat->n_cols, "init_v"));
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			compute_residual(this->crs_mat, this->x_old, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 
@@ -372,47 +372,47 @@ public:
 		int N = this->crs_mat->n_rows;
 
 		// Register kernel tag, platform, and metadata
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "update_residual", this->crs_mat, this->x_new, N, this->tmp, N);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "x_new <- A*x_old", this->crs_mat, this->x_old, N, this->x_new, N);
 		}
-		else if (solver_type == "gauss-seidel"){	
+		else if (method == SolverType::GaussSeidel){	
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
 			register_spmv(this->smax, "tmp <- U*x", this->crs_mat_U_strict, this->x, N, this->tmp, N);
 			register_sptrsv(this->smax, "solve x <- (D+L)^{-1}(b-Ux)", this->crs_mat_L, this->x, N, this->tmp, N);
 		}
-		else if (solver_type == "symmetric-gauss-seidel"){	
+		else if (method == SolverType::SymmetricGaussSeidel){	
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
 			register_spmv(this->smax, "tmp <- U*x", this->crs_mat_U_strict, this->x, N, this->tmp, N);
 			register_sptrsv(this->smax, "solve x <- (D+L)^{-1}(b-Ux)", this->crs_mat_L, this->x, N, this->tmp, N);
 			register_spmv(this->smax, "tmp <- L*x", this->crs_mat_L_strict, this->x, N, this->tmp, N);
 			register_sptrsv(this->smax, "solve x <- (U+L)^{-1}(b-Ux)", this->crs_mat_U, this->x, N, this->tmp, N, true);
 		}
-		else if (solver_type == "conjugate-gradient"){
+		else if (method == SolverType::ConjugateGradient){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "tmp <- A*p_old", this->crs_mat, this->p_old, N, this->tmp, N);
-			if (preconditioner_type == "gauss-seidel") {
+			if (preconditioner == PrecondType::GaussSeidel) {
 				register_sptrsv(this->smax, "init M^{-1} * residual", this->crs_mat_L, this->z_old, N, this->residual, N);
 				register_sptrsv(this->smax, "M^{-1} * residual", this->crs_mat_L, this->z_new, N, this->residual_new, N);
-			} else if (preconditioner_type == "backwards-gauss-seidel") {
+			} else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
 				register_sptrsv(this->smax, "init M^{-1} * residual", this->crs_mat_U, this->z_old, N, this->residual, N, true);
 				register_sptrsv(this->smax, "M^{-1} * residual", this->crs_mat_U, this->z_new, N, this->residual_new, N, true);
-			} else if (preconditioner_type == "symmetric-gauss-seidel") {
+			} else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
 				register_sptrsv(this->smax, "init M^{-1} * residual_lower", this->crs_mat_L, this->tmp, N, this->residual, N);
 				register_sptrsv(this->smax, "init M^{-1} * residual_upper", this->crs_mat_U, this->z_old, N, this->tmp, N, true);
 				register_sptrsv(this->smax, "M^{-1} * residual_lower", this->crs_mat_L, this->tmp, N, this->residual_new, N);
 				register_sptrsv(this->smax, "M^{-1} * residual_upper", this->crs_mat_U, this->z_new, N, this->tmp, N, true);
 			}
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x, N, this->tmp, N);
 			register_spmv(this->smax, "w_j <- A*v_j", this->crs_mat, this->V, N * (this->gmres_restart_len + 1), this->tmp, N);
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			register_spmv(this->smax, "residual_spmv", this->crs_mat, this->x_old, N, this->tmp, N);
 			register_spmv(this->smax, "v <- A*y", this->crs_mat, this->y, N, this->v, N);
 			register_spmv(this->smax, "z <- A*s_tmp", this->crs_mat, this->s_tmp, N, this->z, N);
@@ -423,12 +423,12 @@ public:
 	void iterate(
 		Timers *timers
 	){
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			richardson_separate_iteration(timers, this->crs_mat, this->b, this->x_new, this->x_old, this->tmp, this->residual, this->alpha
 				SMAX_ARGS(this->smax)
 			);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			// jacobi_fused_iteration(this->crs_mat, this->b, this->x_new, this->x_old);
 			jacobi_separate_iteration(
 				timers,
@@ -439,7 +439,7 @@ public:
 				this->x_old
 				SMAX_ARGS(this->smax));
 		}
-		else if (solver_type == "gauss-seidel"){
+		else if (method == SolverType::GaussSeidel){
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
 			gs_separate_iteration(
 				timers,
@@ -451,7 +451,7 @@ public:
 				this->x
 				SMAX_ARGS(this->smax));
 		}
-		else if (solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::SymmetricGaussSeidel){
 			// gs_fused_iteration(this->crs_mat, this->b, this->x);
 			gs_separate_iteration(
 				timers, 
@@ -472,10 +472,10 @@ public:
 				this->x
 				SMAX_ARGS(this->smax));
 		}
-		else if(solver_type == "conjugate-gradient"){
+		else if(method == SolverType::ConjugateGradient){
 			cg_separate_iteration(
 				timers,
-				this->preconditioner_type,
+				this->preconditioner,
 				this->crs_mat,
 				this->crs_mat_L_strict,
 				this->crs_mat_U_strict,
@@ -493,10 +493,10 @@ public:
 			);
 			std::swap(this->residual, this->residual_new);
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			gmres_separate_iteration(
 				timers,
-				this->preconditioner_type,
+				this->preconditioner,
 				this->crs_mat,
 				this->crs_mat_L_strict,
 				this->crs_mat_U_strict,
@@ -522,10 +522,10 @@ public:
 				SMAX_ARGS(this->smax)
 			);
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			bicgstab_separate_iteration(
 				timers,
-				this->preconditioner_type,
+				this->preconditioner,
 				this->crs_mat,
 				this->crs_mat_L_strict,
 				this->crs_mat_U_strict,
@@ -555,25 +555,25 @@ public:
 	}
 
 void exchange(){
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			std::swap(this->x_old, this->x_new);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			std::swap(this->x_old, this->x_new);
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			// Nothing to exchange
 		}
-		else if(solver_type == "conjugate-gradient"){
+		else if(method == SolverType::ConjugateGradient){
 			std::swap(this->p_old, this->p_new);
 			std::swap(this->z_old, this->z_new);
 			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
 			std::swap(this->x_old, this->x_new);
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			// Nothing to exchange
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			std::swap(this->p_old, this->p_new);
 			std::swap(this->residual_old, this->residual); // <- swapped r and r_new earlier
 			std::swap(this->x_old, this->x_new);
@@ -581,26 +581,26 @@ void exchange(){
 		}
 #ifdef USE_SMAX
 		// In order to maintain consistent view of pointers inside of library
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			auto *residual_spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("residual_spmv"));
 			auto *update_spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("update_residual"));
 			std::swap(residual_spmv->args->x, update_spmv->args->x);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			this->smax->kernel("x_new <- A*x_old")->swap_operands();
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			// Nothing to swap or copy
 		}
-		else if(solver_type == "conjugate-gradient"){
+		else if(method == SolverType::ConjugateGradient){
 			auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("tmp <- A*p_old"));
 			spmv->args->x->val = static_cast<void *>(this->p_old);
-			if (preconditioner_type == "gauss-seidel" || preconditioner_type == "backwards-gauss-seidel") {
+			if (preconditioner == PrecondType::GaussSeidel || preconditioner == PrecondType::BackwardsGaussSeidel) {
 				auto *sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual"));
 				sptrsv->args->x->val = static_cast<void *>(this->z_new);
 				sptrsv->args->y->val = static_cast<void *>(this->residual_new);
 			}
-			else if(preconditioner_type == "symmetric-gauss-seidel"){
+			else if(preconditioner == PrecondType::SymmetricGaussSeidel){
 				auto *lower_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual_lower"));
 				lower_sptrsv->args->x->val = static_cast<void *>(this->tmp);
 				lower_sptrsv->args->y->val = static_cast<void *>(this->residual_new);\
@@ -610,10 +610,10 @@ void exchange(){
 				upper_sptrsv->args->y->val = static_cast<void *>(this->tmp);
 			}
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			// Nothing to swap or copy
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			// Nothing to swap or copy
 		}
 #endif
@@ -622,23 +622,23 @@ void exchange(){
 	// NOTE: Anything to update for SMAX?
 	void save_x_star(){
 		IF_DEBUG_MODE(printf("Saving x*\n"))
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			std::swap(this->x_old, this->x_star);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			std::swap(this->x_old, this->x_star);
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			std::swap(this->x, this->x_star);
 		}
-		else if (solver_type == "conjugate-gradient"){
+		else if (method == SolverType::ConjugateGradient){
 			std::swap(this->x_old, this->x_star);
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			this->get_explicit_x();
 			std::swap(this->x, this->x_star);
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			std::swap(this->x_old, this->x_star);
 		}
 
@@ -649,27 +649,27 @@ void exchange(){
 	}
 
 	void record_residual_norm(){
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			// Residual vector is updated implicitly, so do not need to compute it
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			compute_residual(this->crs_mat, this->x_new, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			compute_residual(this->crs_mat, this->x, this->b, this->residual, this->tmp
 				SMAX_ARGS(this->smax, "residual_spmv"));
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "conjugate-gradient"){
+		else if (method == SolverType::ConjugateGradient){
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			// Nothing to do here, since residual vector norm is computed implicitly
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			this->residual_norm = infty_vec_norm(this->residual, this->crs_mat->n_cols);
 		}
 		
@@ -687,7 +687,7 @@ void exchange(){
 
 	void get_explicit_x(){
 		// NOTE: Only relevant for GMRES, so we don't worry about other solvers
-		if(solver_type == "gmres"){
+		if(method == SolverType::GMRES){
 
 			double diag_elem = 1.0;
 	
@@ -740,7 +740,7 @@ void exchange(){
 
 	void check_restart(){
 		// NOTE: Only relevant for GMRES, so we don't worry about other solvers
-		if(solver_type == "gmres"){
+		if(method == SolverType::GMRES){
 			bool norm_convergence = this->residual_norm < this->stopping_criteria;
 			bool over_max_iters = this->iter_count > this->max_iters;
 			bool restart_cycle_reached = (this->iter_count) % (this->gmres_restart_len) == 0;
@@ -785,18 +785,18 @@ void exchange(){
 		delete[] residual_0;
 
 		// Solver-specific structs
-		if(solver_type == "richardson"){
+		if(method == SolverType::Richardson){
 			delete[] x_new;
 			delete[] x_old;
 		}
-		else if(solver_type == "jacobi"){
+		else if(method == SolverType::Jacobi){
 			delete[] x_new;
 			delete[] x_old;
 		}
-		else if (solver_type == "gauss-seidel" || solver_type == "symmetric-gauss-seidel"){
+		else if (method == SolverType::GaussSeidel || method == SolverType::SymmetricGaussSeidel){
 			delete[] x;
 		}
-		else if(solver_type == "conjugate-gradient"){
+		else if(method == SolverType::ConjugateGradient){
 			delete[] x_new;
 			delete[] x_old;
 			delete[] p_new;
@@ -806,7 +806,7 @@ void exchange(){
 			delete[] z_new;
 			delete[] z_old;
 		}
-		else if (solver_type == "gmres"){
+		else if (method == SolverType::GMRES){
 			delete[] x;
 			delete[] x_old;
 			delete[] V;
@@ -822,7 +822,7 @@ void exchange(){
 			delete[] g;
 			delete[] g_tmp;
 		}
-		else if (solver_type == "bicgstab"){
+		else if (method == SolverType::BiCGSTAB){
 			delete[] x_new;
 			delete[] x_old;
 			delete[] p_new;

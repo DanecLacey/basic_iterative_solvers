@@ -20,21 +20,21 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
         std::string st = argv[2];
 
         if (st == "-r") {
-            cli_args->solver_type = "richardson";
+            cli_args->method = SolverType::Richardson;
         } else if (st == "-j") {
-            cli_args->solver_type = "jacobi";
+            cli_args->method = SolverType::Jacobi;
         } else if (st == "-gs") {
-            cli_args->solver_type = "gauss-seidel";
+            cli_args->method = SolverType::GaussSeidel;
         } else if (st == "-sgs") {
-            cli_args->solver_type = "symmetric-gauss-seidel";
+            cli_args->method = SolverType::SymmetricGaussSeidel;
         } else if (st == "-cg") {
-            cli_args->solver_type = "conjugate-gradient";
+            cli_args->method = SolverType::ConjugateGradient;
         } else if (st == "-gm") {
-            cli_args->solver_type = "gmres";
+            cli_args->method = SolverType::GMRES;
         } else if (st == "-bi") {
-            cli_args->solver_type = "bicgstab";
+            cli_args->method = SolverType::BiCGSTAB;
         } else {
-            printf("ERROR: parse_cli: Please choose an available solver type:"
+            printf("ERROR: parse_cli: Please choose an available solver:"
                    "\n-r (Richardson)"
                    "\n-j (Jacobi)"
                    "\n-gs (Gauss-Seidel)"
@@ -53,15 +53,13 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
             std::string pt = argv[++i];
 
             if (pt == "j") {
-                cli_args->preconditioner_type = "jacobi";
+                cli_args->preconditioner = PrecondType::Jacobi;
             } else if (pt == "gs") {
-                cli_args->preconditioner_type = "gauss-seidel";
+                cli_args->preconditioner = PrecondType::GaussSeidel;
             } else if (pt == "bgs") {
-                cli_args->preconditioner_type = "backwards-gauss-seidel";
+                cli_args->preconditioner = PrecondType::BackwardsGaussSeidel;
             } else if (pt == "sgs") {
-                cli_args->preconditioner_type = "symmetric-gauss-seidel";
-            } else if (pt == "ffbbgs") {
-                cli_args->preconditioner_type = "ffbb-gauss-seidel";
+                cli_args->preconditioner = PrecondType::SymmetricGaussSeidel;
             } else {
                 fprintf(stderr,
                         "ERROR: assign_cli_inputs: Please choose an available "
@@ -70,8 +68,7 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
                         "\n-p gs (Gauss-Seidel)"
                         "\n-p bgs (Backwards Gauss-Seidel)"
                         "\n-p sgs (Symmetric Gauss-Seidel)"
-                        "\n-p ffbbgs (Forward-Forward-Backward-Backward "
-                        "Gauss-Seidel !Experimental!)\n");
+                        "\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -178,27 +175,27 @@ void print_timers(Args *cli_args, Timers *timers) {
 		std::cout << spmv_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | | Precond. time: " << std::right << std::setw(right_flush_width);
 		std::cout << precond_time  << "[s]" << std::endl;
-		if(cli_args->solver_type == "richardson"){
+		if(cli_args->method == SolverType::Richardson){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
 			std::cout << sum_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "jacobi"){
+		else if(cli_args->method == SolverType::Jacobi){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Normalize time: " << std::right << std::setw(right_flush_width);
 			std::cout << normalize_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "gauss-seidel" || cli_args->solver_type == "symmetric-gauss-seidel"){
+		else if(cli_args->method == SolverType::GaussSeidel || cli_args->method == SolverType::SymmetricGaussSeidel){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
 			std::cout << sum_time  << "[s]" << std::endl;
 			std::cout << std::left << std::setw(left_flush_width) << "| | | SpTRSV time: " << std::right << std::setw(right_flush_width);
 			std::cout << sptrsv_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "conjugate-gradient"){
+		else if(cli_args->method == SolverType::ConjugateGradient){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Dot time: " << std::right << std::setw(right_flush_width);
 			std::cout << dot_time  << "[s]" << std::endl;
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
 			std::cout << sum_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "gmres"){
+		else if(cli_args->method == SolverType::GMRES){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Orthog. time: " << std::right << std::setw(right_flush_width);
 			std::cout << orthog_time  << "[s]" << std::endl;
 			std::cout << std::left << std::setw(left_flush_width) << "| | | | Dot time: " << std::right << std::setw(right_flush_width);
@@ -222,7 +219,7 @@ void print_timers(Args *cli_args, Timers *timers) {
 			std::cout << std::left << std::setw(left_flush_width) << "| | | | Copy time: " << std::right << std::setw(right_flush_width);
 			std::cout << copy2_time  << "[s]" << std::endl;
 		}
-		else if(cli_args->solver_type == "bicgstab"){
+		else if(cli_args->method == SolverType::BiCGSTAB){
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Dot time: " << std::right << std::setw(right_flush_width);
 			std::cout << dot_time  << "[s]" << std::endl;
 			std::cout << std::left << std::setw(left_flush_width) << "| | | Sum time: " << std::right << std::setw(right_flush_width);
@@ -232,7 +229,7 @@ void print_timers(Args *cli_args, Timers *timers) {
 		std::cout << sample_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | Exchange time: " << std::right << std::setw(right_flush_width);
 		std::cout << exchange_time  << "[s]" << std::endl;
-		if(cli_args->solver_type == "gmres"){
+		if(cli_args->method == SolverType::GMRES){
 			std::cout << std::left << std::setw(left_flush_width) << "| | Restart time: " << std::right << std::setw(right_flush_width);
 			std::cout << restart_time << "[s]" << std::endl;
 		}
@@ -446,6 +443,7 @@ void register_likwid_markers() {
     {
         LIKWID_MARKER_REGISTER("spmv");
         LIKWID_MARKER_REGISTER("sptrsv");
+        LIKWID_MARKER_REGISTER("backwards-sptrsv");
     }
 }
 #endif

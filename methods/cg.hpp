@@ -5,8 +5,7 @@
 #include "../kernels.hpp"
 #include "../sparse_matrix.hpp"
 
-void cg_separate_iteration(Timers *timers,
-                           const std::string preconditioner_type,
+void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
                            const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
                            const MatrixCRS *crs_mat_U, double *D, double *x_new,
                            double *x_old, double *tmp, double *p_new,
@@ -41,8 +40,8 @@ void cg_separate_iteration(Timers *timers,
         r_new, crs_mat->n_cols, "r_new before preconditioning"));
 
     TIME(timers->precond,
-         apply_preconditioner(preconditioner_type, crs_mat_L, crs_mat_U, D,
-                              z_new, r_new,
+         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, z_new,
+                              r_new,
                               tmp SMAX_ARGS(0, smax, "M^{-1} * residual")))
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
         z_new, crs_mat->n_cols, "z_new after preconditioning"));
