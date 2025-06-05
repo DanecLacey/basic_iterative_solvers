@@ -1,8 +1,8 @@
 #pragma once
 
 #ifdef USE_SMAX
+#include "../common.hpp"
 #include "SmaxKernels/interface.hpp"
-#include "common.hpp"
 
 void register_spmv(Interface *smax, const char *kernel_name,
                    const MatrixCRS *crs_mat, double *x, int x_size, double *y,

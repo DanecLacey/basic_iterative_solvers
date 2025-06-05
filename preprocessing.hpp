@@ -4,7 +4,7 @@
 #include "common.hpp"
 #include "solver.hpp"
 #include "sparse_matrix.hpp"
-#include "utilities.hpp"
+#include "utilities/utilities.hpp"
 
 void preprocessing(Args *cli_args, Solver *solver, Timers *timers) {
 #ifdef USE_SMAX

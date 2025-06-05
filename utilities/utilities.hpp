@@ -1,8 +1,8 @@
 #ifndef UTILITIES_HPP
 #define UTILITIES_HPP
 
-#include "common.hpp"
-#include "sparse_matrix.hpp"
+#include "../common.hpp"
+#include "../sparse_matrix.hpp"
 
 #include <cmath>
 #include <iomanip>

@@ -28,9 +28,9 @@ make
 ### Features ###
 * Stacked timers around key code regions
 * Optional third party libraries:
-  * Instrumentation with [likwid](https://github.com/RRZE-HPC/likwid) markers for collecting hardware performance counters  already built-inaround native kernels
+  * Instrumentation with [likwid](https://github.com/RRZE-HPC/likwid) markers for collecting hardware performance counters already built-in around native kernels
   * Matrices can be read from `.mtx` files, or generated with the [SCAMAC library](https://alvbit.bitbucket.io/scamac_docs/index.html) 
-  * Integration with [SmaxKernels library](https://github.com/DanecLacey/SmaxKernels) or [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) for optimized sparse kernel implementations
+  * Integration with [SmaxKernels library](https://github.com/DanecLacey/SmaxKernels) for optimized sparse kernel implementations
 
 ### Supported Solvers ###
 * **Richardson** `-r`

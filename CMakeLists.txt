@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23.1)
+cmake_minimum_required(VERSION 3.22.1)
 project(basic_iterative_solvers CXX)
 
 set(CPP_VERSION c++17 CACHE STRING "C++ version")
@@ -38,7 +38,7 @@ option(USE_SMAX "Enable SMAX support" OFF)
 # ========== Sources and Targets ==========
 add_executable(basic_iterative_solvers
     main.cpp
-    mmio.cpp
+    utilities/mmio.cpp
 )
 
 # NOTE: OpenMP always required

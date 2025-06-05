@@ -8,8 +8,8 @@
 #include "methods/gmres.hpp"
 #include "methods/jacobi.hpp"
 #include "methods/richardson.hpp"
-#include "smax_helpers.hpp"
 #include "sparse_matrix.hpp"
+#include "utilities/smax_helpers.hpp"
 
 #include <float.h>
 

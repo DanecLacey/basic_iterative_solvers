@@ -6,7 +6,7 @@
 #include "postprocessing.hpp"
 #include "preprocessing.hpp"
 #include "solver_harness.hpp"
-#include "utilities.hpp"
+#include "utilities/utilities.hpp"
 
 void run(Args *cli_args, Timers *timers) {
 

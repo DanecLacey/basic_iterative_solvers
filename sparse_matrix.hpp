@@ -5,7 +5,7 @@
 #include <set>
 #include <vector>
 
-#include "mmio.hpp"
+#include "utilities/mmio.hpp"
 
 #ifdef USE_SCAMAC
 #include "scamac.h"
