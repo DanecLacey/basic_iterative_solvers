@@ -15,11 +15,11 @@ class Solver {
 #endif
 
     // Common structs
-    MatrixCRS *crs_mat = nullptr;
-    MatrixCRS *crs_mat_L = nullptr;
-    MatrixCRS *crs_mat_L_strict = nullptr;
-    MatrixCRS *crs_mat_U = nullptr;
-    MatrixCRS *crs_mat_U_strict = nullptr;
+    std::unique_ptr<MatrixCRS> crs_mat;
+    std::unique_ptr<MatrixCRS> crs_mat_L;
+    std::unique_ptr<MatrixCRS> crs_mat_L_strict;
+    std::unique_ptr<MatrixCRS> crs_mat_U;
+    std::unique_ptr<MatrixCRS> crs_mat_U_strict;
 
     // Common parameters
     double stopping_criteria = 0.0;
@@ -68,24 +68,33 @@ class Solver {
 #endif
 
     // Partially overridden
-    virtual void allocate_structs() {
-        x_star = new double[crs_mat->n_cols];
-        x_0 = new double[crs_mat->n_cols];
-        b = new double[crs_mat->n_cols];
-        tmp = new double[crs_mat->n_cols];
-        residual = new double[crs_mat->n_cols];
-        residual_0 = new double[crs_mat->n_cols];
-        D = new double[crs_mat->n_cols];
+    virtual void allocate_structs(const int N) {
+        x_star = new double[N];
+        x_0 = new double[N];
+        b = new double[N];
+        tmp = new double[N];
+        residual = new double[N];
+        residual_0 = new double[N];
+        D = new double[N];
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
 #pragma omp parallel for
-            for (int i = 0; i < crs_mat->n_cols; ++i) {
+            for (int i = 0; i < N; ++i) {
                 x_star[i] = 0.0;
                 x_0[i] = INIT_X_VAL;
                 b[i] = B_VAL;
                 D[i] = 0.0;
             }
+        }
+    }
+
+    virtual void init_structs(const int N) {
+#pragma omp parallel for
+        for (int i = 0; i < N; ++i) {
+            tmp[i] = 0.0;
+            residual[i] = 0.0;
+            residual_0[i] = 0.0;
         }
     }
 
@@ -109,15 +118,6 @@ class Solver {
         delete[] time_per_iteration;
     }
 
-    virtual void init_structs() {
-#pragma omp parallel for
-        for (int i = 0; i < crs_mat->n_cols; ++i) {
-            tmp[i] = 0.0;
-            residual[i] = 0.0;
-            residual_0[i] = 0.0;
-        }
-    }
-
     // clang-format off
     virtual void init_residual() {
         copy_vector(residual_0, residual, crs_mat->n_cols);
@@ -125,7 +125,7 @@ class Solver {
     }
 
     virtual void save_x_star() {
-        compute_residual(crs_mat, x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
         collected_residual_norms[collected_residual_norms_count] = residual_norm;
     }

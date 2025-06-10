@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <sys/time.h>
 #include <unordered_map>
@@ -22,6 +23,14 @@ using Interface = void *;
 
 #ifndef ALIGNMENT
 #define ALIGNMENT 64
+#endif
+
+#ifndef STRINGIFY
+#define STRINGIFY(x) #x
+#endif
+
+#ifndef TO_STRING
+#define TO_STRING(x) STRINGIFY(x)
 #endif
 
 enum class PrecondType {

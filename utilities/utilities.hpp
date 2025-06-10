@@ -244,6 +244,11 @@ void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
     crs_mat->row_ptr = new int[crs_mat->n_rows + 1];
     int *nnz_per_row = new int[crs_mat->n_rows];
 
+#ifdef USE_SMAX
+    crs_mat->perm = new int[crs_mat->n_rows];
+    crs_mat->inv_perm = new int[crs_mat->n_rows];
+#endif
+
     crs_mat->col = new int[crs_mat->nnz];
     crs_mat->val = new double[crs_mat->nnz];
 
@@ -275,84 +280,119 @@ void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 }
 
 // NOTE: very lazy way to do this
-void extract_L_U(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L,
-                 MatrixCOO *coo_mat_L_strict, MatrixCOO *coo_mat_U,
-                 MatrixCOO *coo_mat_U_strict) {
+void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
+                 MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
+                 MatrixCRS *crs_mat_U_strict) {
     int D_nz_count = 0;
 
     // Force same dimensions for consistency
-    coo_mat_U->n_rows = coo_mat->n_rows;
-    coo_mat_U->n_cols = coo_mat->n_cols;
-    coo_mat_U->nnz = 0;
-    coo_mat_U->is_sorted = coo_mat->is_sorted;
-    coo_mat_U->is_symmetric = false;
-    coo_mat_U_strict->n_rows = coo_mat->n_rows;
-    coo_mat_U_strict->n_cols = coo_mat->n_cols;
-    coo_mat_U_strict->nnz = 0;
-    coo_mat_U_strict->is_sorted = coo_mat->is_sorted;
-    coo_mat_U_strict->is_symmetric = false;
-    coo_mat_L->n_rows = coo_mat->n_rows;
-    coo_mat_L->n_cols = coo_mat->n_cols;
-    coo_mat_L->is_sorted = coo_mat->is_sorted;
-    coo_mat_L->is_symmetric = false;
-    coo_mat_L->nnz = 0;
-    coo_mat_L_strict->n_rows = coo_mat->n_rows;
-    coo_mat_L_strict->n_cols = coo_mat->n_cols;
-    coo_mat_L_strict->is_sorted = coo_mat->is_sorted;
-    coo_mat_L_strict->is_symmetric = false;
-    coo_mat_L_strict->nnz = 0;
+    crs_mat_U->n_rows = crs_mat->n_rows;
+    crs_mat_U->n_cols = crs_mat->n_cols;
+    crs_mat_U->nnz = 0;
+    crs_mat_U_strict->n_rows = crs_mat->n_rows;
+    crs_mat_U_strict->n_cols = crs_mat->n_cols;
+    crs_mat_U_strict->nnz = 0;
+    crs_mat_L->n_rows = crs_mat->n_rows;
+    crs_mat_L->n_cols = crs_mat->n_cols;
+    crs_mat_L->nnz = 0;
+    crs_mat_L_strict->n_rows = crs_mat->n_rows;
+    crs_mat_L_strict->n_cols = crs_mat->n_cols;
+    crs_mat_L_strict->nnz = 0;
 
-    for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
-        bool bad_nz = true;
-        // If column and row less than i, this nz is in the L matrix
-        if (coo_mat->J[nz_idx] <= coo_mat->I[nz_idx]) {
-            // Copy element to lower matrix
-            coo_mat_L->I.push_back(coo_mat->I[nz_idx]);
-            coo_mat_L->J.push_back(coo_mat->J[nz_idx]);
-            coo_mat_L->values.push_back(coo_mat->values[nz_idx]);
-            ++coo_mat_L->nnz;
-
-            // Strict lower matrix
-            if (coo_mat->J[nz_idx] < coo_mat->I[nz_idx]) {
-                coo_mat_L_strict->I.push_back(coo_mat->I[nz_idx]);
-                coo_mat_L_strict->J.push_back(coo_mat->J[nz_idx]);
-                coo_mat_L_strict->values.push_back(coo_mat->values[nz_idx]);
-                ++coo_mat_L_strict->nnz;
-            }
-            bad_nz = false;
-        }
-        if (coo_mat->J[nz_idx] >= coo_mat->I[nz_idx]) {
-            // Copy element to upper matrix
-            coo_mat_U->I.push_back(coo_mat->I[nz_idx]);
-            coo_mat_U->J.push_back(coo_mat->J[nz_idx]);
-            coo_mat_U->values.push_back(coo_mat->values[nz_idx]);
-            ++coo_mat_U->nnz;
-            // Strict upper matrix
-            if (coo_mat->J[nz_idx] > coo_mat->I[nz_idx]) {
-                coo_mat_U_strict->I.push_back(coo_mat->I[nz_idx]);
-                coo_mat_U_strict->J.push_back(coo_mat->J[nz_idx]);
-                coo_mat_U_strict->values.push_back(coo_mat->values[nz_idx]);
-                ++coo_mat_U_strict->nnz;
-            }
-            bad_nz = false;
-        }
-        if (coo_mat->I[nz_idx] == coo_mat->J[nz_idx]) {
-            // Copy element to vector representing diagonal matrix
-            // NOTE: We use a different routine to extract D
-            ++D_nz_count;
-            bad_nz = false;
-        }
-        if (bad_nz)
-            SanityChecker::print_extract_L_U_error(nz_idx);
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
     }
 
-    // All elements from full_coo_mtx need to be accounted for
-    // To account for the double reading of D
-    SanityChecker::check_copied_L_U_elements(coo_mat->nnz, coo_mat_L->nnz,
-                                             coo_mat_U->nnz, -D_nz_count);
+    // Count nnz
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
+        int row_start = crs_mat->row_ptr[i];
+        int row_end = crs_mat->row_ptr[i + 1];
 
-    SanityChecker::check_copied_L_U_elements(
-        coo_mat->nnz, coo_mat_L_strict->nnz, coo_mat_U_strict->nnz, D_nz_count);
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = crs_mat->col[idx];
+
+            if (col <= i) {
+                ++crs_mat_L->nnz;
+                if (col < i) {
+                    ++crs_mat_L_strict->nnz;
+                }
+            }
+            if (col >= i) {
+                ++crs_mat_U->nnz;
+                if (col > i) {
+                    ++crs_mat_U_strict->nnz;
+                }
+            }
+        }
+    }
+
+    // Allocate heap space and assign known metadata
+    crs_mat_L->col = new int[crs_mat_L->nnz];
+    crs_mat_L->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_L->val = new double[crs_mat_L->nnz];
+    crs_mat_L->row_ptr[0] = 0;
+    crs_mat_L->n_rows = crs_mat->n_rows;
+    crs_mat_L->n_cols = crs_mat->n_cols;
+
+    crs_mat_L_strict->col = new int[crs_mat_L_strict->nnz];
+    crs_mat_L_strict->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_L_strict->val = new double[crs_mat_L_strict->nnz];
+    crs_mat_L_strict->row_ptr[0] = 0;
+    crs_mat_L_strict->n_rows = crs_mat->n_rows;
+    crs_mat_L_strict->n_cols = crs_mat->n_cols;
+
+    crs_mat_U->col = new int[crs_mat_U->nnz];
+    crs_mat_U->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_U->val = new double[crs_mat_U->nnz];
+    crs_mat_U->row_ptr[0] = 0;
+    crs_mat_U->n_rows = crs_mat->n_rows;
+    crs_mat_U->n_cols = crs_mat->n_cols;
+
+    crs_mat_U_strict->col = new int[crs_mat_U_strict->nnz];
+    crs_mat_U_strict->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_U_strict->val = new double[crs_mat_U_strict->nnz];
+    crs_mat_U_strict->row_ptr[0] = 0;
+    crs_mat_U_strict->n_rows = crs_mat->n_rows;
+    crs_mat_U_strict->n_cols = crs_mat->n_cols;
+
+    // Assign nonzeros
+    int L_count = 0;
+    int L_strict_count = 0;
+    int U_count = 0;
+    int U_strict_count = 0;
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
+        int row_start = crs_mat->row_ptr[i];
+        int row_end = crs_mat->row_ptr[i + 1];
+
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = crs_mat->col[idx];
+            double val = crs_mat->val[idx];
+
+            if (col <= i) {
+                crs_mat_L->col[L_count] = col;
+                crs_mat_L->val[L_count++] = val;
+                if (col < i) {
+                    crs_mat_L_strict->col[L_strict_count] = col;
+                    crs_mat_L_strict->val[L_strict_count++] = val;
+                }
+            }
+            if (col >= i) {
+                crs_mat_U->col[U_count] = col;
+                crs_mat_U->val[U_count++] = val;
+                if (col > i) {
+                    crs_mat_U_strict->col[U_strict_count] = col;
+                    crs_mat_U_strict->val[U_strict_count++] = val;
+                }
+            }
+        }
+
+        // Update row pointers
+        crs_mat_L->row_ptr[i + 1] = L_count;
+        crs_mat_L_strict->row_ptr[i + 1] = L_strict_count;
+        crs_mat_U->row_ptr[i + 1] = U_count;
+        crs_mat_U_strict->row_ptr[i + 1] = U_strict_count;
+    }
 }
 
 void extract_D(const MatrixCOO *coo_mat, double *D,

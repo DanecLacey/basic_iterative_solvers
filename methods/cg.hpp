@@ -69,22 +69,22 @@ class ConjugateGradientSolver : public Solver {
         // ConjugateGradient-specific initialization?
     }
 
-    void allocate_structs() override {
-        Solver::allocate_structs();
-        x_new = new double[crs_mat->n_cols];
-        x_old = new double[crs_mat->n_cols];
-        p_new = new double[crs_mat->n_cols];
-        p_old = new double[crs_mat->n_cols];
-        residual_new = new double[crs_mat->n_cols];
-        residual_old = new double[crs_mat->n_cols];
-        z_new = new double[crs_mat->n_cols];
-        z_old = new double[crs_mat->n_cols];
+    void allocate_structs(const int N) override {
+        Solver::allocate_structs(N);
+        x_new = new double[N];
+        x_old = new double[N];
+        p_new = new double[N];
+        p_old = new double[N];
+        residual_new = new double[N];
+        residual_old = new double[N];
+        z_new = new double[N];
+        z_old = new double[N];
     }
 
-    void init_structs() override {
-        Solver::init_structs();
+    void init_structs(const int N) override {
+        Solver::init_structs(N);
 #pragma omp parallel for
-        for (int i = 0; i < crs_mat->n_cols; ++i) {
+        for (int i = 0; i < N; ++i) {
             x_new[i] = 0.0;
             x_old[i] = x_0[i];
             p_new[i] = 0.0;
@@ -97,12 +97,12 @@ class ConjugateGradientSolver : public Solver {
     }
 
     void init_residual() override {
-        compute_residual(crs_mat, x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(crs_mat.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
 
         // Precondition the initial residual
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, crs_mat->n_cols, "residual before preconditioning"));
         apply_preconditioner(
-            preconditioner, crs_mat_L_strict, crs_mat_U_strict, D, z_old, 
+            preconditioner, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, z_old, 
             residual, tmp SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, crs_mat->n_cols, "residual after preconditioning"));
@@ -115,8 +115,8 @@ class ConjugateGradientSolver : public Solver {
     }
 
     void iterate(Timers *timers) override {
-        cg_separate_iteration(timers, preconditioner, crs_mat, crs_mat_L_strict,
-                              crs_mat_U_strict, D, x_new, x_old, tmp, p_new,
+        cg_separate_iteration(timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
+                              crs_mat_U_strict.get(), D, x_new, x_old, tmp, p_new,
                               p_old, residual_new, residual_old, z_new,
                               z_old SMAX_ARGS(smax));
         std::swap(residual, residual_new);
@@ -158,19 +158,19 @@ class ConjugateGradientSolver : public Solver {
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat, x_old, N, tmp, N);
-        register_spmv(smax, "tmp <- A*p_old", crs_mat, p_old, N, tmp, N);
+        register_spmv(smax, "residual_spmv", crs_mat.get(), x_old, N, tmp, N);
+        register_spmv(smax, "tmp <- A*p_old", crs_mat.get(), p_old, N, tmp, N);
         if (preconditioner == PrecondType::GaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L, z_old, N, residual, N);
-            register_sptrsv(smax, "M^{-1} * residual", crs_mat_L, z_new, N, residual_new, N);
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L.get(), z_old, N, residual, N);
+            register_sptrsv(smax, "M^{-1} * residual", crs_mat_L.get(), z_new, N, residual_new, N);
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U, z_old, N, residual, N, true);
-            register_sptrsv(smax, "M^{-1} * residual", crs_mat_U, z_new, N, residual_new, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U.get(), z_old, N, residual, N, true);
+            register_sptrsv(smax, "M^{-1} * residual", crs_mat_U.get(), z_new, N, residual_new, N, true);
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L, tmp, N, residual, N);
-            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U, z_old, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * residual_lower", crs_mat_L, tmp, N, residual_new, N);
-            register_sptrsv(smax, "M^{-1} * residual_upper", crs_mat_U, z_new, N, tmp, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), z_old, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual_new, N);
+            register_sptrsv(smax, "M^{-1} * residual_upper", crs_mat_U.get(), z_new, N, tmp, N, true);
         }
     }
 #endif

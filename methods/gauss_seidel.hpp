@@ -60,28 +60,28 @@ class GaussSeidelSolver : public Solver {
         // GaussSeidel-specific initialization?
     }
 
-    void allocate_structs() override {
-        Solver::allocate_structs();
-        x = new double[crs_mat->n_cols];
+    void allocate_structs(const int N) override {
+        Solver::allocate_structs(N);
+        x = new double[N];
     }
 
-    void init_structs() override {
-        Solver::init_structs();
+    void init_structs(const int N) override {
+        Solver::init_structs(N);
 #pragma omp parallel for
-        for (int i = 0; i < crs_mat->n_cols; ++i) {
+        for (int i = 0; i < N; ++i) {
             x[i] = x_0[i];
         }
     }
 
     void init_residual() override {
-        compute_residual(crs_mat, x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
     void iterate(Timers *timers) override {
         gs_separate_iteration(
-            timers, crs_mat_U_strict, crs_mat_L_strict, tmp,
+            timers, crs_mat_U_strict.get(), crs_mat_L_strict.get(), tmp,
             D, b, x SMAX_ARGS(smax)
         );
     }
@@ -96,7 +96,7 @@ class GaussSeidelSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        compute_residual(crs_mat, x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
@@ -104,9 +104,9 @@ class GaussSeidelSolver : public Solver {
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat, x, N, tmp, N);
-        register_spmv(smax, "tmp <- U*x", crs_mat_U_strict, x, N, tmp, N);
-        register_sptrsv(smax, "solve x <- (D+L)^{-1}(b-Ux)", crs_mat_L, x, N, tmp, N);
+        register_spmv(smax, "residual_spmv", crs_mat.get(), x, N, tmp, N);
+        register_spmv(smax, "tmp <- U*x", crs_mat_U_strict.get(), x, N, tmp, N);
+        register_sptrsv(smax, "solve x <- (D+L)^{-1}(b-Ux)", crs_mat_L.get(), x, N, tmp, N);
     }
 #endif
 
@@ -122,23 +122,23 @@ class SymmetricGaussSeidelSolver : public GaussSeidelSolver {
     }
 
     void init_residual() override {
-        compute_residual(crs_mat, x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
     }
 
     void iterate(Timers *timers) override {
-        gs_separate_iteration(timers, crs_mat_U_strict, crs_mat_L_strict, tmp, D, b, x SMAX_ARGS(smax));
-        bgs_separate_iteration(timers, crs_mat_U_strict, crs_mat_L_strict, tmp, D, b, x SMAX_ARGS(smax));
+        gs_separate_iteration(timers, crs_mat_U_strict.get(), crs_mat_L_strict.get(), tmp, D, b, x SMAX_ARGS(smax));
+        bgs_separate_iteration(timers, crs_mat_U_strict.get(), crs_mat_L_strict.get(), tmp, D, b, x SMAX_ARGS(smax));
     }
 
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat, x, N, tmp, N);
-        register_spmv(smax, "tmp <- U*x", crs_mat_U_strict, x, N, tmp, N);
-        register_sptrsv(smax, "solve x <- (D+L)^{-1}(b-Ux)", crs_mat_L, x, N, tmp, N);
-        register_spmv(smax, "tmp <- L*x", crs_mat_L_strict, x, N, tmp, N);
-        register_sptrsv(smax, "solve x <- (U+L)^{-1}(b-Ux)", crs_mat_U, x, N, tmp, N, true);
+        register_spmv(smax, "residual_spmv", crs_mat.get(), x, N, tmp, N);
+        register_spmv(smax, "tmp <- U*x", crs_mat_U_strict.get(), x, N, tmp, N);
+        register_sptrsv(smax, "solve x <- (D+L)^{-1}(b-Ux)", crs_mat_L.get(), x, N, tmp, N);
+        register_spmv(smax, "tmp <- L*x", crs_mat_L_strict.get(), x, N, tmp, N);
+        register_sptrsv(smax, "solve x <- (U+L)^{-1}(b-Ux)", crs_mat_U.get(), x, N, tmp, N, true);
     }
 #endif
 };
