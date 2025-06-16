@@ -299,7 +299,6 @@ class GMRESSolver : public Solver {
     }
 
     void get_explicit_x() override {
-        // NOTE: Only relevant for GMRES, so we don't worry about other solvers
         double diag_elem = 1.0;
 
         // Adjust for restarting
@@ -363,7 +362,7 @@ class GMRESSolver : public Solver {
         Solver::record_residual_norm();
     }
 
-    void check_restart() override {
+    void check_restart(Timers *timers) override {
         // NOTE: Only relevant for GMRES, so we don't worry about other solvers
         bool norm_convergence = residual_norm < stopping_criteria;
         bool over_max_iters = iter_count > max_iters;
@@ -384,6 +383,9 @@ class GMRESSolver : public Solver {
             // TODO: This shouldn't be necessary
             // Re-initialize residual with new inital x approximation
             init_residual();
+
+            time_per_iteration[collected_residual_norms_count] =
+                timers->per_iteration_time->check();
 
             ++gmres_restart_count;
         }

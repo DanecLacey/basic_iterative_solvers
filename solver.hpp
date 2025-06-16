@@ -98,7 +98,7 @@ class Solver {
         }
     }
 
-    virtual void check_restart() {
+    virtual void check_restart(Timers *) {
         // Do nothing by default
     };
 

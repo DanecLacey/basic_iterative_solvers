@@ -37,9 +37,8 @@ void summary_output(Args *cli_args, Solver *solver) {
         solver->collected_residual_norms, solver->time_per_iteration,
         solver->collected_residual_norms_count, solver->residual_check_len);
 
-    // TODO: HACKY... Really find out how to account for the restarts properly
     if (solver->method == SolverType::GMRES)
-        solver->iter_count -= solver->gmres_restart_count;
+        solver->iter_count += solver->gmres_restart_count;
 
     std::cout << "\nSolver: " << to_string(solver->method);
     if (solver->preconditioner != PrecondType::None) {

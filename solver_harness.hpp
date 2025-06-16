@@ -24,7 +24,7 @@ void solve(Args *cli_args, Solver *solver, Timers *timers) {
         TIME(timers->exchange, solver->exchange())
 
         // Restart solver if certain conditions are met
-        TIME(timers->restart, solver->check_restart())
+        TIME(timers->restart, solver->check_restart(timers))
 
     } while (!solver->check_stopping_criteria());
 
