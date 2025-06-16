@@ -20,10 +20,11 @@ void print_residuals(double *collected_residual_norms,
     std::cout << std::endl;
     std::cout << formatted_spaces0 << "Residual Norms" << formatted_spaces1 << "Time for iteration" << std::endl;
     std::cout << "+------------------------------------------+" << formatted_spaces2 << "+-------------------------+" << std::endl;
-    for (int i = 0; i < collected_residual_norms_count + 1; ++i) {
+    // for (int i = 0; i < collected_residual_norms_count + 1; ++i) {
+    for (int i = 0; i < collected_residual_norms_count; ++i) {
         std::cout << "||A*x_" << i * res_check_len << " - b||_infty = " << collected_residual_norms[i];
         if (i > 0){
-            std::cout << std::right << std::setw(right_flush_width) << time_per_iteration[i - 1] << "[s]";
+            std::cout << std::right << std::setw(right_flush_width) << time_per_iteration[i + 1] << "[s]";
         }
         std::cout << std::endl;
     }

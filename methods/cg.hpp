@@ -42,7 +42,7 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new after preconditioning"));
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new after preconditioning"));
 
-    // beta <- (r_new, r_new) / (r_old, r_old)
+    // beta <- (r_new, z_new) / (r_old, z_old)
     double beta;
     TIME(timers->dot, beta = dot(r_new, z_new, crs_mat->n_cols) / tmp_dot)
 
@@ -110,7 +110,7 @@ class ConjugateGradientSolver : public Solver {
         // Make copies of initial residual for solver
         copy_vector(p_old, z_old, crs_mat->n_cols);
         copy_vector(residual_old, residual, crs_mat->n_cols);
-        residual_norm = infty_vec_norm(z_old, crs_mat->n_cols);
+        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
@@ -119,13 +119,12 @@ class ConjugateGradientSolver : public Solver {
                               crs_mat_U_strict.get(), D, x_new, x_old, tmp, p_new,
                               p_old, residual_new, residual_old, z_new,
                               z_old SMAX_ARGS(smax));
-        std::swap(residual, residual_new);
     }
 
     void exchange() override {
         std::swap(p_old, p_new);
         std::swap(z_old, z_new);
-        std::swap(residual_old, residual); // <- swapped r and r_new earlier
+        std::swap(residual_old, residual_new);
         std::swap(x_old, x_new);
 #ifdef USE_SMAX
         auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("tmp <- A*p_old"));
@@ -151,7 +150,7 @@ class ConjugateGradientSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = infty_vec_norm(residual_new, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
 

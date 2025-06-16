@@ -121,17 +121,17 @@ class Solver {
     // clang-format off
     virtual void init_residual() {
         copy_vector(residual_0, residual, crs_mat->n_cols);
-        collected_residual_norms[collected_residual_norms_count] = residual_norm;
+        collected_residual_norms[collected_residual_norms_count++] = residual_norm;
     }
 
     virtual void save_x_star() {
         compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
-        collected_residual_norms[collected_residual_norms_count] = residual_norm;
+        collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
     }
 
     virtual void record_residual_norm() {
-        collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
+        collected_residual_norms[collected_residual_norms_count++] = residual_norm;
     };
 
     // Base class methods, not overridden //
@@ -139,7 +139,6 @@ class Solver {
         if (iter_count % residual_check_len == 0) {
             record_residual_norm();
             time_per_iteration[collected_residual_norms_count] = per_iteration_time->check();
-            ++collected_residual_norms_count;
         }
     }
 
