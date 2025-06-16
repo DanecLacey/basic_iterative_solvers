@@ -61,7 +61,7 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     solver->init_residual();
 
     // Use the initial residual and the tolerance to compute
-    // the stopping criteria (tolerance * ||Ax_0 - b||_infty)
+    // the stopping criteria (tolerance * ||Ax_0 - b||_2)
     IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
     solver->init_stopping_criteria();
 };

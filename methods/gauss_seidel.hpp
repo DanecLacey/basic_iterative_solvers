@@ -75,7 +75,8 @@ class GaussSeidelSolver : public Solver {
 
     void init_residual() override {
         compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
@@ -97,7 +98,8 @@ class GaussSeidelSolver : public Solver {
 
     void record_residual_norm() override {
         compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
 
@@ -119,11 +121,6 @@ class SymmetricGaussSeidelSolver : public GaussSeidelSolver {
     SymmetricGaussSeidelSolver(const Args *cli_args)
         : GaussSeidelSolver(cli_args) {
         // SymmetricGaussSeidel-specific initialization?
-    }
-
-    void init_residual() override {
-        compute_residual(crs_mat.get(), x, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
     }
 
     void iterate(Timers *timers) override {

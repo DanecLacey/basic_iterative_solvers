@@ -154,10 +154,13 @@ class BiCGSTABSolver : public Solver {
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
 
+        residual_norm = euclidean_vec_norm(residual_old, crs_mat->n_cols);
+
         // Make copies of initial residual for solver
         copy_vector(p_old, residual, crs_mat->n_cols);
         copy_vector(residual_old, residual, crs_mat->n_cols);
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+
         rho_old = dot(residual_old, residual, crs_mat->n_cols);
         Solver::init_residual();
     }
@@ -209,7 +212,8 @@ class BiCGSTABSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
 

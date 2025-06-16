@@ -260,6 +260,12 @@ class GMRESSolver : public Solver {
         compute_residual(crs_mat.get(), x, b, residual,
                          tmp SMAX_ARGS(smax, "residual_spmv"));
 
+        // Record the unpreconditioned residual norm for the first iteration!
+        if (!gmres_restarted) {
+            residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+            collected_residual_norms[collected_residual_norms_count++] =
+                residual_norm;
+        }
         // Precondition the initial residual
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual before preconditioning"));
@@ -268,12 +274,16 @@ class GMRESSolver : public Solver {
                              tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
+        // if (gmres_restarted)
+        double precond_residual_norm =
+            euclidean_vec_norm(residual, crs_mat->n_cols);
+        // Solver::init_residual();
 
         IF_DEBUG_MODE(
             SanityChecker::print_vector(x, crs_mat->n_cols, "old_x2"));
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
-        beta = residual_norm; // NOTE: Beta should be according to
-                              // euclidean norm (Saad)
+        // residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        beta = precond_residual_norm; // NOTE: Beta should be according to
+                                      // euclidean norm (Saad)
 
         g[0] = beta;
         g_tmp[0] = beta;
@@ -287,7 +297,13 @@ class GMRESSolver : public Solver {
         IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", residual_norm))
         IF_DEBUG_MODE(
             SanityChecker::print_vector(V, crs_mat->n_cols, "init_v"));
-        Solver::init_residual();
+        // Solver::init_residual();
+
+        // residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        if (gmres_restarted) {
+            residual_norm = precond_residual_norm;
+            Solver::init_residual();
+        }
     }
 
     void iterate(Timers *timers) override {

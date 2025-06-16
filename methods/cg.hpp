@@ -110,7 +110,8 @@ class ConjugateGradientSolver : public Solver {
         // Make copies of initial residual for solver
         copy_vector(p_old, z_old, crs_mat->n_cols);
         copy_vector(residual_old, residual, crs_mat->n_cols);
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
@@ -150,7 +151,8 @@ class ConjugateGradientSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        residual_norm = infty_vec_norm(residual_new, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual_new, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual_new, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
 

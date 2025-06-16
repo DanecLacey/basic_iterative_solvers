@@ -78,7 +78,8 @@ class JacobiSolver : public Solver {
 
     void init_residual() override {
         compute_residual(crs_mat.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
@@ -100,7 +101,8 @@ class JacobiSolver : public Solver {
 
     void record_residual_norm() override {
         compute_residual(crs_mat.get(), x_new, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
     // clang-format on

@@ -22,7 +22,7 @@ void print_residuals(double *collected_residual_norms,
     std::cout << "+------------------------------------------+" << formatted_spaces2 << "+-------------------------+" << std::endl;
 
     for (int i = 0; i < collected_residual_norms_count; ++i) {
-        std::cout << "||A*x_" << i * res_check_len << " - b||_infty = " << collected_residual_norms[i];
+        std::cout << "||A*x_" << i * res_check_len << " - b||_2 = " << collected_residual_norms[i];
         if (i > 0){
             std::cout << std::right << std::setw(right_flush_width) << time_per_iteration[i + 1] << "[s]";
         }
@@ -55,15 +55,14 @@ void summary_output(Args *cli_args, Solver *solver) {
                   << " iterations." << std::endl;
     }
 
-    std::cout << "With the stopping criteria \"tol * ||Ax_0 - b||_infty\" is: "
+    std::cout << "With the stopping criteria \"tol * ||Ax_0 - b||_2\" is: "
               << solver->stopping_criteria << std::endl;
 
-    std::cout
-        << "The residual of the final iteration is: ||A*x_star - b||_infty = "
-        << std::scientific
-        << solver->collected_residual_norms
-               [solver->collected_residual_norms_count - 1]
-        << ".\n";
+    std::cout << "The residual of the final iteration is: ||A*x_star - b||_2 = "
+              << std::scientific
+              << solver->collected_residual_norms
+                     [solver->collected_residual_norms_count - 1]
+              << ".\n";
 }
 
 void postprocessing(Args *cli_args, Solver *solver, Timers *timers) {

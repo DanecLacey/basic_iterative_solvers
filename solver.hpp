@@ -51,8 +51,8 @@ class Solver {
 
     Solver(const Args *cli_args)
         : method(cli_args->method), preconditioner(cli_args->preconditioner) {
-        collected_residual_norms = new double[max_iters];
-        time_per_iteration = new double[max_iters];
+        collected_residual_norms = new double[max_iters * 2];
+        time_per_iteration = new double[max_iters * 2];
 
         for (int i = 0; i < max_iters; ++i) {
             collected_residual_norms[i] = 0.0;
@@ -126,7 +126,8 @@ class Solver {
 
     virtual void save_x_star() {
         compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
     }
 
@@ -148,7 +149,8 @@ class Solver {
 
     bool check_stopping_criteria() {
         bool norm_convergence = residual_norm < stopping_criteria;
-        bool over_max_iters = iter_count >= max_iters;
+        // We count GMRES restarts as an iteration
+        bool over_max_iters = iter_count >= (max_iters - gmres_restart_count);
         bool divergence = residual_norm > DBL_MAX;
         IF_DEBUG_MODE_FINE(
 			if (norm_convergence)
