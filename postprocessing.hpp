@@ -9,10 +9,10 @@
 void print_residuals(double *collected_residual_norms,
                      double *time_per_iteration,
                      int collected_residual_norms_count, int res_check_len) {
+
     std::cout << std::scientific;
     std::cout << std::setprecision(16);
     int right_flush_width = 30;
-    // int left_flush_width = 25;
     std::string formatted_spaces0(15, ' ');
     std::string formatted_spaces1(27, ' ');
     std::string formatted_spaces2(8, ' ');
@@ -20,7 +20,7 @@ void print_residuals(double *collected_residual_norms,
     std::cout << std::endl;
     std::cout << formatted_spaces0 << "Residual Norms" << formatted_spaces1 << "Time for iteration" << std::endl;
     std::cout << "+------------------------------------------+" << formatted_spaces2 << "+-------------------------+" << std::endl;
-    // for (int i = 0; i < collected_residual_norms_count + 1; ++i) {
+
     for (int i = 0; i < collected_residual_norms_count; ++i) {
         std::cout << "||A*x_" << i * res_check_len << " - b||_infty = " << collected_residual_norms[i];
         if (i > 0){
@@ -68,6 +68,7 @@ void summary_output(Args *cli_args, Solver *solver) {
 }
 
 void postprocessing(Args *cli_args, Solver *solver, Timers *timers) {
+
     summary_output(cli_args, solver);
 
 #ifdef USE_SMAX

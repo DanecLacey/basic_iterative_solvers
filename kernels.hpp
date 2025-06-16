@@ -242,6 +242,7 @@ void copy_dense_matrix(double *new_mat, const double *old_mat, const int n_rows,
 }
 
 void copy_vector(double *new_vec, const double *old_vec, const int n_rows) {
+#pragma omp parallel for
     for (int row = 0; row < n_rows; ++row) {
         new_vec[row] = old_vec[row];
     }
@@ -329,6 +330,7 @@ void apply_preconditioner(const PrecondType preconditioner,
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         } else {
+            // TODO: Would be great to think of a way around this
             copy_vector(vec, rhs, N);
         }
     }
