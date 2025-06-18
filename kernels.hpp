@@ -12,6 +12,10 @@
 #include <likwid-marker.h>
 #endif
 
+#ifdef USE_SMAX
+#include "utilities/smax_helpers.hpp"
+#endif
+
 void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
 #pragma omp parallel
     {
@@ -309,6 +313,13 @@ void apply_preconditioner(const PrecondType preconditioner,
                           const std::string kernel_name = "") {
     int N = crs_mat_L_strict->n_cols;
 
+    double *D_inv, *comp_tmp_1, *comp_tmp_2;
+    if (preconditioner == PrecondType::TwoStageGS) {
+        D_inv = new double[N];
+        comp_tmp_1 = new double[N];
+        comp_tmp_2 = new double[N];
+    }
+
     // clang-format off
     for (int i = 0; i < PRECOND_ITERS; ++i) {
         if (preconditioner == PrecondType::Jacobi) {
@@ -329,11 +340,39 @@ void apply_preconditioner(const PrecondType preconditioner,
             // z <- (L+U)^{-1}*tmp
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
+        } else if (preconditioner == PrecondType::TwoStageGS) {
+            copy_vector(vec, rhs, N);
+            // obtain D^-1
+#pragma omp parallel for
+            for (int j = 0; j < N; j++) {
+                D_inv[j] = 1/D[j];
+            }
+            if (i == 0) {
+                // comp_tmp_1 <- D^-1*rhs
+                elemwise_mult_vectors(comp_tmp_1, D_inv, rhs, N);
+            } else {
+                // comp_tmp_1 <- (-D^-1*L)*comp_tmp_1
+
+#ifdef USE_SMAX
+                register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N, comp_tmp_2, N);
+#endif
+                spmv(crs_mat_L_strict, comp_tmp_1, comp_tmp_2 SMAX_ARGS(0, smax, std::string("precon_spmv")));
+                elemwise_mult_vectors(comp_tmp_2, D_inv, comp_tmp_2, N, -1.0);
+                copy_vector(comp_tmp_1, comp_tmp_2, N);
+            }
+            // vec <- vec + comp_tmp_1
+            // In each iteration of the preconditioner add one more step
+            sum_vectors(vec, vec, comp_tmp_1, N);
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(vec, rhs, N);
         }
     }
+
+    if (preconditioner == PrecondType::TwoStageGS) {
+        delete[] comp_tmp_1; delete [] comp_tmp_2; delete [] D_inv;
+    }
+
     // clang-format on
 }
 

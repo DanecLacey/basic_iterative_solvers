@@ -38,7 +38,8 @@ enum class PrecondType {
     Jacobi,
     GaussSeidel,
     BackwardsGaussSeidel,
-    SymmetricGaussSeidel
+    SymmetricGaussSeidel,
+    TwoStageGS
 };
 
 enum class SolverType {
@@ -64,6 +65,8 @@ template <> inline std::string to_string(PrecondType type) {
         return "backwards-gauss-seidel";
     case PrecondType::SymmetricGaussSeidel:
         return "symmetric-gauss-seidel";
+    case PrecondType::TwoStageGS:
+        return "two-stage-gauss-seidel";
     case PrecondType::None:
         return "none";
     default:
