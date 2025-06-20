@@ -168,7 +168,7 @@ struct MatrixCOO {
         exit(EXIT_FAILURE);
     }
 
-    fclose(f); // Close file here as mm_read_unsymmetric_sparse will reopen or use its own logic
+    fclose(f); 
 
     bool compatible_flag =
         (mm_is_sparse(matcode) &&
@@ -276,7 +276,7 @@ struct MatrixCOO {
         tmp_perm[idx] = idx;
     }
 
-    // Assuming sort_perm is available (e.g., from utilities.hpp)
+    
     sort_perm(row_unsorted_ptr, tmp_perm, current_nnz);
 
     int *col = new int[current_nnz];
