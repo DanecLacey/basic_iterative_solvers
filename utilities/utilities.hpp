@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <iostream>
 
-void parse_cli(Args *cli_args, int argc, char *argv[],
+inline void parse_cli(Args *cli_args, int argc, char *argv[],
                bool bench_mode = false) {
     cli_args->matrix_file_name = argv[1];
     int args_start_index = 2;
@@ -96,7 +96,7 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
     }
 };
 
-void init_timers(Timers *timers) {
+inline void init_timers(Timers *timers) {
     CREATE_STOPWATCH(total)
     CREATE_STOPWATCH(preprocessing)
     CREATE_STOPWATCH(solve)
@@ -124,7 +124,7 @@ void init_timers(Timers *timers) {
     CREATE_STOPWATCH(postprocessing)
 }
 
-void print_timers(Args *cli_args, Timers *timers) {
+inline void print_timers(Args *cli_args, Timers *timers) {
     long double total_time = timers->total_time->get_wtime();
     long double preprocessing_time = timers->preprocessing_time->get_wtime();
     long double solve_time = timers->solve_time->get_wtime();
@@ -236,13 +236,18 @@ void print_timers(Args *cli_args, Timers *timers) {
     // clang-format on
 };
 
-void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
+inline void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
     crs_mat->n_rows = coo_mat->n_rows;
     crs_mat->n_cols = coo_mat->n_cols;
     crs_mat->nnz = coo_mat->nnz;
 
     crs_mat->row_ptr = new int[crs_mat->n_rows + 1];
     int *nnz_per_row = new int[crs_mat->n_rows];
+
+#ifdef USE_SMAX
+    crs_mat->perm = new int[crs_mat->n_rows];
+    crs_mat->inv_perm = new int[crs_mat->n_rows];
+#endif
 
     crs_mat->col = new int[crs_mat->nnz];
     crs_mat->val = new double[crs_mat->nnz];
@@ -275,87 +280,122 @@ void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 }
 
 // NOTE: very lazy way to do this
-void extract_L_U(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L,
-                 MatrixCOO *coo_mat_L_strict, MatrixCOO *coo_mat_U,
-                 MatrixCOO *coo_mat_U_strict) {
+inline void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
+                 MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
+                 MatrixCRS *crs_mat_U_strict) {
     int D_nz_count = 0;
 
     // Force same dimensions for consistency
-    coo_mat_U->n_rows = coo_mat->n_rows;
-    coo_mat_U->n_cols = coo_mat->n_cols;
-    coo_mat_U->nnz = 0;
-    coo_mat_U->is_sorted = coo_mat->is_sorted;
-    coo_mat_U->is_symmetric = false;
-    coo_mat_U_strict->n_rows = coo_mat->n_rows;
-    coo_mat_U_strict->n_cols = coo_mat->n_cols;
-    coo_mat_U_strict->nnz = 0;
-    coo_mat_U_strict->is_sorted = coo_mat->is_sorted;
-    coo_mat_U_strict->is_symmetric = false;
-    coo_mat_L->n_rows = coo_mat->n_rows;
-    coo_mat_L->n_cols = coo_mat->n_cols;
-    coo_mat_L->is_sorted = coo_mat->is_sorted;
-    coo_mat_L->is_symmetric = false;
-    coo_mat_L->nnz = 0;
-    coo_mat_L_strict->n_rows = coo_mat->n_rows;
-    coo_mat_L_strict->n_cols = coo_mat->n_cols;
-    coo_mat_L_strict->is_sorted = coo_mat->is_sorted;
-    coo_mat_L_strict->is_symmetric = false;
-    coo_mat_L_strict->nnz = 0;
+    crs_mat_U->n_rows = crs_mat->n_rows;
+    crs_mat_U->n_cols = crs_mat->n_cols;
+    crs_mat_U->nnz = 0;
+    crs_mat_U_strict->n_rows = crs_mat->n_rows;
+    crs_mat_U_strict->n_cols = crs_mat->n_cols;
+    crs_mat_U_strict->nnz = 0;
+    crs_mat_L->n_rows = crs_mat->n_rows;
+    crs_mat_L->n_cols = crs_mat->n_cols;
+    crs_mat_L->nnz = 0;
+    crs_mat_L_strict->n_rows = crs_mat->n_rows;
+    crs_mat_L_strict->n_cols = crs_mat->n_cols;
+    crs_mat_L_strict->nnz = 0;
 
-    for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
-        bool bad_nz = true;
-        // If column and row less than i, this nz is in the L matrix
-        if (coo_mat->J[nz_idx] <= coo_mat->I[nz_idx]) {
-            // Copy element to lower matrix
-            coo_mat_L->I.push_back(coo_mat->I[nz_idx]);
-            coo_mat_L->J.push_back(coo_mat->J[nz_idx]);
-            coo_mat_L->values.push_back(coo_mat->values[nz_idx]);
-            ++coo_mat_L->nnz;
-
-            // Strict lower matrix
-            if (coo_mat->J[nz_idx] < coo_mat->I[nz_idx]) {
-                coo_mat_L_strict->I.push_back(coo_mat->I[nz_idx]);
-                coo_mat_L_strict->J.push_back(coo_mat->J[nz_idx]);
-                coo_mat_L_strict->values.push_back(coo_mat->values[nz_idx]);
-                ++coo_mat_L_strict->nnz;
-            }
-            bad_nz = false;
-        }
-        if (coo_mat->J[nz_idx] >= coo_mat->I[nz_idx]) {
-            // Copy element to upper matrix
-            coo_mat_U->I.push_back(coo_mat->I[nz_idx]);
-            coo_mat_U->J.push_back(coo_mat->J[nz_idx]);
-            coo_mat_U->values.push_back(coo_mat->values[nz_idx]);
-            ++coo_mat_U->nnz;
-            // Strict upper matrix
-            if (coo_mat->J[nz_idx] > coo_mat->I[nz_idx]) {
-                coo_mat_U_strict->I.push_back(coo_mat->I[nz_idx]);
-                coo_mat_U_strict->J.push_back(coo_mat->J[nz_idx]);
-                coo_mat_U_strict->values.push_back(coo_mat->values[nz_idx]);
-                ++coo_mat_U_strict->nnz;
-            }
-            bad_nz = false;
-        }
-        if (coo_mat->I[nz_idx] == coo_mat->J[nz_idx]) {
-            // Copy element to vector representing diagonal matrix
-            // NOTE: We use a different routine to extract D
-            ++D_nz_count;
-            bad_nz = false;
-        }
-        if (bad_nz)
-            SanityChecker::print_extract_L_U_error(nz_idx);
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
     }
 
-    // All elements from full_coo_mtx need to be accounted for
-    // To account for the double reading of D
-    SanityChecker::check_copied_L_U_elements(coo_mat->nnz, coo_mat_L->nnz,
-                                             coo_mat_U->nnz, -D_nz_count);
+    // Count nnz
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
+        int row_start = crs_mat->row_ptr[i];
+        int row_end = crs_mat->row_ptr[i + 1];
 
-    SanityChecker::check_copied_L_U_elements(
-        coo_mat->nnz, coo_mat_L_strict->nnz, coo_mat_U_strict->nnz, D_nz_count);
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = crs_mat->col[idx];
+
+            if (col <= i) {
+                ++crs_mat_L->nnz;
+                if (col < i) {
+                    ++crs_mat_L_strict->nnz;
+                }
+            }
+            if (col >= i) {
+                ++crs_mat_U->nnz;
+                if (col > i) {
+                    ++crs_mat_U_strict->nnz;
+                }
+            }
+        }
+    }
+
+    // Allocate heap space and assign known metadata
+    crs_mat_L->col = new int[crs_mat_L->nnz];
+    crs_mat_L->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_L->val = new double[crs_mat_L->nnz];
+    crs_mat_L->row_ptr[0] = 0;
+    crs_mat_L->n_rows = crs_mat->n_rows;
+    crs_mat_L->n_cols = crs_mat->n_cols;
+
+    crs_mat_L_strict->col = new int[crs_mat_L_strict->nnz];
+    crs_mat_L_strict->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_L_strict->val = new double[crs_mat_L_strict->nnz];
+    crs_mat_L_strict->row_ptr[0] = 0;
+    crs_mat_L_strict->n_rows = crs_mat->n_rows;
+    crs_mat_L_strict->n_cols = crs_mat->n_cols;
+
+    crs_mat_U->col = new int[crs_mat_U->nnz];
+    crs_mat_U->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_U->val = new double[crs_mat_U->nnz];
+    crs_mat_U->row_ptr[0] = 0;
+    crs_mat_U->n_rows = crs_mat->n_rows;
+    crs_mat_U->n_cols = crs_mat->n_cols;
+
+    crs_mat_U_strict->col = new int[crs_mat_U_strict->nnz];
+    crs_mat_U_strict->row_ptr = new int[crs_mat->n_rows + 1];
+    crs_mat_U_strict->val = new double[crs_mat_U_strict->nnz];
+    crs_mat_U_strict->row_ptr[0] = 0;
+    crs_mat_U_strict->n_rows = crs_mat->n_rows;
+    crs_mat_U_strict->n_cols = crs_mat->n_cols;
+
+    // Assign nonzeros
+    int L_count = 0;
+    int L_strict_count = 0;
+    int U_count = 0;
+    int U_strict_count = 0;
+    for (int i = 0; i < crs_mat->n_rows; ++i) {
+        int row_start = crs_mat->row_ptr[i];
+        int row_end = crs_mat->row_ptr[i + 1];
+
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = crs_mat->col[idx];
+            double val = crs_mat->val[idx];
+
+            if (col <= i) {
+                crs_mat_L->col[L_count] = col;
+                crs_mat_L->val[L_count++] = val;
+                if (col < i) {
+                    crs_mat_L_strict->col[L_strict_count] = col;
+                    crs_mat_L_strict->val[L_strict_count++] = val;
+                }
+            }
+            if (col >= i) {
+                crs_mat_U->col[U_count] = col;
+                crs_mat_U->val[U_count++] = val;
+                if (col > i) {
+                    crs_mat_U_strict->col[U_strict_count] = col;
+                    crs_mat_U_strict->val[U_strict_count++] = val;
+                }
+            }
+        }
+
+        // Update row pointers
+        crs_mat_L->row_ptr[i + 1] = L_count;
+        crs_mat_L_strict->row_ptr[i + 1] = L_strict_count;
+        crs_mat_U->row_ptr[i + 1] = U_count;
+        crs_mat_U_strict->row_ptr[i + 1] = U_strict_count;
+    }
 }
 
-void extract_D(const MatrixCOO *coo_mat, double *D,
+inline void extract_D(const MatrixCOO *coo_mat, double *D,
                bool gmres_restarted = false, bool take_sqrt = false) {
 #pragma omp parallel for schedule(static)
     for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
@@ -372,45 +412,37 @@ void extract_D(const MatrixCOO *coo_mat, double *D,
 
 inline void peel_diag_crs(MatrixCRS *A, double *D) {
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
-        int row_start = A->row_ptr[row_idx];
-        int row_end = A->row_ptr[row_idx + 1] - 1;
-        int diag_j = -1; // Init diag col
-
-        // Initialize D[row_idx] to 0.0. If no diagonal element is found, it will remain 0.0.
+        // CRITICAL FIX: Initialize D[row_idx] to 0.0 at the start of each row.
+        // This ensures that if no diagonal element is found, D[row_idx] correctly defaults to 0.0.
         D[row_idx] = 0.0;
 
-        // find the diag in this row_idx (since row need not be col sorted)
+        int row_start = A->row_ptr[row_idx];
+        int row_end = A->row_ptr[row_idx + 1] - 1; // Index of the last element in the current row
+        int diag_j = -1; // Initialize diag_j to -1 (indicating diagonal not found yet)
+
+        // Find the diagonal element in this row (since rows in CRS need not be column-sorted)
         for (int j = row_start; j <= row_end; ++j) {
             if (A->col[j] == row_idx) {
-                diag_j = j;
-                D[row_idx] = A->val[j]; // extract
+                diag_j = j; // Store the index of the diagonal element
+                D[row_idx] = A->val[j]; // Extract the diagonal value
+                
+                // Check if the diagonal value is very close to zero
                 if (std::abs(D[row_idx]) < 1e-16) {
-                    // This SanityChecker::zero_diag() typically warns but doesn't exit.
-                    // Keep it to inform about explicit zero diagonals.
-                    SanityChecker::zero_diag(row_idx);
+                    SanityChecker::zero_diag(row_idx); // Call sanity checker for zero diagonal
                 }
-                // No break here if you want to handle multiple diagonal entries per row,
-                // but typically a sparse matrix has at most one.
-                // If it's guaranteed to be unique, you could add 'break;' here.
-                // Assuming unique, for efficiency:
-                break; // Found the diagonal, no need to search further in this row.
+                
             }
         }
-        // Remove the error check for missing diagonal, as D[row_idx] is already 0.0
-        // if no diagonal element was found.
-        // If SanityChecker::no_diag exits, you should remove or comment out this block:
-        /*
-        if (diag_j < 0) {
-            SanityChecker::no_diag(row_idx); // This function likely calls exit(EXIT_FAILURE)
-        }
-        */
 
-        // if it's not already at the end, swap it into the last slot
-        // This part is for reorganizing the CRS matrix, ensure it makes sense
-        // even if diag_j is -1 (meaning no diagonal element was found and 'j' was not set).
-        // If diag_j remains -1, this swap should ideally be skipped or handled.
-        // A direct modification to avoid issues with diag_j = -1:
-        if (diag_j >= 0 && diag_j != row_end) {
+        // If no diagonal element was found for this row
+        if (diag_j < 0) {
+            SanityChecker::no_diag(row_idx); // Call sanity checker for missing diagonal
+            
+        }
+
+        // If a diagonal element was found AND it's not already at the end of the row's non-zeros,
+        // swap it into the last slot of the current row's non-zero entries.
+        if (diag_j >= 0 && diag_j != row_end) { // Ensure diag_j is valid before swapping
             std::swap(A->col[diag_j], A->col[row_end]);
             std::swap(A->val[diag_j], A->val[row_end]);
         }
@@ -418,7 +450,7 @@ inline void peel_diag_crs(MatrixCRS *A, double *D) {
 }
 
 // NOTE: very lazy way to do this
-void extract_L_plus_D(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L_plus_D) {
+inline void extract_L_plus_D(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L_plus_D) {
     // Force same dimensions for consistency
     coo_mat_L_plus_D->n_rows = coo_mat->n_rows;
     coo_mat_L_plus_D->n_cols = coo_mat->n_cols;

@@ -201,45 +201,45 @@ class GMRESSolver : public Solver {
         // GMRES-specific initialization?
     }
 
-    void allocate_structs() override {
-        Solver::allocate_structs();
-        x = new double[crs_mat->n_cols];
-        x_old = new double[crs_mat->n_cols];
-        V = new double[crs_mat->n_cols * (gmres_restart_len + 1)];
-        Vy = new double[crs_mat->n_cols];
+    void allocate_structs(const int N) override {
+        Solver::allocate_structs(N);
+        x = new double[N];
+        x_old = new double[N];
+        V = new double[N * (gmres_restart_len + 1)];
+        Vy = new double[N];
         y = new double[gmres_restart_len];
         H = new double[(gmres_restart_len + 1) * gmres_restart_len];
         H_tmp = new double[(gmres_restart_len + 1) * gmres_restart_len];
         J = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
         Q = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
         Q_tmp = new double[(gmres_restart_len + 1) * (gmres_restart_len + 1)];
-        w = new double[crs_mat->n_cols];
+        w = new double[N];
         R = new double[gmres_restart_len * (gmres_restart_len + 1)];
         g = new double[gmres_restart_len + 1];
         g_tmp = new double[gmres_restart_len + 1];
     }
 
-    void init_structs() override {
-        Solver::init_structs();
+    void init_structs(const int N) override {
+        Solver::init_structs(N);
         // NOTE: We only want to copy x <- x_0 on the first invocation of this
         // routine. All other invocations will be due to resets, in which case
         // the approximate x vector will be explicity computed.
         if (!gmres_restarted) {
 #pragma omp parallel for
-            for (int i = 0; i < crs_mat->n_cols; ++i) {
+            for (int i = 0; i < N; ++i) {
                 x[i] = x_0[i];
                 x_old[i] = x_0[i];
             }
         }
 
 #pragma omp parallel for
-        for (int i = 0; i < crs_mat->n_cols * (gmres_restart_len + 1); ++i) {
+        for (int i = 0; i < N * (gmres_restart_len + 1); ++i) {
             V[i] = 0.0;
         }
 
         // TODO: Is there a better way to do this?
-        init_vector(Vy, 0.0, crs_mat->n_cols);
-        init_vector(w, 0.0, crs_mat->n_cols);
+        init_vector(Vy, 0.0, N);
+        init_vector(w, 0.0, N);
         init_vector(y, 0.0, gmres_restart_len);
         init_vector(g, 0.0, (gmres_restart_len + 1));
         init_vector(g_tmp, 0.0, (gmres_restart_len + 1));
@@ -257,23 +257,30 @@ class GMRESSolver : public Solver {
     void init_residual() override {
         IF_DEBUG_MODE(
             SanityChecker::print_vector(x, crs_mat->n_cols, "old_x1"));
-        compute_residual(crs_mat, x, b, residual,
+        compute_residual(crs_mat.get(), x, b, residual,
                          tmp SMAX_ARGS(smax, "residual_spmv"));
 
+        // Record the unpreconditioned residual norm for the first iteration!
+        if (!gmres_restarted) {
+            residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+            collected_residual_norms[collected_residual_norms_count++] =
+                residual_norm;
+        }
         // Precondition the initial residual
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual before preconditioning"));
-        apply_preconditioner(preconditioner, crs_mat_L_strict, crs_mat_U_strict,
-                             D, residual, residual,
+        apply_preconditioner(preconditioner, crs_mat_L_strict.get(),
+                             crs_mat_U_strict.get(), D, residual, residual,
                              tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
+        double precond_residual_norm =
+            euclidean_vec_norm(residual, crs_mat->n_cols);
 
         IF_DEBUG_MODE(
             SanityChecker::print_vector(x, crs_mat->n_cols, "old_x2"));
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
-        beta = residual_norm; // NOTE: Beta should be according to
-                              // euclidean norm (Saad)
+        beta = precond_residual_norm; // NOTE: Beta should be according to
+                                      // euclidean norm (Saad)
 
         g[0] = beta;
         g_tmp[0] = beta;
@@ -287,19 +294,22 @@ class GMRESSolver : public Solver {
         IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", residual_norm))
         IF_DEBUG_MODE(
             SanityChecker::print_vector(V, crs_mat->n_cols, "init_v"));
-        Solver::init_residual();
+
+        if (gmres_restarted) {
+            residual_norm = precond_residual_norm;
+            Solver::init_residual();
+        }
     }
 
     void iterate(Timers *timers) override {
         gmres_separate_iteration(
-            timers, preconditioner, crs_mat, crs_mat_L_strict, crs_mat_U_strict,
-            D, iter_count, gmres_restart_count, gmres_restart_len,
-            residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g, g_tmp, b, x, tmp,
-            beta SMAX_ARGS(smax));
+            timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
+            crs_mat_U_strict.get(), D, iter_count, gmres_restart_count,
+            gmres_restart_len, residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g,
+            g_tmp, b, x, tmp, beta SMAX_ARGS(smax));
     }
 
     void get_explicit_x() override {
-        // NOTE: Only relevant for GMRES, so we don't worry about other solvers
         double diag_elem = 1.0;
 
         // Adjust for restarting
@@ -363,7 +373,7 @@ class GMRESSolver : public Solver {
         Solver::record_residual_norm();
     }
 
-    void check_restart() override {
+    void check_restart(Timers *timers) override {
         // NOTE: Only relevant for GMRES, so we don't worry about other solvers
         bool norm_convergence = residual_norm < stopping_criteria;
         bool over_max_iters = iter_count > max_iters;
@@ -379,11 +389,14 @@ class GMRESSolver : public Solver {
 
             // Re-initialize relevant data structures after restarting GMRES
             // NOTE: x is the only struct which is not re-initialized
-            init_structs();
+            init_structs(crs_mat->n_cols);
 
             // TODO: This shouldn't be necessary
             // Re-initialize residual with new inital x approximation
             init_residual();
+
+            time_per_iteration[collected_residual_norms_count] =
+                timers->per_iteration_time->check();
 
             ++gmres_restart_count;
         }
@@ -398,19 +411,19 @@ class GMRESSolver : public Solver {
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat, x, N, tmp, N);
-        register_spmv(smax, "w_j <- A*v_j", crs_mat, V, N * (gmres_restart_len + 1), w, N);
+        register_spmv(smax, "residual_spmv", crs_mat.get(), x, N, tmp, N);
+        register_spmv(smax, "w_j <- A*v_j", crs_mat.get(), V, N * (gmres_restart_len + 1), w, N);
         if (preconditioner == PrecondType::GaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L, residual, N, residual, N);
-            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_L, w, N, w, N);
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L.get(), residual, N, residual, N);
+            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_L.get(), w, N, w, N);
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U, residual, N, residual, N, true);
-            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_U, w, N, w, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U.get(), residual, N, residual, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_U.get(), w, N, w, N, true);
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L, tmp, N, residual, N);
-            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U, residual, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L, tmp, N, w, N);
-            register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U, w, N, tmp, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), residual, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L.get(), tmp, N, w, N);
+            register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U.get(), w, N, tmp, N, true);
         }
     }
 #endif

@@ -61,29 +61,30 @@ class JacobiSolver : public Solver {
         // Jacobi-specific initialization?
     }
 
-    void allocate_structs() override {
-        Solver::allocate_structs();
-        x_new = new double[crs_mat->n_cols];
-        x_old = new double[crs_mat->n_cols];
+    void allocate_structs(const int N) override {
+        Solver::allocate_structs(N);
+        x_new = new double[N];
+        x_old = new double[N];
     }
 
-    void init_structs() override {
-        Solver::init_structs();
+    void init_structs(const int N) override {
+        Solver::init_structs(N);
 #pragma omp parallel for
-        for (int i = 0; i < crs_mat->n_cols; ++i) {
+        for (int i = 0; i < N; ++i) {
             x_new[i] = 0.0;
             x_old[i] = x_0[i];
         }
     }
 
     void init_residual() override {
-        compute_residual(crs_mat, x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        compute_residual(crs_mat.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::init_residual();
     }
 
     void iterate(Timers *timers) override {
-        jacobi_separate_iteration(timers, crs_mat, D, b, x_new, x_old SMAX_ARGS(smax));
+        jacobi_separate_iteration(timers, crs_mat.get(), D, b, x_new, x_old SMAX_ARGS(smax));
     }
 
     void exchange() override {
@@ -99,8 +100,9 @@ class JacobiSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        compute_residual(crs_mat, x_new, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        compute_residual(crs_mat.get(), x_new, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
         Solver::record_residual_norm();
     }
     // clang-format on
@@ -108,8 +110,9 @@ class JacobiSolver : public Solver {
 #ifdef USE_SMAX
     void register_structs() override {
         int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat, x_old, N, tmp, N);
-        register_spmv(smax, "x_new <- A*x_old", crs_mat, x_old, N, x_new, N);
+        register_spmv(smax, "residual_spmv", crs_mat.get(), x_old, N, tmp, N);
+        register_spmv(smax, "x_new <- A*x_old", crs_mat.get(), x_old, N, x_new,
+                      N);
     }
 #endif
 

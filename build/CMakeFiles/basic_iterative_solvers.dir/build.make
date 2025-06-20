@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master"
+CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build"
+CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build"
 
 # Include any dependencies generated for this target.
 include CMakeFiles/basic_iterative_solvers.dir/depend.make
@@ -72,30 +72,30 @@ include CMakeFiles/basic_iterative_solvers.dir/flags.make
 CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: CMakeFiles/basic_iterative_solvers.dir/flags.make
 CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: ../main.cpp
 CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: CMakeFiles/basic_iterative_solvers.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/basic_iterative_solvers.dir/main.cpp.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/basic_iterative_solvers.dir/main.cpp.o -MF CMakeFiles/basic_iterative_solvers.dir/main.cpp.o.d -o CMakeFiles/basic_iterative_solvers.dir/main.cpp.o -c "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/main.cpp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/basic_iterative_solvers.dir/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/basic_iterative_solvers.dir/main.cpp.o -MF CMakeFiles/basic_iterative_solvers.dir/main.cpp.o.d -o CMakeFiles/basic_iterative_solvers.dir/main.cpp.o -c "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/main.cpp"
 
 CMakeFiles/basic_iterative_solvers.dir/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/basic_iterative_solvers.dir/main.cpp.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/main.cpp" > CMakeFiles/basic_iterative_solvers.dir/main.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/main.cpp" > CMakeFiles/basic_iterative_solvers.dir/main.cpp.i
 
 CMakeFiles/basic_iterative_solvers.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/basic_iterative_solvers.dir/main.cpp.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/main.cpp" -o CMakeFiles/basic_iterative_solvers.dir/main.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/main.cpp" -o CMakeFiles/basic_iterative_solvers.dir/main.cpp.s
 
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: CMakeFiles/basic_iterative_solvers.dir/flags.make
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.cpp
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: CMakeFiles/basic_iterative_solvers.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o -MF CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o.d -o CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o -c "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.cpp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o -MF CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o.d -o CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o -c "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/utilities/mmio.cpp"
 
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.cpp" > CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/utilities/mmio.cpp" > CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.i
 
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.cpp" -o CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/utilities/mmio.cpp" -o CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.s
 
 # Object files for target basic_iterative_solvers
 basic_iterative_solvers_OBJECTS = \
@@ -111,7 +111,7 @@ basic_iterative_solvers: CMakeFiles/basic_iterative_solvers.dir/build.make
 basic_iterative_solvers: /usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so
 basic_iterative_solvers: /usr/lib/x86_64-linux-gnu/libpthread.a
 basic_iterative_solvers: CMakeFiles/basic_iterative_solvers.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable basic_iterative_solvers"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable basic_iterative_solvers"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/basic_iterative_solvers.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -123,6 +123,6 @@ CMakeFiles/basic_iterative_solvers.dir/clean:
 .PHONY : CMakeFiles/basic_iterative_solvers.dir/clean
 
 CMakeFiles/basic_iterative_solvers.dir/depend:
-	cd "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build" && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles/basic_iterative_solvers.dir/DependInfo.cmake" --color=$(COLOR)
+	cd "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build" && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles/basic_iterative_solvers.dir/DependInfo.cmake" --color=$(COLOR)
 .PHONY : CMakeFiles/basic_iterative_solvers.dir/depend
 

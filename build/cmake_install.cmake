@@ -1,4 +1,4 @@
-# Install script for directory: /mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master
+# Install script for directory: /mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

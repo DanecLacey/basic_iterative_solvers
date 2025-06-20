@@ -233,9 +233,26 @@ CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: ../main.cpp \
   /usr/include/c++/11/bits/istream.tcc \
   /usr/include/c++/11/bits/sstream.tcc \
   /usr/include/c++/11/iostream \
+  /usr/include/c++/11/memory \
+  /usr/include/c++/11/bits/stl_uninitialized.h \
+  /usr/include/c++/11/bits/stl_tempbuf.h \
+  /usr/include/c++/11/bits/stl_raw_storage_iter.h \
+  /usr/include/c++/11/bits/align.h \
+  /usr/include/c++/11/bit \
+  /usr/include/c++/11/bits/shared_ptr.h \
+  /usr/include/c++/11/bits/shared_ptr_base.h \
+  /usr/include/c++/11/bits/allocated_ptr.h \
+  /usr/include/c++/11/bits/refwrap.h \
+  /usr/include/c++/11/ext/aligned_buffer.h \
+  /usr/include/c++/11/ext/concurrence.h \
+  /usr/include/c++/11/bits/shared_ptr_atomic.h \
+  /usr/include/c++/11/bits/atomic_base.h \
+  /usr/include/c++/11/bits/atomic_lockfree_defines.h \
+  /usr/include/c++/11/backward/auto_ptr.h \
+  /usr/include/c++/11/pstl/glue_memory_defs.h \
+  /usr/include/c++/11/pstl/execution_defs.h \
   /usr/include/x86_64-linux-gnu/sys/time.h \
   /usr/include/c++/11/unordered_map \
-  /usr/include/c++/11/ext/aligned_buffer.h \
   /usr/include/c++/11/bits/hashtable.h \
   /usr/include/c++/11/bits/hashtable_policy.h \
   /usr/include/c++/11/bits/enable_special_members.h \
@@ -252,7 +269,6 @@ CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: ../main.cpp \
   /usr/include/c++/11/bits/stl_set.h \
   /usr/include/c++/11/bits/stl_multiset.h \
   /usr/include/c++/11/vector \
-  /usr/include/c++/11/bits/stl_uninitialized.h \
   /usr/include/c++/11/bits/stl_vector.h \
   /usr/include/c++/11/bits/stl_bvector.h \
   /usr/include/c++/11/bits/vector.tcc \
@@ -261,13 +277,10 @@ CMakeFiles/basic_iterative_solvers.dir/main.cpp.o: ../main.cpp \
   /usr/include/c++/11/bits/stl_algo.h \
   /usr/include/c++/11/bits/algorithmfwd.h \
   /usr/include/c++/11/bits/stl_heap.h \
-  /usr/include/c++/11/bits/stl_tempbuf.h \
   /usr/include/c++/11/bits/uniform_int_dist.h \
   /usr/include/c++/11/pstl/glue_algorithm_defs.h \
   /usr/include/c++/11/functional \
-  /usr/include/c++/11/bits/refwrap.h \
   /usr/include/c++/11/bits/std_function.h \
-  /usr/include/c++/11/pstl/execution_defs.h \
   /usr/include/c++/11/map \
   /usr/include/c++/11/bits/stl_map.h \
   /usr/include/c++/11/bits/stl_multimap.h \
@@ -431,8 +444,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/stdlib.h:
 
-/usr/include/x86_64-linux-gnu/bits/string_fortified.h:
-
 /usr/include/x86_64-linux-gnu/bits/strings_fortified.h:
 
 /usr/include/strings.h:
@@ -449,23 +460,39 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 ../methods/gmres.hpp:
 
-../utilities/smax_helpers.hpp:
-
 /usr/lib/gcc/x86_64-linux-gnu/11/include/float.h:
 
 /usr/include/c++/11/bits/stl_map.h:
 
 /usr/include/c++/11/map:
 
-/usr/include/c++/11/bits/refwrap.h:
+/usr/include/c++/11/bits/stl_algo.h:
 
-/usr/include/c++/11/bits/std_function.h:
+/usr/include/c++/11/algorithm:
 
-/usr/include/c++/11/bits/stl_tempbuf.h:
+../utilities/mmio.hpp:
 
-/usr/include/c++/11/pstl/execution_defs.h:
+/usr/include/c++/11/bits/vector.tcc:
 
-/usr/include/c++/11/bits/algorithmfwd.h:
+/usr/include/c++/11/bits/stl_vector.h:
+
+/usr/include/c++/11/vector:
+
+/usr/include/c++/11/bits/stl_multiset.h:
+
+/usr/include/c++/11/bits/stl_set.h:
+
+/usr/include/c++/11/bits/stl_tree.h:
+
+../methods/gauss_seidel.hpp:
+
+/usr/include/c++/11/set:
+
+../sparse_matrix.hpp:
+
+../kernels.hpp:
+
+../methods/bicgstab.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/cpu-set.h:
 
@@ -473,11 +500,9 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/gthr-default.h:
 
+/usr/include/c++/11/ext/concurrence.h:
+
 /usr/include/c++/11/bits/ios_base.h:
-
-../methods/gauss_seidel.hpp:
-
-/usr/include/c++/11/set:
 
 /usr/include/x86_64-linux-gnu/bits/fp-logb.h:
 
@@ -525,8 +550,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/tr1/exp_integral.tcc:
 
-/usr/include/c++/11/bits/stl_construct.h:
-
 /usr/include/c++/11/tr1/ell_integral.tcc:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
@@ -545,15 +568,15 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/cstdlib:
 
-../kernels.hpp:
+../utilities/smax_helpers.hpp:
+
+/usr/include/c++/11/bit:
 
 /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h:
 
 /usr/include/c++/11/debug/assertions.h:
 
 /usr/include/c++/11/tuple:
-
-/usr/include/c++/11/bits/stl_tree.h:
 
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
 
@@ -566,6 +589,8 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/c++/11/bits/sstream.tcc:
 
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+
+/usr/include/c++/11/bits/allocated_ptr.h:
 
 /usr/include/x86_64-linux-gnu/bits/floatn-common.h:
 
@@ -582,8 +607,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/c++/11/tr1/riemann_zeta.tcc:
 
 /usr/include/x86_64-linux-gnu/bits/math-vector.h:
-
-/usr/include/c++/11/bits/stl_algo.h:
 
 /usr/include/x86_64-linux-gnu/sys/select.h:
 
@@ -603,6 +626,8 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/ext/type_traits.h:
 
+/usr/include/c++/11/pstl/glue_memory_defs.h:
+
 /usr/include/c++/11/bits/exception_defines.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h:
@@ -615,6 +640,8 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/x86_64-linux-gnu/gnu/stubs.h:
 
+/usr/include/c++/11/bits/shared_ptr_base.h:
+
 /usr/include/c++/11/bits/basic_string.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdlib.h:
@@ -624,6 +651,8 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/x86_64-linux-gnu/asm/errno.h:
 
 /usr/include/c++/11/ext/numeric_traits.h:
+
+/usr/include/c++/11/bits/atomic_base.h:
 
 /usr/include/features.h:
 
@@ -640,6 +669,8 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/string.h:
 
 /usr/include/c++/11/bits/streambuf.tcc:
+
+/usr/include/c++/11/bits/atomic_lockfree_defines.h:
 
 /usr/include/c++/11/pstl/pstl_config.h:
 
@@ -681,6 +712,10 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/x86_64-linux-gnu/bits/wordsize.h:
 
+/usr/include/c++/11/bits/algorithmfwd.h:
+
+/usr/include/c++/11/pstl/execution_defs.h:
+
 /usr/include/stdlib.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
@@ -703,11 +738,19 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
 
+/usr/include/c++/11/bits/std_function.h:
+
+/usr/include/c++/11/bits/stl_tempbuf.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
 
 /usr/include/c++/11/limits:
 
 /usr/include/x86_64-linux-gnu/bits/byteswap.h:
+
+/usr/include/c++/11/bits/stl_construct.h:
+
+/usr/include/c++/11/bits/shared_ptr.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
 
@@ -716,8 +759,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
 
 /usr/include/c++/11/bits/concept_check.h:
-
-../utilities/mmio.hpp:
 
 /usr/include/c++/11/bits/locale_classes.tcc:
 
@@ -755,8 +796,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/iostream:
 
-/usr/include/c++/11/algorithm:
-
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
 
 /usr/include/c++/11/bits/stl_heap.h:
@@ -776,6 +815,14 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/x86_64-linux-gnu/bits/setjmp.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
+
+/usr/include/c++/11/bits/stl_bvector.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
 
 /usr/include/c++/11/tr1/legendre_function.tcc:
 
@@ -819,6 +866,14 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/cstdint:
 
+/usr/include/c++/11/bits/erase_if.h:
+
+/usr/include/c++/11/bits/ptr_traits.h:
+
+/usr/include/endian.h:
+
+/usr/include/stdint.h:
+
 /usr/include/c++/11/bits/locale_facets.h:
 
 /usr/include/c++/11/bits/exception.h:
@@ -856,8 +911,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
 
 /usr/include/c++/11/string_view:
-
-/usr/include/c++/11/bits/stl_set.h:
 
 /usr/include/c++/11/bits/functional_hash.h:
 
@@ -903,8 +956,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/system_error:
 
-/usr/include/c++/11/bits/stl_vector.h:
-
 /usr/include/c++/11/ios:
 
 /usr/include/c++/11/utility:
@@ -943,8 +994,6 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/bits/stl_relops.h:
 
-../sparse_matrix.hpp:
-
 /usr/include/c++/11/tr1/beta_function.tcc:
 
 /usr/include/c++/11/array:
@@ -961,6 +1010,22 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 
 /usr/include/c++/11/bits/istream.tcc:
 
+/usr/include/x86_64-linux-gnu/bits/string_fortified.h:
+
+/usr/include/c++/11/memory:
+
+/usr/include/c++/11/bits/stl_uninitialized.h:
+
+/usr/include/c++/11/backward/auto_ptr.h:
+
+/usr/include/c++/11/bits/stl_raw_storage_iter.h:
+
+/usr/include/c++/11/bits/align.h:
+
+/usr/include/c++/11/bits/refwrap.h:
+
+/usr/include/c++/11/bits/shared_ptr_atomic.h:
+
 /usr/include/x86_64-linux-gnu/sys/time.h:
 
 /usr/include/c++/11/bits/hashtable.h:
@@ -972,29 +1037,3 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: ../utilities/mmio.c
 /usr/include/c++/11/bits/basic_ios.tcc:
 
 /usr/include/c++/11/bits/enable_special_members.h:
-
-/usr/include/c++/11/bits/ptr_traits.h:
-
-/usr/include/endian.h:
-
-/usr/include/stdint.h:
-
-/usr/include/c++/11/bits/erase_if.h:
-
-../methods/bicgstab.hpp:
-
-/usr/include/c++/11/bits/stl_multiset.h:
-
-/usr/include/c++/11/vector:
-
-/usr/include/c++/11/bits/stl_uninitialized.h:
-
-/usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
-
-/usr/include/c++/11/bits/stl_bvector.h:
-
-/usr/include/c++/11/bits/vector.tcc:

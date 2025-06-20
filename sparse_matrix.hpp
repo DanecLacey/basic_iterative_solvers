@@ -28,8 +28,32 @@ struct MatrixCRS {
     int n_cols{};
     int nnz{};
 
-    int *row_ptr, *col;
-    double *val;
+    int *row_ptr = nullptr;
+    int *col = nullptr;
+    double *val = nullptr;
+#ifdef USE_SMAX
+    int *perm = nullptr;
+    int *inv_perm = nullptr;
+#endif
+
+    // Default Constructor
+    MatrixCRS() = default;
+
+    // Parameterized Constructor
+    MatrixCRS(std::size_t num_rows, std::size_t num_cols, std::size_t num_nnz)
+        : n_rows(num_rows), n_cols(num_cols), nnz(num_nnz) {
+        // Allocate memory for vectors based on dimensions
+        // row_ptr needs n_rows + 1 elements
+        row_ptr = new int[n_rows + 1];
+        col = new int[nnz];
+        val = new double[nnz];
+
+#ifdef USE_SMAX
+        // Permutation arrays are typically sized by n_rows
+        perm = new int[n_rows];
+        inv_perm = new int[n_rows];
+#endif
+    }
 
     void print(void) {
         std::cout << "n_rows = " << n_rows << std::endl;
@@ -53,12 +77,30 @@ struct MatrixCRS {
             std::cout << static_cast<double>(val[i]) << ", ";
         }
         std::cout << "]" << std::endl;
+
+#ifdef USE_SMAX
+        std::cout << "perm = [";
+        for (int i = 0; i < n_rows; ++i) {
+            std::cout << perm[i] << ", ";
+        }
+        std::cout << "]" << std::endl;
+
+        std::cout << "inv_perm = [";
+        for (int i = 0; i < n_rows; ++i) {
+            std::cout << inv_perm[i] << ", ";
+        }
+        std::cout << "]" << std::endl;
+#endif
     }
 
     ~MatrixCRS() {
         delete[] row_ptr;
         delete[] col;
         delete[] val;
+#ifdef USE_SMAX
+        delete[] perm;
+        delete[] inv_perm;
+#endif
     }
 };
 
@@ -74,6 +116,17 @@ struct MatrixCOO {
     std::vector<int> J;
     std::vector<double> values;
 
+    // Default constructor (important for std::make_unique)
+    MatrixCOO() = default;
+
+    // Constructor to preallocate (optional, but good practice for known sizes)
+    MatrixCOO(long rows, long cols, long num_non_zeros) :
+        n_rows(rows), n_cols(cols), nnz(num_non_zeros) {
+        I.reserve(nnz);
+        J.reserve(nnz);
+        values.reserve(nnz);
+    }
+
     void write_to_mtx(std::string file_out_name) {
         std::string file_name = file_out_name + ".mtx";
 
@@ -82,175 +135,187 @@ struct MatrixCOO {
             ++J[nz_idx];
         }
 
-        char arg_str[] = "MCRG";
+        char arg_str[] = "MCRG"; // Matrix, Coordinate, Real, General
 
         mm_write_mtx_crd(&file_name[0], n_rows, n_cols, nnz, &(I)[0], &(J)[0],
                          &(values)[0],
-                         arg_str // TODO: <- make more general, i.e. flexible
-                                 // based on the matrix. Read from original mtx?
+                         arg_str
         );
+
+        // Revert increments so MatrixCOO object state is consistent if used again
+        for (int nz_idx = 0; nz_idx < nnz; ++nz_idx) {
+            --I[nz_idx];
+            --J[nz_idx];
+        }
     }
 
     void read_from_mtx(const std::string matrix_file_name) {
-        char *filename = const_cast<char *>(matrix_file_name.c_str());
-        int nrows, ncols, nnz;
-        // double *val_ptr;
-        // int *I_ptr;
-        // int *J_ptr;
+    char *filename = const_cast<char *>(matrix_file_name.c_str());
+    int nrows, ncols, nnz_read; // Renamed nnz to nnz_read to avoid confusion with member nnz
 
-        MM_typecode matcode;
-        FILE *f;
+    MM_typecode matcode;
+    FILE *f;
 
-        if ((f = fopen(filename, "r")) == NULL) {
-            printf("Unable to open file");
+    if ((f = fopen(filename, "r")) == NULL) {
+        printf("Unable to open file\n");
+        exit(EXIT_FAILURE); // Use exit instead of return for critical errors
+    }
+
+    if (mm_read_banner(f, &matcode) != 0) {
+        printf("mm_read_unsymetric: Could not process Matrix Market banner ");
+        printf(" in file [%s]\n", filename);
+        fclose(f); // Close file before exiting
+        exit(EXIT_FAILURE);
+    }
+
+    fclose(f); // Close file here as mm_read_unsymmetric_sparse will reopen or use its own logic
+
+    bool compatible_flag =
+        (mm_is_sparse(matcode) &&
+         (mm_is_real(matcode) || mm_is_pattern(matcode) ||
+          mm_is_integer(matcode))) &&
+        (mm_is_symmetric(matcode) || mm_is_general(matcode));
+    bool symm_flag = mm_is_symmetric(matcode);
+
+    if (!compatible_flag) {
+        printf("The matrix market file provided is not supported.\n Reason "
+               ":\n");
+        if (!mm_is_sparse(matcode)) {
+            printf(" * matrix has to be sparse\n");
         }
-
-        if (mm_read_banner(f, &matcode) != 0) {
-            printf(
-                "mm_read_unsymetric: Could not process Matrix Market banner ");
-            printf(" in file [%s]\n", filename);
-            // return -1;
+        if (!mm_is_real(matcode) && !(mm_is_pattern(matcode))) {
+            printf(" * matrix has to be real or pattern\n");
         }
-
-        fclose(f);
-
-        // bool compatible_flag = (mm_is_sparse(matcode) &&
-        // (mm_is_real(matcode)||mm_is_pattern(matcode))) &&
-        // (mm_is_symmetric(matcode) || mm_is_general(matcode));
-        bool compatible_flag =
-            (mm_is_sparse(matcode) &&
-             (mm_is_real(matcode) || mm_is_pattern(matcode) ||
-              mm_is_integer(matcode))) &&
-            (mm_is_symmetric(matcode) || mm_is_general(matcode));
-        bool symm_flag = mm_is_symmetric(matcode);
-        // bool pattern_flag = mm_is_pattern(matcode); // Not used ATM
-
-        if (!compatible_flag) {
-            printf("The matrix market file provided is not supported.\n Reason "
-                   ":\n");
-            if (!mm_is_sparse(matcode)) {
-                printf(" * matrix has to be sparse\n");
-            }
-
-            if (!mm_is_real(matcode) && !(mm_is_pattern(matcode))) {
-                printf(" * matrix has to be real or pattern\n");
-            }
-
-            if (!mm_is_symmetric(matcode) && !mm_is_general(matcode)) {
-                printf(" * matrix has to be einther general or symmetric\n");
-            }
-
-            exit(0);
+        if (!mm_is_symmetric(matcode) && !mm_is_general(matcode)) {
+            printf(" * matrix has to be either general or symmetric\n");
         }
+        exit(EXIT_FAILURE);
+    }
 
-        // int ncols;
-        int *row_unsorted;
-        int *col_unsorted;
-        double *val_unsorted;
+    int *row_unsorted;
+    int *col_unsorted;
+    double *val_unsorted;
 
-        if (mm_read_unsymmetric_sparse<double, int>(
-                filename, &nrows, &ncols, &nnz, &val_unsorted, &row_unsorted,
-                &col_unsorted) < 0) {
-            printf("Error in file reading\n");
-            exit(1);
-        }
-        if (nrows != ncols) {
-            printf("Matrix not square. Currently only square matrices are "
-                   "supported\n");
-            exit(1);
-        }
+    // mm_read_unsymmetric_sparse allocates memory with malloc()
+    if (mm_read_unsymmetric_sparse<double, int>(
+            filename, &nrows, &ncols, &nnz_read, &val_unsorted, &row_unsorted,
+            &col_unsorted) < 0) {
+        printf("Error in file reading\n");
+        exit(EXIT_FAILURE);
+    }
 
-        // If matrix market file is symmetric; create a general one out of it
-        if (symm_flag) {
-            // printf("Creating a general matrix out of a symmetric one\n");
+    if (nrows != ncols) {
+        printf("Matrix not square. Currently only square matrices are "
+               "supported\n");
+        free(row_unsorted); // Free malloc'd memory before exiting
+        free(col_unsorted);
+        free(val_unsorted);
+        exit(EXIT_FAILURE);
+    }
 
-            int ctr = 0;
+    // THESE ARE THE CRUCIAL DECLARATIONS: They must be here!
+    int *row_unsorted_ptr = row_unsorted;
+    int *col_unsorted_ptr = col_unsorted;
+    double *val_unsorted_ptr = val_unsorted;
+    long current_nnz = nnz_read; // Use a mutable nnz here for symmetric case
 
-            // this is needed since diagonals might be missing in some cases
-            for (int idx = 0; idx < nnz; ++idx) {
+    bool allocated_with_new_for_general = false;
+
+    // If matrix market file is symmetric; create a general one out of it
+    if (symm_flag) {
+        int ctr = 0;
+        for (int idx = 0; idx < nnz_read; ++idx) {
+            ++ctr;
+            if (row_unsorted[idx] != col_unsorted[idx]) {
                 ++ctr;
-                if (row_unsorted[idx] != col_unsorted[idx]) {
-                    ++ctr;
-                }
             }
+        }
 
-            int new_nnz = ctr;
+        int new_nnz = ctr;
 
-            int *row_general = new int[new_nnz];
-            int *col_general = new int[new_nnz];
-            double *val_general = new double[new_nnz];
+        // These are allocated with NEW
+        int *row_general = new int[new_nnz];
+        int *col_general = new int[new_nnz];
+        double *val_general = new double[new_nnz];
 
-            int idx_gen = 0;
+        int idx_gen = 0;
+        for (int idx = 0; idx < nnz_read; ++idx) {
+            row_general[idx_gen] = row_unsorted[idx];
+            col_general[idx_gen] = col_unsorted[idx];
+            val_general[idx_gen] = val_unsorted[idx];
+            ++idx_gen;
 
-            for (int idx = 0; idx < nnz; ++idx) {
-                row_general[idx_gen] = row_unsorted[idx];
-                col_general[idx_gen] = col_unsorted[idx];
+            if (row_unsorted[idx] != col_unsorted[idx]) {
+                row_general[idx_gen] = col_unsorted[idx];
+                col_general[idx_gen] = row_unsorted[idx];
                 val_general[idx_gen] = val_unsorted[idx];
                 ++idx_gen;
-
-                if (row_unsorted[idx] != col_unsorted[idx]) {
-                    row_general[idx_gen] = col_unsorted[idx];
-                    col_general[idx_gen] = row_unsorted[idx];
-                    val_general[idx_gen] = val_unsorted[idx];
-                    ++idx_gen;
-                }
             }
-
-            free(row_unsorted);
-            free(col_unsorted);
-            free(val_unsorted);
-
-            nnz = new_nnz;
-
-            // assign right pointers for further proccesing
-            row_unsorted = row_general;
-            col_unsorted = col_general;
-            val_unsorted = val_general;
-
-            // delete[] row_general;
-            // delete[] col_general;
-            // delete[] val_general;
         }
 
-        // permute the col and val according to row
-        int *perm = new int[nnz];
+        // Free the original malloc-ed data now that it's copied
+        // These are correct because row_unsorted_ptr etc. still point to the malloc'd memory here.
+        free(row_unsorted_ptr);
+        free(col_unsorted_ptr);
+        free(val_unsorted_ptr);
 
-        // pramga omp parallel for?
-        for (int idx = 0; idx < nnz; ++idx) {
-            perm[idx] = idx;
-        }
+        current_nnz = new_nnz;
 
-        sort_perm(row_unsorted, perm, nnz);
+        // Now, the temporary pointers point to the NEW-allocated memory
+        row_unsorted_ptr = row_general;
+        col_unsorted_ptr = col_general;
+        val_unsorted_ptr = val_general;
 
-        int *col = new int[nnz];
-        int *row = new int[nnz];
-        double *val = new double[nnz];
-
-        // pramga omp parallel for?
-        for (int idx = 0; idx < nnz; ++idx) {
-            col[idx] = col_unsorted[perm[idx]];
-            val[idx] = val_unsorted[perm[idx]];
-            row[idx] = row_unsorted[perm[idx]];
-        }
-
-        delete[] perm;
-        delete[] col_unsorted;
-        delete[] val_unsorted;
-        delete[] row_unsorted;
-
-        this->values = std::vector<double>(val, val + nnz);
-        this->I = std::vector<int>(row, row + nnz);
-        this->J = std::vector<int>(col, col + nnz);
-        this->n_rows = nrows;
-        this->n_cols = ncols;
-        this->nnz = nnz;
-        this->is_sorted = 1;    // TODO: not sure
-        this->is_symmetric = 0; // TODO: not sure
-
-        delete[] val;
-        delete[] row;
-        delete[] col;
+        allocated_with_new_for_general = true;
     }
+
+    // permute the col and val according to row
+    int *tmp_perm = new int[current_nnz];
+
+    for (int idx = 0; idx < current_nnz; ++idx) {
+        tmp_perm[idx] = idx;
+    }
+
+    // Assuming sort_perm is available (e.g., from utilities.hpp)
+    sort_perm(row_unsorted_ptr, tmp_perm, current_nnz);
+
+    int *col = new int[current_nnz];
+    int *row = new int[current_nnz];
+    double *val = new double[current_nnz];
+
+    for (int idx = 0; idx < current_nnz; ++idx) {
+        col[idx] = col_unsorted_ptr[tmp_perm[idx]];
+        val[idx] = val_unsorted_ptr[tmp_perm[idx]];
+        row[idx] = row_unsorted_ptr[tmp_perm[idx]];
+    }
+
+    delete[] tmp_perm;
+
+    // Deallocate the `row_unsorted_ptr`, `col_unsorted_ptr`, `val_unsorted_ptr`
+    // based on how they were *last* allocated (malloc or new[]).
+    if (allocated_with_new_for_general) {
+        delete[] row_unsorted_ptr;
+        delete[] col_unsorted_ptr;
+        delete[] val_unsorted_ptr;
+    } else {
+        free(row_unsorted_ptr);
+        free(col_unsorted_ptr);
+        free(val_unsorted_ptr);
+    }
+
+    this->values = std::vector<double>(val, val + current_nnz);
+    this->I = std::vector<int>(row, row + current_nnz);
+    this->J = std::vector<int>(col, col + current_nnz);
+    this->n_rows = nrows;
+    this->n_cols = ncols;
+    this->nnz = current_nnz;
+    this->is_sorted = 1;
+    this->is_symmetric = 0;
+
+    delete[] val;
+    delete[] row;
+    delete[] col;
+}
 
     void print(void) {
         std::cout << "n_rows = " << n_rows << std::endl;
@@ -280,7 +345,6 @@ struct MatrixCOO {
 
     void scamac_make_mtx(const std::string matrix_file_name);
 };
-
 #ifdef USE_SCAMAC
 /* helper function:
  * split integer range [a...b-1] in n nearly equally sized pieces [ia...ib-1],

@@ -1,5 +1,5 @@
 CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: \
- /mnt/c/Users/Aashutosh\ Sharma/OneDrive/Documents/visual\ studio\ code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.cpp \
+ /mnt/c/Users/Aashutosh\ Sharma/OneDrive/Documents/visual\ studio\ code/basic_iterative_solvers/utilities/mmio.cpp \
  /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -65,7 +65,7 @@ CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h \
  /usr/include/c++/11/bits/std_abs.h /usr/include/ctype.h \
- /mnt/c/Users/Aashutosh\ Sharma/OneDrive/Documents/visual\ studio\ code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.hpp \
+ /mnt/c/Users/Aashutosh\ Sharma/OneDrive/Documents/visual\ studio\ code/basic_iterative_solvers/utilities/mmio.hpp \
  /usr/include/c++/11/algorithm /usr/include/c++/11/utility \
  /usr/include/c++/11/bits/stl_relops.h \
  /usr/include/c++/11/bits/stl_pair.h /usr/include/c++/11/bits/move.h \

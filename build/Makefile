@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master"
+CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build"
+CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build//CMakeFiles/progress.marks"
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build//CMakeFiles/progress.marks"
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -129,6 +129,32 @@ basic_iterative_solvers/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/build
 .PHONY : basic_iterative_solvers/fast
 
+#=============================================================================
+# Target rules for targets named run_tests
+
+# Build rule for target.
+run_tests: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 run_tests
+.PHONY : run_tests
+
+# fast build rule for target.
+run_tests/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/build
+.PHONY : run_tests/fast
+
+#=============================================================================
+# Target rules for targets named test_all
+
+# Build rule for target.
+test_all: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_all
+.PHONY : test_all
+
+# fast build rule for target.
+test_all/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_all.dir/build.make CMakeFiles/test_all.dir/build
+.PHONY : test_all/fast
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -153,12 +179,85 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+tests/test_kernels.o: tests/test_kernels.cpp.o
+.PHONY : tests/test_kernels.o
+
+# target to build an object file
+tests/test_kernels.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_kernels.cpp.o
+.PHONY : tests/test_kernels.cpp.o
+
+tests/test_kernels.i: tests/test_kernels.cpp.i
+.PHONY : tests/test_kernels.i
+
+# target to preprocess a source file
+tests/test_kernels.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_kernels.cpp.i
+.PHONY : tests/test_kernels.cpp.i
+
+tests/test_kernels.s: tests/test_kernels.cpp.s
+.PHONY : tests/test_kernels.s
+
+# target to generate assembly for a file
+tests/test_kernels.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_kernels.cpp.s
+.PHONY : tests/test_kernels.cpp.s
+
+tests/test_main.o: tests/test_main.cpp.o
+.PHONY : tests/test_main.o
+
+# target to build an object file
+tests/test_main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_main.cpp.o
+.PHONY : tests/test_main.cpp.o
+
+tests/test_main.i: tests/test_main.cpp.i
+.PHONY : tests/test_main.i
+
+# target to preprocess a source file
+tests/test_main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_main.cpp.i
+.PHONY : tests/test_main.cpp.i
+
+tests/test_main.s: tests/test_main.cpp.s
+.PHONY : tests/test_main.s
+
+# target to generate assembly for a file
+tests/test_main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_main.cpp.s
+.PHONY : tests/test_main.cpp.s
+
+tests/test_utilities.o: tests/test_utilities.cpp.o
+.PHONY : tests/test_utilities.o
+
+# target to build an object file
+tests/test_utilities.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_utilities.cpp.o
+.PHONY : tests/test_utilities.cpp.o
+
+tests/test_utilities.i: tests/test_utilities.cpp.i
+.PHONY : tests/test_utilities.i
+
+# target to preprocess a source file
+tests/test_utilities.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_utilities.cpp.i
+.PHONY : tests/test_utilities.cpp.i
+
+tests/test_utilities.s: tests/test_utilities.cpp.s
+.PHONY : tests/test_utilities.s
+
+# target to generate assembly for a file
+tests/test_utilities.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/tests/test_utilities.cpp.s
+.PHONY : tests/test_utilities.cpp.s
+
 utilities/mmio.o: utilities/mmio.cpp.o
 .PHONY : utilities/mmio.o
 
 # target to build an object file
 utilities/mmio.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/utilities/mmio.cpp.o
 .PHONY : utilities/mmio.cpp.o
 
 utilities/mmio.i: utilities/mmio.cpp.i
@@ -167,6 +266,7 @@ utilities/mmio.i: utilities/mmio.cpp.i
 # target to preprocess a source file
 utilities/mmio.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/utilities/mmio.cpp.i
 .PHONY : utilities/mmio.cpp.i
 
 utilities/mmio.s: utilities/mmio.cpp.s
@@ -175,6 +275,7 @@ utilities/mmio.s: utilities/mmio.cpp.s
 # target to generate assembly for a file
 utilities/mmio.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/utilities/mmio.cpp.s
 .PHONY : utilities/mmio.cpp.s
 
 # Help Target
@@ -185,10 +286,21 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... test_all"
 	@echo "... basic_iterative_solvers"
+	@echo "... run_tests"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... tests/test_kernels.o"
+	@echo "... tests/test_kernels.i"
+	@echo "... tests/test_kernels.s"
+	@echo "... tests/test_main.o"
+	@echo "... tests/test_main.i"
+	@echo "... tests/test_main.s"
+	@echo "... tests/test_utilities.o"
+	@echo "... tests/test_utilities.i"
+	@echo "... tests/test_utilities.s"
 	@echo "... utilities/mmio.o"
 	@echo "... utilities/mmio.i"
 	@echo "... utilities/mmio.s"

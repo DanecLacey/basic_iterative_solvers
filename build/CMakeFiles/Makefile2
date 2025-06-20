@@ -54,16 +54,17 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master"
+CMAKE_SOURCE_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build"
+CMAKE_BINARY_DIR = "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build"
 
 #=============================================================================
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
 all: CMakeFiles/basic_iterative_solvers.dir/all
+all: CMakeFiles/run_tests.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -72,6 +73,8 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/basic_iterative_solvers.dir/clean
+clean: CMakeFiles/run_tests.dir/clean
+clean: CMakeFiles/test_all.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -81,14 +84,14 @@ clean: CMakeFiles/basic_iterative_solvers.dir/clean
 CMakeFiles/basic_iterative_solvers.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" --progress-num=1,2,3 "Built target basic_iterative_solvers"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num=1,2,3 "Built target basic_iterative_solvers"
 .PHONY : CMakeFiles/basic_iterative_solvers.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/basic_iterative_solvers.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" 3
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/basic_iterative_solvers.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles" 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 0
 .PHONY : CMakeFiles/basic_iterative_solvers.dir/rule
 
 # Convenience name for target.
@@ -99,6 +102,58 @@ basic_iterative_solvers: CMakeFiles/basic_iterative_solvers.dir/rule
 CMakeFiles/basic_iterative_solvers.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/basic_iterative_solvers.dir/build.make CMakeFiles/basic_iterative_solvers.dir/clean
 .PHONY : CMakeFiles/basic_iterative_solvers.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/run_tests.dir
+
+# All Build rule for target.
+CMakeFiles/run_tests.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num=4,5,6,7,8 "Built target run_tests"
+.PHONY : CMakeFiles/run_tests.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/run_tests.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 5
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/run_tests.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 0
+.PHONY : CMakeFiles/run_tests.dir/rule
+
+# Convenience name for target.
+run_tests: CMakeFiles/run_tests.dir/rule
+.PHONY : run_tests
+
+# clean rule for target.
+CMakeFiles/run_tests.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_tests.dir/build.make CMakeFiles/run_tests.dir/clean
+.PHONY : CMakeFiles/run_tests.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_all.dir
+
+# All Build rule for target.
+CMakeFiles/test_all.dir/all: CMakeFiles/run_tests.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_all.dir/build.make CMakeFiles/test_all.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_all.dir/build.make CMakeFiles/test_all.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir="/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" --progress-num= "Built target test_all"
+.PHONY : CMakeFiles/test_all.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_all.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 5
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_all.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/build/CMakeFiles" 0
+.PHONY : CMakeFiles/test_all.dir/rule
+
+# Convenience name for target.
+test_all: CMakeFiles/test_all.dir/rule
+.PHONY : test_all
+
+# clean rule for target.
+CMakeFiles/test_all.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_all.dir/build.make CMakeFiles/test_all.dir/clean
+.PHONY : CMakeFiles/test_all.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

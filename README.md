@@ -34,7 +34,7 @@ make
 
 ### Supported Solvers ###
 * **Jacobi** `-j`
-* (Forward/Symmetric)**Gauss-Seidel** `-gs / -sgs`
+* (Forward/Symmetric) **Gauss-Seidel** `-gs / -sgs`
 * (Preconditioned) **Conjugate-Gradient** `-cg`
 * (Preconditioned) (Restarted) **GMRES** `-gm`
 * (Preconditioned) **BiCGSTAB** `-bi`

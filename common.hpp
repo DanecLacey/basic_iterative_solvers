@@ -4,9 +4,13 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <sys/time.h>
 #include <unordered_map>
+#include <cstdlib> // For posix_memalign, free
+#include <errno.h>  // For EINVAL, ENOMEM
+#include <cstdio>   // For fprintf
 
 #ifdef USE_SMAX
 #include "SmaxKernels/interface.hpp"
@@ -22,6 +26,14 @@ using Interface = void *;
 
 #ifndef ALIGNMENT
 #define ALIGNMENT 64
+#endif
+
+#ifndef STRINGIFY
+#define STRINGIFY(x) #x
+#endif
+
+#ifndef TO_STRING
+#define TO_STRING(x) STRINGIFY(x)
 #endif
 
 enum class PrecondType {
@@ -88,7 +100,7 @@ struct Args {
     PrecondType preconditioner;
 };
 
-void *aligned_malloc(size_t bytesize) {
+inline void *aligned_malloc(size_t bytesize) {
     int errorCode;
     void *ptr;
 
@@ -116,7 +128,7 @@ void *aligned_malloc(size_t bytesize) {
 }
 
 // Overload new and delete for alignement
-void *operator new(size_t bytesize) {
+inline void *operator new(size_t bytesize) {
     // printf("Overloading new operator with size: %lu\n", bytesize);
     int errorCode;
     void *ptr;
@@ -143,8 +155,41 @@ void *operator new(size_t bytesize) {
     return ptr;
 }
 
-void operator delete(void *p) {
+inline void operator delete(void *p) {
     // printf("Overloading delete operator\n");
+    free(p);
+}
+
+// *** ADD THESE NEW OVERLOADS FOR ARRAY ALLOCATIONS ***
+inline void* operator new[](size_t bytesize) {
+    // printf("Overloading new[] operator with size: %lu\n", bytesize);
+    int errorCode;
+    void *ptr;
+    errorCode = posix_memalign(&ptr, ALIGNMENT, bytesize);
+
+    if (errorCode) {
+        if (errorCode == EINVAL) {
+            fprintf(stderr,
+                    "Error: Alignment parameter is not a power of two\n");
+            exit(EXIT_FAILURE);
+        }
+        if (errorCode == ENOMEM) {
+            fprintf(stderr, "Error: Insufficient memory to fulfill the request "
+                            "for space\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (ptr == NULL) {
+        fprintf(stderr, "Error: posix_memalign failed!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return ptr;
+}
+
+inline void operator delete[](void *p) {
+    // printf("Overloading delete[] operator\n");
     free(p);
 }
 

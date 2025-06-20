@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/main.cpp" "CMakeFiles/basic_iterative_solvers.dir/main.cpp.o" "gcc" "CMakeFiles/basic_iterative_solvers.dir/main.cpp.o.d"
-  "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/utilities/mmio.cpp" "CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o" "gcc" "CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o.d"
+  "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/main.cpp" "CMakeFiles/basic_iterative_solvers.dir/main.cpp.o" "gcc" "CMakeFiles/basic_iterative_solvers.dir/main.cpp.o.d"
+  "/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers/utilities/mmio.cpp" "CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o" "gcc" "CMakeFiles/basic_iterative_solvers.dir/utilities/mmio.cpp.o.d"
   )
 
 # Targets to which this target links.
