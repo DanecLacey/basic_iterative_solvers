@@ -4,7 +4,6 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <sys/time.h>
 #include <unordered_map>
@@ -25,21 +24,12 @@ using Interface = void *;
 #define ALIGNMENT 64
 #endif
 
-#ifndef STRINGIFY
-#define STRINGIFY(x) #x
-#endif
-
-#ifndef TO_STRING
-#define TO_STRING(x) STRINGIFY(x)
-#endif
-
 enum class PrecondType {
     None,
     Jacobi,
     GaussSeidel,
     BackwardsGaussSeidel,
-    SymmetricGaussSeidel,
-    TwoStageGS
+    SymmetricGaussSeidel
 };
 
 enum class SolverType {
@@ -65,8 +55,6 @@ template <> inline std::string to_string(PrecondType type) {
         return "backwards-gauss-seidel";
     case PrecondType::SymmetricGaussSeidel:
         return "symmetric-gauss-seidel";
-    case PrecondType::TwoStageGS:
-        return "two-stage-gauss-seidel";
     case PrecondType::None:
         return "none";
     default:

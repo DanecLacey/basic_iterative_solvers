@@ -28,32 +28,8 @@ struct MatrixCRS {
     int n_cols{};
     int nnz{};
 
-    int *row_ptr = nullptr;
-    int *col = nullptr;
-    double *val = nullptr;
-#ifdef USE_SMAX
-    int *perm = nullptr;
-    int *inv_perm = nullptr;
-#endif
-
-    // Default Constructor
-    MatrixCRS() = default;
-
-    // Parameterized Constructor
-    MatrixCRS(std::size_t num_rows, std::size_t num_cols, std::size_t num_nnz)
-        : n_rows(num_rows), n_cols(num_cols), nnz(num_nnz) {
-        // Allocate memory for vectors based on dimensions
-        // row_ptr needs n_rows + 1 elements
-        row_ptr = new int[n_rows + 1];
-        col = new int[nnz];
-        val = new double[nnz];
-
-#ifdef USE_SMAX
-        // Permutation arrays are typically sized by n_rows
-        perm = new int[n_rows];
-        inv_perm = new int[n_rows];
-#endif
-    }
+    int *row_ptr, *col;
+    double *val;
 
     void print(void) {
         std::cout << "n_rows = " << n_rows << std::endl;
@@ -77,30 +53,12 @@ struct MatrixCRS {
             std::cout << static_cast<double>(val[i]) << ", ";
         }
         std::cout << "]" << std::endl;
-
-#ifdef USE_SMAX
-        std::cout << "perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << perm[i] << ", ";
-        }
-        std::cout << "]" << std::endl;
-
-        std::cout << "inv_perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << inv_perm[i] << ", ";
-        }
-        std::cout << "]" << std::endl;
-#endif
     }
 
     ~MatrixCRS() {
         delete[] row_ptr;
         delete[] col;
         delete[] val;
-#ifdef USE_SMAX
-        delete[] perm;
-        delete[] inv_perm;
-#endif
     }
 };
 
@@ -255,14 +213,14 @@ struct MatrixCOO {
         }
 
         // permute the col and val according to row
-        int *tmp_perm = new int[nnz];
+        int *perm = new int[nnz];
 
         // pramga omp parallel for?
         for (int idx = 0; idx < nnz; ++idx) {
-            tmp_perm[idx] = idx;
+            perm[idx] = idx;
         }
 
-        sort_perm(row_unsorted, tmp_perm, nnz);
+        sort_perm(row_unsorted, perm, nnz);
 
         int *col = new int[nnz];
         int *row = new int[nnz];
@@ -270,12 +228,12 @@ struct MatrixCOO {
 
         // pramga omp parallel for?
         for (int idx = 0; idx < nnz; ++idx) {
-            col[idx] = col_unsorted[tmp_perm[idx]];
-            val[idx] = val_unsorted[tmp_perm[idx]];
-            row[idx] = row_unsorted[tmp_perm[idx]];
+            col[idx] = col_unsorted[perm[idx]];
+            val[idx] = val_unsorted[perm[idx]];
+            row[idx] = row_unsorted[perm[idx]];
         }
 
-        delete[] tmp_perm;
+        delete[] perm;
         delete[] col_unsorted;
         delete[] val_unsorted;
         delete[] row_unsorted;

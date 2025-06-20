@@ -15,11 +15,11 @@ class Solver {
 #endif
 
     // Common structs
-    std::unique_ptr<MatrixCRS> crs_mat;
-    std::unique_ptr<MatrixCRS> crs_mat_L;
-    std::unique_ptr<MatrixCRS> crs_mat_L_strict;
-    std::unique_ptr<MatrixCRS> crs_mat_U;
-    std::unique_ptr<MatrixCRS> crs_mat_U_strict;
+    MatrixCRS *crs_mat = nullptr;
+    MatrixCRS *crs_mat_L = nullptr;
+    MatrixCRS *crs_mat_L_strict = nullptr;
+    MatrixCRS *crs_mat_U = nullptr;
+    MatrixCRS *crs_mat_U_strict = nullptr;
 
     // Common parameters
     double stopping_criteria = 0.0;
@@ -51,8 +51,8 @@ class Solver {
 
     Solver(const Args *cli_args)
         : method(cli_args->method), preconditioner(cli_args->preconditioner) {
-        collected_residual_norms = new double[max_iters * 2];
-        time_per_iteration = new double[max_iters * 2];
+        collected_residual_norms = new double[max_iters];
+        time_per_iteration = new double[max_iters];
 
         for (int i = 0; i < max_iters; ++i) {
             collected_residual_norms[i] = 0.0;
@@ -68,19 +68,19 @@ class Solver {
 #endif
 
     // Partially overridden
-    virtual void allocate_structs(const int N) {
-        x_star = new double[N];
-        x_0 = new double[N];
-        b = new double[N];
-        tmp = new double[N];
-        residual = new double[N];
-        residual_0 = new double[N];
-        D = new double[N];
+    virtual void allocate_structs() {
+        x_star = new double[crs_mat->n_cols];
+        x_0 = new double[crs_mat->n_cols];
+        b = new double[crs_mat->n_cols];
+        tmp = new double[crs_mat->n_cols];
+        residual = new double[crs_mat->n_cols];
+        residual_0 = new double[crs_mat->n_cols];
+        D = new double[crs_mat->n_cols];
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
 #pragma omp parallel for
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < crs_mat->n_cols; ++i) {
                 x_star[i] = 0.0;
                 x_0[i] = INIT_X_VAL;
                 b[i] = B_VAL;
@@ -89,16 +89,7 @@ class Solver {
         }
     }
 
-    virtual void init_structs(const int N) {
-#pragma omp parallel for
-        for (int i = 0; i < N; ++i) {
-            tmp[i] = 0.0;
-            residual[i] = 0.0;
-            residual_0[i] = 0.0;
-        }
-    }
-
-    virtual void check_restart(Timers *) {
+    virtual void check_restart() {
         // Do nothing by default
     };
 
@@ -118,21 +109,29 @@ class Solver {
         delete[] time_per_iteration;
     }
 
+    virtual void init_structs() {
+#pragma omp parallel for
+        for (int i = 0; i < crs_mat->n_cols; ++i) {
+            tmp[i] = 0.0;
+            residual[i] = 0.0;
+            residual_0[i] = 0.0;
+        }
+    }
+
     // clang-format off
     virtual void init_residual() {
         copy_vector(residual_0, residual, crs_mat->n_cols);
-        collected_residual_norms[collected_residual_norms_count++] = residual_norm;
+        collected_residual_norms[collected_residual_norms_count] = residual_norm;
     }
 
     virtual void save_x_star() {
-        compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
-        collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
+        compute_residual(crs_mat, x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
+        collected_residual_norms[collected_residual_norms_count] = residual_norm;
     }
 
     virtual void record_residual_norm() {
-        collected_residual_norms[collected_residual_norms_count++] = residual_norm;
+        collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
     };
 
     // Base class methods, not overridden //
@@ -140,6 +139,7 @@ class Solver {
         if (iter_count % residual_check_len == 0) {
             record_residual_norm();
             time_per_iteration[collected_residual_norms_count] = per_iteration_time->check();
+            ++collected_residual_norms_count;
         }
     }
 
@@ -149,8 +149,7 @@ class Solver {
 
     bool check_stopping_criteria() {
         bool norm_convergence = residual_norm < stopping_criteria;
-        // We count GMRES restarts as an iteration
-        bool over_max_iters = iter_count >= (max_iters - gmres_restart_count);
+        bool over_max_iters = iter_count >= max_iters;
         bool divergence = residual_norm > DBL_MAX;
         IF_DEBUG_MODE_FINE(
 			if (norm_convergence)

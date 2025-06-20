@@ -5,9 +5,7 @@
 #include "solver.hpp"
 
 void solve(Args *cli_args, Solver *solver, Timers *timers) {
-
     IF_DEBUG_MODE(printf("Begin solver harness\n"))
-
     do {
         timers->per_iteration_time->start();
 
@@ -20,11 +18,11 @@ void solve(Args *cli_args, Solver *solver, Timers *timers) {
         TIME(timers->sample,
              solver->sample_residual(timers->per_iteration_time))
 
-        // Swap old <-> new structs
+        // Swap old <-> structs
         TIME(timers->exchange, solver->exchange())
 
         // Restart solver if certain conditions are met
-        TIME(timers->restart, solver->check_restart(timers))
+        TIME(timers->restart, solver->check_restart())
 
     } while (!solver->check_stopping_criteria());
 

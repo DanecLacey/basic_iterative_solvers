@@ -43,23 +43,8 @@ void run(Args *cli_args, Timers *timers) {
         exit(EXIT_FAILURE);
     }
 
-    // Read or generate matrix A to solve for x in: Ax = b
-    std::unique_ptr<MatrixCOO> coo_mat = std::make_unique<MatrixCOO>();
-#ifdef USE_SCAMAC
-    IF_DEBUG_MODE(printf("Generating SCAMAC Matrix\n"))
-    coo_mat->scamac_make_mtx(cli_args->matrix_file_name);
-#else
-    IF_DEBUG_MODE(printf("Reading .mtx Matrix\n"))
-    coo_mat->read_from_mtx(cli_args->matrix_file_name);
-#endif
-
-    IF_DEBUG_MODE(printf("Converting COO matrix to CRS\n"))
-    std::unique_ptr<MatrixCRS> crs_mat = std::make_unique<MatrixCRS>();
-    convert_coo_to_crs(coo_mat.get(), crs_mat.get());
-
-    // Allocate and init needed structs
-    TIME(timers->preprocessing,
-         preprocessing(cli_args, solver, timers, crs_mat))
+    // Read in matrix from .mtx file, and allocate needed structs
+    TIME(timers->preprocessing, preprocessing(cli_args, solver, timers))
 
     // Use the selected solver until convergence
     TIME(timers->solve, solve(cli_args, solver, timers))

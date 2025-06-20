@@ -1,0 +1,3 @@
+/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles/basic_iterative_solvers.dir
+/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/Aashutosh Sharma/OneDrive/Documents/visual studio code/basic_iterative_solvers-master/basic_iterative_solvers-master/build/CMakeFiles/rebuild_cache.dir
