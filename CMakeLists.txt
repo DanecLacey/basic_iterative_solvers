@@ -49,7 +49,7 @@ add_executable(run_tests
     tests/test_utilities.cpp
     # Add more test files here as they are created.
     tests/test_kernels.cpp
-    # tests/test_solvers.cpp
+    tests/test_solvers.cpp
     
     utilities/mmio.cpp
 )
