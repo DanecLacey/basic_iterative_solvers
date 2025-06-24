@@ -5,16 +5,22 @@
 #include "../sparse_matrix.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 
 void parse_cli(Args *cli_args, int argc, char *argv[],
                bool bench_mode = false) {
+    if ( (argc < 2 && bench_mode) || (argc < 3 && !bench_mode) ) {
+        printf("ERROR: parse_cli: Not enough arguments given. A call should contain:"
+                "\n%s <matrix> <method> [extra_features]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
     cli_args->matrix_file_name = argv[1];
     int args_start_index = 2;
 
     if (!bench_mode) {
-        // Account for manditory solver type
+        // Account for mandatory solver type
         ++args_start_index;
 
         std::string st = argv[2];
@@ -47,6 +53,12 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
     for (int i = args_start_index; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-p") {
+            if ( i + 1 >= argc ) {
+                printf("ERROR: parse_cli: Not enough arguments given. Some extra features"
+                        " need additional arguments. Example:"
+                        "\n%s <matrix> <method> -p gs\n", argv[0]);
+                exit(EXIT_FAILURE);
+            }
             std::string pt = argv[++i];
 
             if (pt == "j") {

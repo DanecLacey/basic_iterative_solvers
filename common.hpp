@@ -187,6 +187,10 @@ class Stopwatch {
     }
 
     long double get_wtime() { return wtime; }
+
+    ~Stopwatch(){
+        delete begin; delete end;
+    }
 };
 
 #define CREATE_STOPWATCH(timer_name)                                           \
@@ -195,6 +199,9 @@ class Stopwatch {
     Stopwatch *timer_name##_time =                                             \
         new Stopwatch(timer_name##_time_start, timer_name##_time_end);         \
     timers->timer_name##_time = timer_name##_time;
+
+#define DELETE_STOPWATCH(timer_name)                                           \
+    delete timer_name;               
 
 #define TIME(timer_name, routine)                                              \
     do {                                                                       \
@@ -243,31 +250,31 @@ struct Timers {
     Stopwatch *postprocessing_time;
 
     ~Timers() {
-        delete total_time;
-        delete preprocessing_time;
-        delete solve_time;
-        delete per_iteration_time;
-        delete iterate_time;
-        delete spmv_time;
-        delete precond_time;
-        delete dot_time;
-        delete copy1_time;
-        delete copy2_time;
-        delete normalize_time;
-        delete sum_time;
-        delete norm_time;
-        delete scale_time;
-        delete sptrsv_time;
-        delete dgemm_time;
-        delete dgemv_time;
-        delete orthog_time;
-        delete least_sq_time;
-        delete update_g_time;
-        delete sample_time;
-        delete exchange_time;
-        delete restart_time;
-        delete save_x_star_time;
-        delete postprocessing_time;
+        DELETE_STOPWATCH(total_time);
+        DELETE_STOPWATCH(preprocessing_time);
+        DELETE_STOPWATCH(solve_time);
+        DELETE_STOPWATCH(per_iteration_time);
+        DELETE_STOPWATCH(iterate_time);
+        DELETE_STOPWATCH(spmv_time);
+        DELETE_STOPWATCH(precond_time);
+        DELETE_STOPWATCH(dot_time);
+        DELETE_STOPWATCH(copy1_time);
+        DELETE_STOPWATCH(copy2_time);
+        DELETE_STOPWATCH(normalize_time);
+        DELETE_STOPWATCH(sum_time);
+        DELETE_STOPWATCH(norm_time);
+        DELETE_STOPWATCH(scale_time);
+        DELETE_STOPWATCH(sptrsv_time);
+        DELETE_STOPWATCH(dgemm_time);
+        DELETE_STOPWATCH(dgemv_time);
+        DELETE_STOPWATCH(orthog_time);
+        DELETE_STOPWATCH(least_sq_time);
+        DELETE_STOPWATCH(update_g_time);
+        DELETE_STOPWATCH(sample_time);
+        DELETE_STOPWATCH(exchange_time);
+        DELETE_STOPWATCH(restart_time);
+        DELETE_STOPWATCH(save_x_star_time);
+        DELETE_STOPWATCH(postprocessing_time);
     }
 };
 

@@ -1,6 +1,7 @@
 #ifndef KERNELS_HPP
 #define KERNELS_HPP
 
+#include <utility>
 #ifndef PRECOND_ITERS
 #define PRECOND_ITERS 1
 #endif
@@ -115,7 +116,7 @@ void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
 void subtract_vectors(double *result_vec, const double *vec1,
                       const double *vec2, const int N,
                       const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] - scale * vec2[i];
     }
@@ -123,7 +124,7 @@ void subtract_vectors(double *result_vec, const double *vec1,
 
 void sum_vectors(double *result_vec, const double *vec1, const double *vec2,
                  const int N, const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] + scale * vec2[i];
     }
@@ -132,7 +133,7 @@ void sum_vectors(double *result_vec, const double *vec1, const double *vec2,
 void elemwise_mult_vectors(double *result_vec, const double *vec1,
                            const double *vec2, const int N,
                            const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] * scale * vec2[i];
     }
@@ -141,7 +142,7 @@ void elemwise_mult_vectors(double *result_vec, const double *vec1,
 void elemwise_div_vectors(double *result_vec, const double *vec1,
                           const double *vec2, const int N,
                           const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] / (scale * vec2[i]);
     }
@@ -174,7 +175,7 @@ double infty_vec_norm(const double *vec, const int N) {
 double infty_mat_norm(const MatrixCRS *crs_mat) {
     double max_row_sum = 0.0;
 
-#pragma omp parallel for reduction(max : max_row_sum)
+#pragma omp parallel for reduction(max : max_row_sum) schedule(static)
     for (int row = 0; row < crs_mat->n_rows; ++row) {
         double row_sum = 0.0;
         for (int idx = crs_mat->row_ptr[row]; idx < crs_mat->row_ptr[row + 1];
@@ -190,7 +191,7 @@ double infty_mat_norm(const MatrixCRS *crs_mat) {
 double euclidean_vec_norm(const double *vec, int N) {
     double tmp = 0.0;
 
-#pragma omp parallel for reduction(+ : tmp)
+#pragma omp parallel for reduction(+ : tmp) schedule(static)
     for (int i = 0; i < N; ++i) {
         tmp += vec[i] * vec[i];
     }
@@ -200,7 +201,7 @@ double euclidean_vec_norm(const double *vec, int N) {
 
 double dot(const double *vec1, const double *vec2, const int N) {
     double sum = 0.0;
-#pragma omp parallel for reduction(+ : sum)
+#pragma omp parallel for reduction(+ : sum) schedule(static)
     for (int i = 0; i < N; ++i) {
         sum += vec1[i] * vec2[i];
     }
@@ -209,7 +210,7 @@ double dot(const double *vec1, const double *vec2, const int N) {
 
 void scale(double *result_vec, const double *vec, const double scalar,
            const int N) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec[i] * scalar;
     }
@@ -217,7 +218,7 @@ void scale(double *result_vec, const double *vec, const double scalar,
 
 void init_dense_identity_matrix(double *mat, const int n_rows,
                                 const int n_cols) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < n_rows; ++i) {
         for (int j = 0; j < n_cols; ++j) {
             if (i == j) {
@@ -230,7 +231,7 @@ void init_dense_identity_matrix(double *mat, const int n_rows,
 }
 
 void init_vector(double *vec, double val, long size) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < size; ++i) {
         vec[i] = val;
     }
@@ -246,7 +247,7 @@ void copy_dense_matrix(double *new_mat, const double *old_mat, const int n_rows,
 }
 
 void copy_vector(double *new_vec, const double *old_vec, const int n_rows) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int row = 0; row < n_rows; ++row) {
         new_vec[row] = old_vec[row];
     }
@@ -318,6 +319,10 @@ void apply_preconditioner(const PrecondType preconditioner,
         D_inv = new double[N];
         comp_tmp_1 = new double[N];
         comp_tmp_2 = new double[N];
+
+#ifdef USE_SMAX
+        register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N, comp_tmp_2, N);
+#endif
     }
 
     // clang-format off
@@ -341,24 +346,24 @@ void apply_preconditioner(const PrecondType preconditioner,
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            copy_vector(vec, rhs, N);
-            // obtain D^-1
-#pragma omp parallel for
-            for (int j = 0; j < N; j++) {
-                D_inv[j] = 1/D[j];
-            }
             if (i == 0) {
+                // obtain D^-1
+#pragma omp parallel for schedule(static)
+                for (int j = 0; j < N; j++) {
+                    D_inv[j] = 1.0/D[j];
+                }
+                copy_vector(vec, rhs, N);
                 // comp_tmp_1 <- D^-1*rhs
                 elemwise_mult_vectors(comp_tmp_1, D_inv, rhs, N);
             } else {
                 // comp_tmp_1 <- (-D^-1*L)*comp_tmp_1
 
-#ifdef USE_SMAX
-                register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N, comp_tmp_2, N);
-#endif
                 spmv(crs_mat_L_strict, comp_tmp_1, comp_tmp_2 SMAX_ARGS(0, smax, std::string("precon_spmv")));
+#ifdef USE_SMAX
+                smax->kernel("precon_spmv")->swap_operands();
+#endif
                 elemwise_mult_vectors(comp_tmp_2, D_inv, comp_tmp_2, N, -1.0);
-                copy_vector(comp_tmp_1, comp_tmp_2, N);
+                std::swap(comp_tmp_1, comp_tmp_2);
             }
             // vec <- vec + comp_tmp_1
             // In each iteration of the preconditioner add one more step
