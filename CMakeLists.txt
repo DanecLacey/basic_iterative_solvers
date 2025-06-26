@@ -133,14 +133,14 @@ target_include_directories(basic_iterative_solvers PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR} # Project root (for common.hpp, kernels.hpp, solver.hpp etc.)
     ${CMAKE_CURRENT_SOURCE_DIR}/utilities
     ${CMAKE_CURRENT_SOURCE_DIR}/methods
-    # Add any other directories containing headers if you have them, e.g., sparse_matrix.hpp if it's in a separate folder
+    
 )
 
 target_include_directories(run_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR} # Project root
     ${CMAKE_CURRENT_SOURCE_DIR}/utilities
     ${CMAKE_CURRENT_SOURCE_DIR}/methods
-    # Add any other directories containing headers needed by your tests or the code under test
+    
 )
 
 # Optional: Add a custom command to easily run tests
