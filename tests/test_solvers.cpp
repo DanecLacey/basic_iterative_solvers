@@ -77,6 +77,55 @@ void run_solver_test(Solver* solver, const std::string& test_name) {
     
 }
 
+void test_bicgstab_with_jacobi_on_diag_dominant_matrix() {
+    std::string test_name = "BiCGSTAB w/ Jacobi (Diag Dom Matrix)";
+    std::cout << "    Running " << test_name << " test..." << std::endl;
+    
+    // 1. Arrange
+    Args cli_args;
+    cli_args.method = SolverType::BiCGSTAB;
+    cli_args.preconditioner = PrecondType::Jacobi;
+    
+    BiCGSTABSolver solver(&cli_args);
+    Timers timers;
+    init_timers(&timers);
+    
+    // Setup the new, well-behaved problem
+    auto coo_mat = std::make_unique<MatrixCOO>();
+    std::vector<double> b_vec, x_true;
+    // A = [[10, -1, 0], [-1, 10, -1], [0, -1, 10]], x_true = [1, 2, 3] -> b = [8, 16, 28]
+    coo_mat->n_rows = 3; coo_mat->n_cols = 3; coo_mat->nnz = 7;
+    coo_mat->I      = {0,    0,    1,    1,    1,    2,    2};
+    coo_mat->J      = {0,    1,    0,    1,    2,    1,    2};
+    coo_mat->values = {10.0, -1.0, -1.0, 10.0, -1.0, -1.0, 10.0};
+    b_vec = {8.0, 16.0, 28.0};
+    x_true = {1.0, 2.0, 3.0};
+
+    auto crs_mat = std::make_unique<MatrixCRS>();
+    convert_coo_to_crs(coo_mat.get(), crs_mat.get());
+    
+    // 2. Preprocess
+    preprocessing(&cli_args, &solver, &timers, crs_mat);
+    copy_vector(solver.b, b_vec.data(), b_vec.size());
+    init_vector(solver.x_0, 0.0, x_true.size());
+    solver.init_structs(x_true.size());
+    solver.init_residual(); 
+    solver.init_stopping_criteria();
+
+    // 3. Act
+    solve(&cli_args, &solver, &timers);
+
+    // 4. Assert
+    ASSERT_TRUE(solver.convergence_flag, test_name + " did not converge");
+    for (size_t i = 0; i < x_true.size(); ++i) {
+        ASSERT_NEAR(solver.x_star[i], x_true[i], 1e-7, test_name);
+    }
+    
+    std::cout << "    " << test_name << " test passed." << std::endl;
+    
+    
+}
+
 // === Define Test Cases for Each Solver ===
 
 #define DEFINE_SOLVER_TEST(TestName, SolverClass, SolverEnum, PrecondEnum) \
@@ -114,6 +163,7 @@ namespace {
             register_test("Solvers::Jacobi", test_jacobi_solver);
             register_test("Solvers::GaussSeidel", test_gauss_seidel_solver);
             register_test("Solvers::SymmetricGaussSeidel", test_sgs_solver);
+            register_test("Solvers::BiCGSTABWithJacobiPrecondDD", test_bicgstab_with_jacobi_on_diag_dominant_matrix);
         }
     };
     static RegisterSolverTests reg_solver_tests;
