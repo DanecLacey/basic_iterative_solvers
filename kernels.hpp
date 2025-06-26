@@ -5,6 +5,9 @@
 #ifndef PRECOND_ITERS
 #define PRECOND_ITERS 1
 #endif
+#ifndef PRECOND_INNER_ITERS
+#define PRECOND_INNER_ITERS 1
+#endif
 
 #include "common.hpp"
 #include "sparse_matrix.hpp"
@@ -319,6 +322,7 @@ void apply_preconditioner(const PrecondType preconditioner,
         D_inv = new double[N];
         comp_tmp_1 = new double[N];
         comp_tmp_2 = new double[N];
+        copy_vector(vec, rhs, N);
 
 #ifdef USE_SMAX
         register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N, comp_tmp_2, N);
@@ -346,28 +350,31 @@ void apply_preconditioner(const PrecondType preconditioner,
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, vec, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            if (i == 0) {
-                // obtain D^-1
+            for (int inner = 0; inner < PRECOND_INNER_ITERS; ++inner) {
+                if (i == 0) {
+                    if (inner == 0) {
+                        // obtain D^-1
 #pragma omp parallel for schedule(static)
-                for (int j = 0; j < N; j++) {
-                    D_inv[j] = 1.0/D[j];
-                }
-                copy_vector(vec, rhs, N);
-                // comp_tmp_1 <- D^-1*rhs
-                elemwise_mult_vectors(comp_tmp_1, D_inv, rhs, N);
-            } else {
-                // comp_tmp_1 <- (-D^-1*L)*comp_tmp_1
+                        for (int j = 0; j < N; j++) {
+                            D_inv[j] = 1.0/D[j];
+                        }
+                    }
+                    // comp_tmp_1 <- D^-1*rhs
+                    elemwise_mult_vectors(comp_tmp_1, D_inv, vec, N);
+                } else {
+                    // comp_tmp_1 <- (-D^-1*L)*comp_tmp_1
 
-                spmv(crs_mat_L_strict, comp_tmp_1, comp_tmp_2 SMAX_ARGS(0, smax, std::string("precon_spmv")));
+                    spmv(crs_mat_L_strict, comp_tmp_1, comp_tmp_2 SMAX_ARGS(0, smax, std::string("precon_spmv")));
 #ifdef USE_SMAX
-                smax->kernel("precon_spmv")->swap_operands();
+                    smax->kernel("precon_spmv")->swap_operands();
 #endif
-                elemwise_mult_vectors(comp_tmp_2, D_inv, comp_tmp_2, N, -1.0);
-                std::swap(comp_tmp_1, comp_tmp_2);
+                    elemwise_mult_vectors(comp_tmp_2, D_inv, comp_tmp_2, N, -1.0);
+                    std::swap(comp_tmp_1, comp_tmp_2);
+                }
+                // vec <- vec + comp_tmp_1
+                // In each iteration of the preconditioner add one more step
+                sum_vectors(vec, vec, comp_tmp_1, N);
             }
-            // vec <- vec + comp_tmp_1
-            // In each iteration of the preconditioner add one more step
-            sum_vectors(vec, vec, comp_tmp_1, N);
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(vec, rhs, N);
