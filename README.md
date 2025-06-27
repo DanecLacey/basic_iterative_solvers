@@ -1,8 +1,8 @@
 # basic_iterative_solvers #
 
 <p align="center">
-  <img src="figs/HPCG_compare_convergence.png" width="45%">
-  <img src="figs/HPCG_compare_time_per_iter.png" width="45%">
+  <img src="data/figs/HPCG_compare_convergence.png" width="45%">
+  <img src="data/figs/HPCG_compare_time_per_iter.png" width="45%">
 </p>
 
 

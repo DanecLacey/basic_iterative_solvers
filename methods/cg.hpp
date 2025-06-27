@@ -35,9 +35,9 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new before preconditioning"));
 
     TIME(timers->precond,
-         apply_preconditioner(
-            preconditioner, crs_mat_L, crs_mat_U, D, z_new,
-            r_new, tmp SMAX_ARGS(0, smax, "M^{-1} * residual"))
+     apply_preconditioner(
+        preconditioner, crs_mat->n_cols, crs_mat_L, crs_mat_U, D, z_new,
+        r_new, tmp SMAX_ARGS(0, smax, "M^{-1} * residual"))
     )
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new after preconditioning"));
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new after preconditioning"));
@@ -96,13 +96,14 @@ class ConjugateGradientSolver : public Solver {
         }
     }
 
-    void init_residual() override {
+     void init_residual() override {
         compute_residual(crs_mat.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
 
         // Precondition the initial residual
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, crs_mat->n_cols, "residual before preconditioning"));
+        
         apply_preconditioner(
-            preconditioner, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, z_old, 
+            preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, z_old, 
             residual, tmp SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, crs_mat->n_cols, "residual after preconditioning"));

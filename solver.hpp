@@ -125,6 +125,7 @@ class Solver {
     }
 
     virtual void save_x_star() {
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x_star, crs_mat->n_rows, "x_star"));
         compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
         // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
         residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
