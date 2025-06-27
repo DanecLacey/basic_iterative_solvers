@@ -163,8 +163,8 @@ void gmres_separate_iteration(
 
     // w_j <- M^{-1}w_j
     TIME(timers->precond,
-     apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, w, w,
-                          tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
+         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, w, w,
+                              tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 
@@ -269,8 +269,9 @@ class GMRESSolver : public Solver {
         // Precondition the initial residual
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual before preconditioning"));
-          apply_preconditioner(preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(),
-                             crs_mat_U_strict.get(), D, residual, residual,
+        apply_preconditioner(preconditioner, crs_mat->n_cols,
+                             crs_mat_L_strict.get(), crs_mat_U_strict.get(), D,
+                             residual, residual,
                              tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));

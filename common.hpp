@@ -2,15 +2,15 @@
 #define COMMON_HPP
 
 #include <cmath>
+#include <cstdio>  // For fprintf
+#include <cstdlib> // For posix_memalign, free
+#include <errno.h> // For EINVAL, ENOMEM
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <sys/time.h>
 #include <unordered_map>
-#include <cstdlib> // For posix_memalign, free
-#include <errno.h>  // For EINVAL, ENOMEM
-#include <cstdio>   // For fprintf
 
 #ifdef USE_SMAX
 #include "SmaxKernels/interface.hpp"
@@ -41,7 +41,8 @@ enum class PrecondType {
     Jacobi,
     GaussSeidel,
     BackwardsGaussSeidel,
-    SymmetricGaussSeidel
+    SymmetricGaussSeidel,
+    TwoStageGS
 };
 
 enum class SolverType {
@@ -67,6 +68,8 @@ template <> inline std::string to_string(PrecondType type) {
         return "backwards-gauss-seidel";
     case PrecondType::SymmetricGaussSeidel:
         return "symmetric-gauss-seidel";
+    case PrecondType::TwoStageGS:
+        return "two-stage gauss-seidel";
     case PrecondType::None:
         return "none";
     default:
@@ -161,7 +164,7 @@ inline void operator delete(void *p) {
 }
 
 // *** ADD THESE NEW OVERLOADS FOR ARRAY ALLOCATIONS ***
-inline void* operator new[](size_t bytesize) {
+inline void *operator new[](size_t bytesize) {
     // printf("Overloading new[] operator with size: %lu\n", bytesize);
     int errorCode;
     void *ptr;
@@ -221,8 +224,9 @@ class Stopwatch {
 
     long double get_wtime() { return wtime; }
 
-    ~Stopwatch(){
-        delete begin; delete end;
+    ~Stopwatch() {
+        delete begin;
+        delete end;
     }
 };
 
@@ -233,8 +237,7 @@ class Stopwatch {
         new Stopwatch(timer_name##_time_start, timer_name##_time_end);         \
     timers->timer_name##_time = timer_name##_time;
 
-#define DELETE_STOPWATCH(timer_name)                                           \
-    delete timer_name;               
+#define DELETE_STOPWATCH(timer_name) delete timer_name;
 
 #define TIME(timer_name, routine)                                              \
     do {                                                                       \
@@ -370,8 +373,8 @@ class SanityChecker {
                                        double *tmp, double *p_new,
                                        double *p_old, double *residual_new,
                                        double *residual_old, double *residual_0,
-                                       double *v, double *h, double *s,
-                                       double *t, double rho_new,
+                                       double *D, double *v, double *h,
+                                       double *s, double *t, double rho_new,
                                        double rho_old, std::string phase) {
         std::cout << phase << std::endl;
         print_vector<double>(x_new, N, "x_new");
@@ -382,6 +385,7 @@ class SanityChecker {
         print_vector<double>(residual_new, N, "residual_new");
         print_vector<double>(residual_old, N, "residual_old");
         print_vector<double>(residual_0, N, "residual_0");
+        print_vector<double>(D, N, "D");
         print_vector<double>(v, N, "v");
         print_vector<double>(h, N, "h");
         print_vector<double>(s, N, "s");

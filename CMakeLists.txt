@@ -112,9 +112,12 @@ if(USE_SMAX)
         message(STATUS "SMAX found, enabling SMAX support.")
         # Link both executables to SMAX
         target_link_libraries(basic_iterative_solvers PRIVATE SMAX::smaxkernels)
-        target_link_libraries(run_tests PRIVATE SMAX::smaxkernels)
         target_compile_definitions(basic_iterative_solvers PRIVATE USE_SMAX)
-        target_compile_definitions(run_tests PRIVATE USE_SMAX) # Also for tests if needed
+        
+        # DL 2025-06-27: I would say this is not necessary 
+        # target_link_libraries(run_tests PRIVATE SMAX::smaxkernels)
+        # target_compile_definitions(run_tests PRIVATE USE_SMAX) # Also for tests if needed
+        
         # Set permutation mode (and set default if not defined)
         if(NOT SMAX_PERM_MODE)
             set(SMAX_PERM_MODE NONE CACHE STRING "Choose the permutation mode." FORCE)

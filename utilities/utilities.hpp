@@ -10,10 +10,12 @@
 #include <iostream>
 
 inline void parse_cli(Args *cli_args, int argc, char *argv[],
-               bool bench_mode = false) {
-    if ( (argc < 2 && bench_mode) || (argc < 3 && !bench_mode) ) {
-        printf("ERROR: parse_cli: Not enough arguments given. A call should contain:"
-                "\n%s <matrix> <method> [extra_features]\n", argv[0]);
+                      bool bench_mode = false) {
+    if ((argc < 2 && bench_mode) || (argc < 3 && !bench_mode)) {
+        printf("ERROR: parse_cli: Not enough arguments given. A call should "
+               "contain:"
+               "\n%s <matrix> <method> [extra_features]\n",
+               argv[0]);
         exit(EXIT_FAILURE);
     }
     cli_args->matrix_file_name = argv[1];
@@ -53,10 +55,12 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
     for (int i = args_start_index; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-p") {
-            if ( i + 1 >= argc ) {
-                printf("ERROR: parse_cli: Not enough arguments given. Some extra features"
-                        " need additional arguments. Example:"
-                        "\n%s <matrix> <method> -p gs\n", argv[0]);
+            if (i + 1 >= argc) {
+                printf("ERROR: parse_cli: Not enough arguments given. Some "
+                       "extra features"
+                       " need additional arguments. Example:"
+                       "\n%s <matrix> <method> -p gs\n",
+                       argv[0]);
                 exit(EXIT_FAILURE);
             }
             std::string pt = argv[++i];
@@ -69,6 +73,8 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                 cli_args->preconditioner = PrecondType::BackwardsGaussSeidel;
             } else if (pt == "sgs") {
                 cli_args->preconditioner = PrecondType::SymmetricGaussSeidel;
+            } else if (pt == "2st") {
+                cli_args->preconditioner = PrecondType::TwoStageGS;
             } else {
                 fprintf(stderr,
                         "ERROR: assign_cli_inputs: Please choose an available "
@@ -77,6 +83,7 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                         "\n-p gs (Gauss-Seidel)"
                         "\n-p bgs (Backwards Gauss-Seidel)"
                         "\n-p sgs (Symmetric Gauss-Seidel)"
+                        "\n-p 2st (2 Stage Gauss-Seidel)"
                         "\n");
                 exit(EXIT_FAILURE);
             }
@@ -293,8 +300,8 @@ inline void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 
 // NOTE: very lazy way to do this
 inline void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
-                 MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
-                 MatrixCRS *crs_mat_U_strict) {
+                        MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
+                        MatrixCRS *crs_mat_U_strict) {
     int D_nz_count = 0;
 
     // Force same dimensions for consistency
@@ -408,7 +415,7 @@ inline void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
 }
 
 inline void extract_D(const MatrixCOO *coo_mat, double *D,
-               bool gmres_restarted = false, bool take_sqrt = false) {
+                      bool gmres_restarted = false, bool take_sqrt = false) {
 #pragma omp parallel for schedule(static)
     for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
         if (coo_mat->I[nz_idx] == coo_mat->J[nz_idx]) {
@@ -423,38 +430,40 @@ inline void extract_D(const MatrixCOO *coo_mat, double *D,
 }
 
 inline void peel_diag_crs(MatrixCRS *A, double *D) {
+
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
-        // CRITICAL FIX: Initialize D[row_idx] to 0.0 at the start of each row.
-        // This ensures that if no diagonal element is found, D[row_idx] correctly defaults to 0.0.
-        D[row_idx] = 0.0;
-
         int row_start = A->row_ptr[row_idx];
-        int row_end = A->row_ptr[row_idx + 1] - 1; // Index of the last element in the current row
-        int diag_j = -1; // Initialize diag_j to -1 (indicating diagonal not found yet)
+        int row_end = A->row_ptr[row_idx + 1] -
+                      1; // Index of the last element in the current row
+        int diag_j = -1; // Initialize diag_j to -1 (indicating diagonal not
+                         // found yet)
 
-        // Find the diagonal element in this row (since rows in CRS need not be column-sorted)
+        // Find the diagonal element in this row (since rows in CRS need not
+        // be column-sorted)
         for (int j = row_start; j <= row_end; ++j) {
             if (A->col[j] == row_idx) {
                 diag_j = j; // Store the index of the diagonal element
                 D[row_idx] = A->val[j]; // Extract the diagonal value
-                
+
                 // Check if the diagonal value is very close to zero
                 if (std::abs(D[row_idx]) < 1e-16) {
-                    SanityChecker::zero_diag(row_idx); // Call sanity checker for zero diagonal
+                    SanityChecker::zero_diag(
+                        row_idx); // Call sanity checker for zero diagonal
                 }
-                
             }
         }
 
         // If no diagonal element was found for this row
         if (diag_j < 0) {
-            SanityChecker::no_diag(row_idx); // Call sanity checker for missing diagonal
-            
+            SanityChecker::no_diag(
+                row_idx); // Call sanity checker for missing diagonal
         }
 
-        // If a diagonal element was found AND it's not already at the end of the row's non-zeros,
-        // swap it into the last slot of the current row's non-zero entries.
-        if (diag_j >= 0 && diag_j != row_end) { // Ensure diag_j is valid before swapping
+        // If a diagonal element was found AND it's not already at the end
+        // of the row's non-zeros, swap it into the last slot of the current
+        // row's non-zero entries.
+        if (diag_j >= 0 &&
+            diag_j != row_end) { // Ensure diag_j is valid before swapping
             std::swap(A->col[diag_j], A->col[row_end]);
             std::swap(A->val[diag_j], A->val[row_end]);
         }
