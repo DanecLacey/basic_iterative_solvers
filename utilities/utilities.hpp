@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <iostream>
 
-void parse_cli(Args *cli_args, int argc, char *argv[],
+inline void parse_cli(Args *cli_args, int argc, char *argv[],
                bool bench_mode = false) {
     if ( (argc < 2 && bench_mode) || (argc < 3 && !bench_mode) ) {
         printf("ERROR: parse_cli: Not enough arguments given. A call should contain:"
@@ -69,8 +69,6 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
                 cli_args->preconditioner = PrecondType::BackwardsGaussSeidel;
             } else if (pt == "sgs") {
                 cli_args->preconditioner = PrecondType::SymmetricGaussSeidel;
-            } else if (pt == "2st") {
-                cli_args->preconditioner = PrecondType::TwoStageGS;
             } else {
                 fprintf(stderr,
                         "ERROR: assign_cli_inputs: Please choose an available "
@@ -79,7 +77,6 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
                         "\n-p gs (Gauss-Seidel)"
                         "\n-p bgs (Backwards Gauss-Seidel)"
                         "\n-p sgs (Symmetric Gauss-Seidel)"
-                        "\n-p 2st (2 Stage Gauss-Seidel)"
                         "\n");
                 exit(EXIT_FAILURE);
             }
@@ -111,7 +108,7 @@ void parse_cli(Args *cli_args, int argc, char *argv[],
     }
 };
 
-void init_timers(Timers *timers) {
+inline void init_timers(Timers *timers) {
     CREATE_STOPWATCH(total)
     CREATE_STOPWATCH(preprocessing)
     CREATE_STOPWATCH(solve)
@@ -139,7 +136,7 @@ void init_timers(Timers *timers) {
     CREATE_STOPWATCH(postprocessing)
 }
 
-void print_timers(Args *cli_args, Timers *timers) {
+inline void print_timers(Args *cli_args, Timers *timers) {
     long double total_time = timers->total_time->get_wtime();
     long double preprocessing_time = timers->preprocessing_time->get_wtime();
     long double solve_time = timers->solve_time->get_wtime();
@@ -251,7 +248,7 @@ void print_timers(Args *cli_args, Timers *timers) {
     // clang-format on
 };
 
-void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
+inline void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
     crs_mat->n_rows = coo_mat->n_rows;
     crs_mat->n_cols = coo_mat->n_cols;
     crs_mat->nnz = coo_mat->nnz;
@@ -295,7 +292,7 @@ void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 }
 
 // NOTE: very lazy way to do this
-void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
+inline void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
                  MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
                  MatrixCRS *crs_mat_U_strict) {
     int D_nz_count = 0;
@@ -410,7 +407,7 @@ void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
     }
 }
 
-void extract_D(const MatrixCOO *coo_mat, double *D,
+inline void extract_D(const MatrixCOO *coo_mat, double *D,
                bool gmres_restarted = false, bool take_sqrt = false) {
 #pragma omp parallel for schedule(static)
     for (int nz_idx = 0; nz_idx < coo_mat->nnz; ++nz_idx) {
@@ -426,36 +423,46 @@ void extract_D(const MatrixCOO *coo_mat, double *D,
 }
 
 inline void peel_diag_crs(MatrixCRS *A, double *D) {
-
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
-        int row_start = A->row_ptr[row_idx];
-        int row_end = A->row_ptr[row_idx + 1] - 1;
-        int diag_j = -1; // Init diag col
+        // CRITICAL FIX: Initialize D[row_idx] to 0.0 at the start of each row.
+        // This ensures that if no diagonal element is found, D[row_idx] correctly defaults to 0.0.
+        D[row_idx] = 0.0;
 
-        // find the diag in this row_idx (since row need not be col sorted)
+        int row_start = A->row_ptr[row_idx];
+        int row_end = A->row_ptr[row_idx + 1] - 1; // Index of the last element in the current row
+        int diag_j = -1; // Initialize diag_j to -1 (indicating diagonal not found yet)
+
+        // Find the diagonal element in this row (since rows in CRS need not be column-sorted)
         for (int j = row_start; j <= row_end; ++j) {
             if (A->col[j] == row_idx) {
-                diag_j = j;
-                D[row_idx] = A->val[j]; // extract
+                diag_j = j; // Store the index of the diagonal element
+                D[row_idx] = A->val[j]; // Extract the diagonal value
+                
+                // Check if the diagonal value is very close to zero
                 if (std::abs(D[row_idx]) < 1e-16) {
-                    SanityChecker::zero_diag(row_idx);
+                    SanityChecker::zero_diag(row_idx); // Call sanity checker for zero diagonal
                 }
+                
             }
         }
+
+        // If no diagonal element was found for this row
         if (diag_j < 0) {
-            SanityChecker::no_diag(row_idx);
+            SanityChecker::no_diag(row_idx); // Call sanity checker for missing diagonal
+            
         }
 
-        // if it's not already at the end, swap it into the last slot
-        if (diag_j != row_end) {
+        // If a diagonal element was found AND it's not already at the end of the row's non-zeros,
+        // swap it into the last slot of the current row's non-zero entries.
+        if (diag_j >= 0 && diag_j != row_end) { // Ensure diag_j is valid before swapping
             std::swap(A->col[diag_j], A->col[row_end]);
             std::swap(A->val[diag_j], A->val[row_end]);
         }
-    };
+    }
 }
 
 // NOTE: very lazy way to do this
-void extract_L_plus_D(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L_plus_D) {
+inline void extract_L_plus_D(MatrixCOO *coo_mat, MatrixCOO *coo_mat_L_plus_D) {
     // Force same dimensions for consistency
     coo_mat_L_plus_D->n_rows = coo_mat->n_rows;
     coo_mat_L_plus_D->n_cols = coo_mat->n_cols;

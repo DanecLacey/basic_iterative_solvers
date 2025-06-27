@@ -20,8 +20,8 @@ void bicgstab_separate_iteration(
 
     // y <- M^{-1}p_old
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, y, p_old,
-                              tmp SMAX_ARGS(0, smax, "M^{-1} * p_old")))
+     apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, y, p_old,
+                          tmp SMAX_ARGS(0, smax, "M^{-1} * p_old")))
 
     // v <- A*y
     TIME(timers->spmv, spmv(crs_mat, y, v SMAX_ARGS(0, smax, "v <- A*y")))
@@ -37,8 +37,8 @@ void bicgstab_separate_iteration(
 
     // s_tmp <- M^{-1}s
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, crs_mat_L, crs_mat_U, D, s_tmp, s,
-                              tmp SMAX_ARGS(0, smax, "M^{-1} * s")))
+     apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, s_tmp, s,
+                          tmp SMAX_ARGS(0, smax, "M^{-1} * s")))
 
     // z <- A*s_tmp
     TIME(timers->spmv,
@@ -148,7 +148,7 @@ class BiCGSTABSolver : public Solver {
         // Precondition the initial residual
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
             residual_old, crs_mat->n_cols, "residual before preconditioning"));
-        apply_preconditioner(preconditioner, crs_mat_L_strict.get(),
+        apply_preconditioner(preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(),
                              crs_mat_U_strict.get(), D, residual, residual_old,
                              tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(

@@ -16,11 +16,7 @@
 #include <likwid-marker.h>
 #endif
 
-#ifdef USE_SMAX
-#include "utilities/smax_helpers.hpp"
-#endif
-
-void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
+inline void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
 #pragma omp parallel
     {
 #ifdef USE_LIKWID
@@ -42,8 +38,9 @@ void native_spmv(const MatrixCRS *crs_mat, const double *x, double *y) {
     }
 }
 
-void spmv(const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0,
-          Interface *smax = nullptr, const std::string kernel_name = "") {
+inline void spmv(const MatrixCRS *crs_mat, const double *x, double *y,
+                 int offset = 0, Interface *smax = nullptr,
+                 const std::string kernel_name = "") {
 #if USE_SMAX
     smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
@@ -51,8 +48,8 @@ void spmv(const MatrixCRS *crs_mat, const double *x, double *y, int offset = 0,
 #endif
 }
 
-void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
-                   const double *b) {
+inline void native_sptrsv(const MatrixCRS *crs_mat_L, double *x,
+                          const double *D, const double *b) {
 #ifdef USE_LIKWID
     LIKWID_MARKER_START("sptrsv");
 #endif
@@ -75,9 +72,9 @@ void native_sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
 #endif
 }
 
-void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
-            const double *b, int offset = 0, Interface *smax = nullptr,
-            const std::string kernel_name = "") {
+inline void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
+                   const double *b, int offset = 0, Interface *smax = nullptr,
+                   const std::string kernel_name = "") {
 #ifdef USE_SMAX
     smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
@@ -85,8 +82,8 @@ void sptrsv(const MatrixCRS *crs_mat_L, double *x, const double *D,
 #endif
 }
 
-void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
-                    const double *b) {
+inline void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x,
+                           const double *D, const double *b) {
 #ifdef USE_LIKWID
     LIKWID_MARKER_START("backwards-sptrsv");
 #endif
@@ -106,9 +103,9 @@ void native_bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
 #endif
 }
 
-void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
-             const double *b, int offset = 0, Interface *smax = nullptr,
-             const std::string kernel_name = "") {
+inline void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
+                    const double *b, int offset = 0, Interface *smax = nullptr,
+                    const std::string kernel_name = "") {
 #if USE_SMAX
     smax->kernel(kernel_name.c_str())->run(0, offset, 0);
 #else
@@ -116,51 +113,52 @@ void bsptrsv(const MatrixCRS *crs_mat_U, double *x, const double *D,
 #endif
 }
 
-void subtract_vectors(double *result_vec, const double *vec1,
-                      const double *vec2, const int N,
-                      const double scale = 1.0) {
-#pragma omp parallel for schedule(static)
+inline void subtract_vectors(double *result_vec, const double *vec1,
+                             const double *vec2, const int N,
+                             const double scale = 1.0) {
+#pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] - scale * vec2[i];
     }
 }
 
-void sum_vectors(double *result_vec, const double *vec1, const double *vec2,
-                 const int N, const double scale = 1.0) {
+inline void sum_vectors(double *result_vec, const double *vec1,
+                        const double *vec2, const int N,
+                        const double scale = 1.0) {
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] + scale * vec2[i];
     }
 }
 
-void elemwise_mult_vectors(double *result_vec, const double *vec1,
-                           const double *vec2, const int N,
-                           const double scale = 1.0) {
-#pragma omp parallel for schedule(static)
+inline void elemwise_mult_vectors(double *result_vec, const double *vec1,
+                                  const double *vec2, const int N,
+                                  const double scale = 1.0) {
+#pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] * scale * vec2[i];
     }
 }
 
-void elemwise_div_vectors(double *result_vec, const double *vec1,
-                          const double *vec2, const int N,
-                          const double scale = 1.0) {
-#pragma omp parallel for schedule(static)
+inline void elemwise_div_vectors(double *result_vec, const double *vec1,
+                                 const double *vec2, const int N,
+                                 const double scale = 1.0) {
+#pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] / (scale * vec2[i]);
     }
 }
 
-void compute_residual(const MatrixCRS *crs_mat, const double *x,
-                      const double *b, double *residual, double *tmp,
-                      Interface *smax = nullptr,
-                      const std::string kernel_name = "") {
+inline void compute_residual(const MatrixCRS *crs_mat, const double *x,
+                             const double *b, double *residual, double *tmp,
+                             Interface *smax = nullptr,
+                             const std::string kernel_name = "") {
 
     spmv(crs_mat, x, tmp SMAX_ARGS(0, smax, kernel_name));
     subtract_vectors(residual, b, tmp, crs_mat->n_cols);
 }
 
-double infty_vec_norm(const double *vec, const int N) {
+inline double infty_vec_norm(const double *vec, const int N) {
     double max_abs = 0.0;
     double curr_abs;
     for (int i = 0; i < N; ++i) {
@@ -175,7 +173,7 @@ double infty_vec_norm(const double *vec, const int N) {
     return max_abs;
 }
 
-double infty_mat_norm(const MatrixCRS *crs_mat) {
+inline double infty_mat_norm(const MatrixCRS *crs_mat) {
     double max_row_sum = 0.0;
 
 #pragma omp parallel for reduction(max : max_row_sum) schedule(static)
@@ -191,7 +189,7 @@ double infty_mat_norm(const MatrixCRS *crs_mat) {
     return max_row_sum;
 }
 
-double euclidean_vec_norm(const double *vec, int N) {
+inline double euclidean_vec_norm(const double *vec, int N) {
     double tmp = 0.0;
 
 #pragma omp parallel for reduction(+ : tmp) schedule(static)
@@ -202,7 +200,7 @@ double euclidean_vec_norm(const double *vec, int N) {
     return std::sqrt(tmp);
 }
 
-double dot(const double *vec1, const double *vec2, const int N) {
+inline double dot(const double *vec1, const double *vec2, const int N) {
     double sum = 0.0;
 #pragma omp parallel for reduction(+ : sum) schedule(static)
     for (int i = 0; i < N; ++i) {
@@ -211,17 +209,17 @@ double dot(const double *vec1, const double *vec2, const int N) {
     return sum;
 }
 
-void scale(double *result_vec, const double *vec, const double scalar,
-           const int N) {
+inline void scale(double *result_vec, const double *vec, const double scalar,
+                  const int N) {
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec[i] * scalar;
     }
 }
 
-void init_dense_identity_matrix(double *mat, const int n_rows,
-                                const int n_cols) {
-#pragma omp parallel for schedule(static)
+inline void init_dense_identity_matrix(double *mat, const int n_rows,
+                                       const int n_cols) {
+#pragma omp parallel for
     for (int i = 0; i < n_rows; ++i) {
         for (int j = 0; j < n_cols; ++j) {
             if (i == j) {
@@ -233,15 +231,15 @@ void init_dense_identity_matrix(double *mat, const int n_rows,
     }
 }
 
-void init_vector(double *vec, double val, long size) {
-#pragma omp parallel for schedule(static)
+inline void init_vector(double *vec, double val, long size) {
+#pragma omp parallel for
     for (int i = 0; i < size; ++i) {
         vec[i] = val;
     }
 }
 
-void copy_dense_matrix(double *new_mat, const double *old_mat, const int n_rows,
-                       const int n_cols) {
+inline void copy_dense_matrix(double *new_mat, const double *old_mat,
+                              const int n_rows, const int n_cols) {
     for (int row = 0; row < n_rows; ++row) {
         for (int col_idx = 0; col_idx < n_cols; ++col_idx) {
             new_mat[n_cols * row + col_idx] = old_mat[n_cols * row + col_idx];
@@ -249,15 +247,16 @@ void copy_dense_matrix(double *new_mat, const double *old_mat, const int n_rows,
     }
 }
 
-void copy_vector(double *new_vec, const double *old_vec, const int n_rows) {
-#pragma omp parallel for schedule(static)
+inline void copy_vector(double *new_vec, const double *old_vec,
+                        const int n_rows) {
+#pragma omp parallel for
     for (int row = 0; row < n_rows; ++row) {
         new_vec[row] = old_vec[row];
     }
 }
 
-void dgemm_transpose1(double *A, double *B, double *C, int n_rows_A,
-                      int n_cols_A, int n_cols_B) {
+inline void dgemm_transpose1(double *A, double *B, double *C, int n_rows_A,
+                             int n_cols_A, int n_cols_B) {
     for (int i = 0; i < n_rows_A; ++i) {
         for (int j = 0; j < n_cols_B; ++j) {
             double tmp = 0.0;
@@ -269,8 +268,8 @@ void dgemm_transpose1(double *A, double *B, double *C, int n_rows_A,
     }
 }
 
-void dgemm_transpose2(double *A, double *B, double *C, int n_rows_A,
-                      int n_cols_A, int n_cols_B) {
+inline void dgemm_transpose2(double *A, double *B, double *C, int n_rows_A,
+                             int n_cols_A, int n_cols_B) {
     for (int i = 0; i < n_rows_A; ++i) {
         for (int j = 0; j < n_cols_B; ++j) {
             double tmp = 0.0;
@@ -282,8 +281,8 @@ void dgemm_transpose2(double *A, double *B, double *C, int n_rows_A,
     }
 }
 
-void dgemm(double *A, double *B, double *C, int n_rows_A, int n_cols_A,
-           int n_cols_B) {
+inline void dgemm(double *A, double *B, double *C, int n_rows_A, int n_cols_A,
+                  int n_cols_B) {
     for (int i = 0; i < n_rows_A; ++i) {
         for (int j = 0; j < n_cols_B; ++j) {
             double tmp = 0.0;
@@ -295,9 +294,9 @@ void dgemm(double *A, double *B, double *C, int n_rows_A, int n_cols_A,
     }
 }
 
-void dgemv(const double *A, const double *x, double *y, int n_rows_A,
-           int n_cols_A, double alpha = 1.0
-           // double beta = 1.0
+inline void dgemv(const double *A, const double *x, double *y, int n_rows_A,
+                  int n_cols_A, double alpha = 1.0
+                  // double beta = 1.0
 ) {
     for (int i = 0; i < n_rows_A; ++i) {
         // y[i] *= beta;
@@ -309,12 +308,12 @@ void dgemv(const double *A, const double *x, double *y, int n_rows_A,
 }
 
 // Computes z <- M^{-1}y
-void apply_preconditioner(const PrecondType preconditioner,
-                          const MatrixCRS *crs_mat_L_strict,
-                          const MatrixCRS *crs_mat_U_strict, double *D,
-                          double *vec, double *rhs, double *tmp, int offset = 0,
-                          Interface *smax = nullptr,
-                          const std::string kernel_name = "") {
+inline void apply_preconditioner(const PrecondType preconditioner,
+                                 const MatrixCRS *crs_mat_L_strict,
+                                 const MatrixCRS *crs_mat_U_strict, double *D,
+                                 double *vec, double *rhs, double *tmp,
+                                 int offset = 0, Interface *smax = nullptr,
+                                 const std::string kernel_name = "") {
     int N = crs_mat_L_strict->n_cols;
 
     double *D_inv, *comp_tmp_1, *comp_tmp_2;
@@ -325,7 +324,8 @@ void apply_preconditioner(const PrecondType preconditioner,
         copy_vector(vec, rhs, N);
 
 #ifdef USE_SMAX
-        register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N, comp_tmp_2, N);
+        register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N,
+                      comp_tmp_2, N);
 #endif
     }
 
@@ -380,11 +380,6 @@ void apply_preconditioner(const PrecondType preconditioner,
             copy_vector(vec, rhs, N);
         }
     }
-
-    if (preconditioner == PrecondType::TwoStageGS) {
-        delete[] comp_tmp_1; delete [] comp_tmp_2; delete [] D_inv;
-    }
-
     // clang-format on
 }
 
