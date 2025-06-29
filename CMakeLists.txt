@@ -93,11 +93,14 @@ if(USE_SCAMAC)
 
     if(TARGET scamac::scamac)
         message(STATUS "SCAMAC target scamac::scamac found, enabling support.")
-        # Link both executables to SCAMAC
-        target_link_libraries(basic_iterative_solvers PUBLIC scamac::scamac)
-        target_link_libraries(run_tests PUBLIC scamac::scamac)
-        target_compile_definitions(basic_iterative_solvers PUBLIC USE_SCAMAC)
-        target_compile_definitions(run_tests PUBLIC USE_SCAMAC) # Also for tests if needed
+
+        # DL 2025-06-27: I don't it is necessary to link against tests. If so, need workaround for linking issues.
+        # target_link_libraries(run_tests PRIVATE scamac::scamac)
+        # target_compile_definitions(run_tests PRIVATE USE_SCAMAC) # Also for tests if needed
+
+        target_link_libraries(basic_iterative_solvers PRIVATE scamac::scamac)
+        target_compile_definitions(basic_iterative_solvers PRIVATE USE_SCAMAC)
+        
     else()
         message(FATAL_ERROR "SCAMAC target scamac::scamac not found.")
     endif()
@@ -114,7 +117,7 @@ if(USE_SMAX)
         target_link_libraries(basic_iterative_solvers PRIVATE SMAX::smaxkernels)
         target_compile_definitions(basic_iterative_solvers PRIVATE USE_SMAX)
         
-        # DL 2025-06-27: I would say this is not necessary 
+        # DL 2025-06-27: I don't it is necessary to link against tests. If so, need workaround for linking issues.
         # target_link_libraries(run_tests PRIVATE SMAX::smaxkernels)
         # target_compile_definitions(run_tests PRIVATE USE_SMAX) # Also for tests if needed
         
@@ -122,7 +125,7 @@ if(USE_SMAX)
         if(NOT SMAX_PERM_MODE)
             set(SMAX_PERM_MODE NONE CACHE STRING "Choose the permutation mode." FORCE)
         endif()
-        set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "JH" "BFS")
+        set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "RS" "BFS" "SC" "PC" "PC_BAL" "RACE")
         message(STATUS "Permutation Mode: ${SMAX_PERM_MODE}")
     else()
         message(FATAL_ERROR "SMAX requested but not found.")

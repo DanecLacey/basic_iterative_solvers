@@ -4,6 +4,7 @@
 #include "../utilities/smax_helpers.hpp"
 
 // https://jiechenjiechen.github.io/pub/fbcgs.pdf
+// https://doi.org/10.1137/0913035
 void bicgstab_separate_iteration(
     Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
     const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
