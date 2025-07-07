@@ -40,6 +40,7 @@ class Solver {
     double *residual = nullptr;
     double *residual_0 = nullptr;
     double *D = nullptr;
+    double *D_inv = nullptr;
 
     // Bookkeeping
     double *collected_residual_norms = nullptr;
@@ -76,6 +77,7 @@ class Solver {
         residual = new double[N];
         residual_0 = new double[N];
         D = new double[N];
+        D_inv = new double[N];
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
@@ -85,6 +87,7 @@ class Solver {
                 x_0[i] = INIT_X_VAL;
                 b[i] = B_VAL;
                 D[i] = 0.0;
+                D_inv[i] = 0.0;
             }
         }
     }
@@ -114,6 +117,7 @@ class Solver {
         delete[] residual;
         delete[] residual_0;
         delete[] D;
+        delete[] D_inv;
         delete[] collected_residual_norms;
         delete[] time_per_iteration;
     }

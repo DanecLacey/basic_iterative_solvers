@@ -178,12 +178,15 @@ void test_peel_diag_crs() {
     crs_mat.val = new double[9]{1, 10, 2, 3, 20, 4, 30, 5, 6};
 
     std::vector<double> D(3);
-    peel_diag_crs(&crs_mat, D.data());
+    std::vector<double> D_inv(3);
+    peel_diag_crs(&crs_mat, D.data(), D_inv.data());
 
     // Check diagonal vector
     std::vector<double> expected_D = {10, 20, 30};
+    std::vector<double> expected_D_inv = {1.0 / 10, 1.0 / 20, 1.0 / 30};
     for (int i = 0; i < 3; ++i) {
         ASSERT_NEAR(D[i], expected_D[i], 1e-9);
+        ASSERT_NEAR(D_inv[i], expected_D_inv[i], 1e-9);
     }
     std::cout << "        peel_diag_crs: Diagonal vector extraction passed."
               << std::endl;

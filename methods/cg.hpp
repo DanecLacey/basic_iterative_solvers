@@ -6,7 +6,7 @@
 // clang-format off
 void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
                            const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
-                           const MatrixCRS *crs_mat_U, double *D, double *x_new,
+                           const MatrixCRS *crs_mat_U, double *D, double *D_inv, double *x_new,
                            double *x_old, double *tmp, double *p_new,
                            double *p_old, double *r_new, double *r_old,
                            double *z_new, double *z_old,
@@ -36,7 +36,7 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
 
     TIME(timers->precond,
      apply_preconditioner(
-        preconditioner, crs_mat->n_cols, crs_mat_L, crs_mat_U, D, z_new,
+        preconditioner, crs_mat->n_cols, crs_mat_L, crs_mat_U, D, D_inv, z_new,
         r_new, tmp SMAX_ARGS(0, smax, "M^{-1} * residual"))
     )
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new after preconditioning"));
@@ -103,7 +103,7 @@ class ConjugateGradientSolver : public Solver {
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, crs_mat->n_cols, "residual before preconditioning"));
         
         apply_preconditioner(
-            preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, z_old, 
+            preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, D_inv, z_old, 
             residual, tmp SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, crs_mat->n_cols, "residual after preconditioning"));
@@ -118,7 +118,7 @@ class ConjugateGradientSolver : public Solver {
 
     void iterate(Timers *timers) override {
         cg_separate_iteration(timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-                              crs_mat_U_strict.get(), D, x_new, x_old, tmp, p_new,
+                              crs_mat_U_strict.get(), D, D_inv, x_new, x_old, tmp, p_new,
                               p_old, residual_new, residual_old, z_new,
                               z_old SMAX_ARGS(smax));
     }

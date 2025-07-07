@@ -42,8 +42,8 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 
     // NOTE: The triangular matrix we use to peel D must be sorted in each row
     // It's easier just to sort both L and U now, eventhough we only need D once
-    peel_diag_crs(crs_mat_L.get(), solver->D);
-    peel_diag_crs(crs_mat_U.get(), solver->D);
+    peel_diag_crs(crs_mat_L.get(), solver->D, solver->D_inv);
+    peel_diag_crs(crs_mat_U.get(), solver->D, solver->D_inv);
 
     // Collect preprocessed CRS L and U matrices to solver object
     solver->crs_mat_L = std::move(crs_mat_L);

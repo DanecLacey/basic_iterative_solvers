@@ -314,12 +314,12 @@ inline void dgemv(const double *A, const double *x, double *y, int n_rows_A,
 inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                                  const MatrixCRS *crs_mat_L_strict,
                                  const MatrixCRS *crs_mat_U_strict, double *D,
-                                 double *output, double *input, double *tmp,
-                                 int offset = 0, Interface *smax = nullptr,
+                                 double *D_inv, double *output, double *input,
+                                 double *tmp, int offset = 0,
+                                 Interface *smax = nullptr,
                                  const std::string kernel_name = "") {
-    double *D_inv, *comp_tmp_1, *comp_tmp_2;
+    double *comp_tmp_1, *comp_tmp_2;
     if (preconditioner == PrecondType::TwoStageGS) {
-        D_inv = new double[N];
         comp_tmp_1 = new double[N];
         comp_tmp_2 = new double[N];
         copy_vector(output, input, N);
@@ -330,6 +330,9 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                       comp_tmp_2, N);
 #endif
     }
+
+    IF_DEBUG_MODE_FINE(
+        SanityChecker::print_vector(input, N, "before precond:"));
 
     // clang-format off
     for (int i = 0; i < PRECOND_ITERS; ++i) {
@@ -355,13 +358,13 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
             // TODO: Wrap up in some function
             for (int inner = 0; inner < PRECOND_INNER_ITERS; ++inner) {
                 if (i == 0) {
-                    if (inner == 0) {
-                        // obtain D^-1
-#pragma omp parallel for schedule(static)
-                        for (int j = 0; j < N; j++) {
-                            D_inv[j] = 1.0/D[j];
-                        }
-                    }
+//                     if (inner == 0) {
+//                         // obtain D^-1
+// #pragma omp parallel for schedule(static)
+//                         for (int j = 0; j < N; j++) {
+//                             D_inv[j] = 1.0/D[j];
+//                         }
+//                     }
                     // comp_tmp_1 <- D^-1*input
                     elemwise_mult_vectors(comp_tmp_1, D_inv, output, N);
                 } else {
@@ -377,7 +380,7 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                 // output <- output + comp_tmp_1
                 // In each iteration of the preconditioner add one more step
                 sum_vectors(output, output, comp_tmp_1, N);
-            }
+            }    
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
@@ -386,10 +389,12 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
 
     // TODO: Move to solver dtor
     if (preconditioner == PrecondType::TwoStageGS) {
-        delete[] comp_tmp_1; delete [] comp_tmp_2; delete [] D_inv;
+        delete[] comp_tmp_1; delete [] comp_tmp_2;
     }
 
     // clang-format on
+    IF_DEBUG_MODE_FINE(
+        SanityChecker::print_vector(output, N, "after precond:"));
 }
 
 #endif

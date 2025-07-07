@@ -143,10 +143,11 @@ void update_g(Timers *timers, int N, int n_solver_iters, int restart_len,
 void gmres_separate_iteration(
     Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
     const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
-    int n_solver_iters, const int restart_count, const int restart_len,
-    double &residual_norm, double *V, double *H, double *H_tmp, double *J,
-    double *Q, double *Q_tmp, double *w, double *R, double *g, double *g_tmp,
-    double *b, double *x, double *tmp, double beta, Interface *smax = nullptr) {
+    double *D_inv, int n_solver_iters, const int restart_count,
+    const int restart_len, double &residual_norm, double *V, double *H,
+    double *H_tmp, double *J, double *Q, double *Q_tmp, double *w, double *R,
+    double *g, double *g_tmp, double *b, double *x, double *tmp, double beta,
+    Interface *smax = nullptr) {
     /* NOTES:
             - The orthonormal vectors in V are stored as row vectors
     */
@@ -163,8 +164,8 @@ void gmres_separate_iteration(
 
     // w_j <- M^{-1}w_j
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, w, w,
-                              tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
+         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, D_inv,
+                              w, w, tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 
@@ -271,7 +272,7 @@ class GMRESSolver : public Solver {
             residual, crs_mat->n_cols, "residual before preconditioning"));
         apply_preconditioner(preconditioner, crs_mat->n_cols,
                              crs_mat_L_strict.get(), crs_mat_U_strict.get(), D,
-                             residual, residual,
+                             D_inv, residual, residual,
                              tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
@@ -305,7 +306,7 @@ class GMRESSolver : public Solver {
     void iterate(Timers *timers) override {
         gmres_separate_iteration(
             timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-            crs_mat_U_strict.get(), D, iter_count, gmres_restart_count,
+            crs_mat_U_strict.get(), D, D_inv, iter_count, gmres_restart_count,
             gmres_restart_len, residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g,
             g_tmp, b, x, tmp, beta SMAX_ARGS(smax));
     }

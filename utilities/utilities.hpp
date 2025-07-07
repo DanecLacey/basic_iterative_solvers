@@ -429,7 +429,7 @@ inline void extract_D(const MatrixCOO *coo_mat, double *D,
     }
 }
 
-inline void peel_diag_crs(MatrixCRS *A, double *D) {
+inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv) {
 
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
         int row_start = A->row_ptr[row_idx];
@@ -450,6 +450,8 @@ inline void peel_diag_crs(MatrixCRS *A, double *D) {
                     SanityChecker::zero_diag(
                         row_idx); // Call sanity checker for zero diagonal
                 }
+
+                D_inv[row_idx] = 1.0 / D[row_idx];
             }
         }
 
