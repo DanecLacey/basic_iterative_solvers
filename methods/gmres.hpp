@@ -3,7 +3,7 @@
 #include "../solver.hpp"
 #include "../utilities/smax_helpers.hpp"
 
-void orthogonalize_V(Timers *timers, int N, int n_solver_iters, int restart_len,
+bool orthogonalize_V(Timers *timers, int N, int n_solver_iters, int restart_len,
                      double *H, double *V, double *w) {
 
     // For all v \in V
@@ -15,6 +15,10 @@ void orthogonalize_V(Timers *timers, int N, int n_solver_iters, int restart_len,
 
         IF_DEBUG_MODE_FINE(printf("h_%i_%i = %f\n", j, n_solver_iters,
                                   H[n_solver_iters + j * restart_len]))
+
+        // Breakdown case (Saad ch. 6.5.4)
+        if (std::abs(H[n_solver_iters + j * restart_len]) < 1e-25)
+            return true;
 
         // w_j <- w_j - h_ij*v_k
         TIME(timers->sum, subtract_vectors(w, w, &V[j * N], N,
@@ -43,6 +47,8 @@ void orthogonalize_V(Timers *timers, int N, int n_solver_iters, int restart_len,
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(
         &V[(n_solver_iters + 1) * N], N, "v_j"))
     IF_DEBUG_MODE(SanityChecker::check_V_orthonormal(V, n_solver_iters, N))
+
+    return false;
 }
 
 void least_squares(Timers *timers, int N, int n_solver_iters, int restart_len,
@@ -146,8 +152,8 @@ void gmres_separate_iteration(
     double *D_inv, int n_solver_iters, const int restart_count,
     const int restart_len, double &residual_norm, double *V, double *H,
     double *H_tmp, double *J, double *Q, double *Q_tmp, double *w, double *R,
-    double *g, double *g_tmp, double *b, double *x, double *tmp, double beta,
-    Interface *smax = nullptr) {
+    double *g, double *g_tmp, double *b, double *x, double *tmp, double *work,
+    double beta, Interface *smax = nullptr) {
     /* NOTES:
             - The orthonormal vectors in V are stored as row vectors
     */
@@ -165,12 +171,21 @@ void gmres_separate_iteration(
     // w_j <- M^{-1}w_j
     TIME(timers->precond,
          apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, D_inv,
-                              w, w, tmp SMAX_ARGS(0, smax, "M^{-1} * w_j")))
+                              w, w, tmp,
+                              work SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
 
-    TIME(timers->orthog,
-         orthogonalize_V(timers, N, n_solver_iters, restart_len, H, V, w))
+    bool breakdown = false;
+    TIME(timers->orthog, breakdown = orthogonalize_V(timers, N, n_solver_iters,
+                                                     restart_len, H, V, w))
+
+    // Breakdown case (Saad ch. 6.5.4)
+    if (breakdown) {
+        // TODO: Graceful exit
+        printf("Zero H element detected. GMRES Breakdown.\n");
+        exit(EXIT_FAILURE);
+    }
 
     TIME(timers->least_sq, least_squares(timers, N, n_solver_iters, restart_len,
                                          J, H, H_tmp, Q, Q_tmp, R))
@@ -272,8 +287,8 @@ class GMRESSolver : public Solver {
             residual, crs_mat->n_cols, "residual before preconditioning"));
         apply_preconditioner(preconditioner, crs_mat->n_cols,
                              crs_mat_L_strict.get(), crs_mat_U_strict.get(), D,
-                             D_inv, residual, residual,
-                             tmp SMAX_ARGS(0, smax, "init M^{-1} * residual"));
+                             D_inv, residual, residual, tmp,
+                             work SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, crs_mat->n_cols, "residual after preconditioning"));
         double precond_residual_norm =
@@ -308,7 +323,7 @@ class GMRESSolver : public Solver {
             timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
             crs_mat_U_strict.get(), D, D_inv, iter_count, gmres_restart_count,
             gmres_restart_len, residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g,
-            g_tmp, b, x, tmp, beta SMAX_ARGS(smax));
+            g_tmp, b, x, tmp, work, beta SMAX_ARGS(smax));
     }
 
     void get_explicit_x() override {
@@ -324,8 +339,7 @@ class GMRESSolver : public Solver {
         // 1)] Traverse R \in \mathbb{R}^(m+1 x m) from last to first row
         for (int row_idx = n_solver_iters - 1; row_idx >= 0; --row_idx) {
             double sum = 0.0;
-            for (int col_idx = row_idx; col_idx < gmres_restart_len;
-                 ++col_idx) {
+            for (int col_idx = row_idx; col_idx < n_solver_iters; ++col_idx) {
                 if (row_idx == col_idx) {
                     diag_elem = R[(row_idx * gmres_restart_len) + col_idx];
                 } else {
@@ -344,7 +358,7 @@ class GMRESSolver : public Solver {
         // Vy <- V*y [(m x 1) = (m x n)(n x 1)]
         // dgemm_transpose1(V, y, Vy, (gmres_restart_len
         // + 1), crs_mat->n_cols, 1);
-        dgemm_transpose1(V, y, Vy, crs_mat->n_cols, gmres_restart_len, 1);
+        dgemm_transpose1(V, y, Vy, crs_mat->n_cols, n_solver_iters + 1, 1);
 
         // dense_MMM_t<VT>(V, &y[0], Vy, n_rows, restart_len, 1);
 
@@ -426,6 +440,8 @@ class GMRESSolver : public Solver {
             register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), residual, N, tmp, N, true);
             register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L.get(), tmp, N, w, N);
             register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U.get(), w, N, tmp, N, true);
+        } else if (preconditioner == PrecondType::TwoStageGS) {
+            // TODO
         }
     }
 #endif

@@ -315,27 +315,15 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                                  const MatrixCRS *crs_mat_L_strict,
                                  const MatrixCRS *crs_mat_U_strict, double *D,
                                  double *D_inv, double *output, double *input,
-                                 double *tmp, int offset = 0,
+                                 double *tmp, double *work, int offset = 0,
                                  Interface *smax = nullptr,
                                  const std::string kernel_name = "") {
-    double *comp_tmp_1, *comp_tmp_2;
-    if (preconditioner == PrecondType::TwoStageGS) {
-        comp_tmp_1 = new double[N];
-        comp_tmp_2 = new double[N];
-        copy_vector(output, input, N);
-
-        // TODO: Move allocations and registration to preprocessing
-#ifdef USE_SMAX
-        register_spmv(smax, "precon_spmv", crs_mat_L_strict, comp_tmp_1, N,
-                      comp_tmp_2, N);
-#endif
-    }
 
     IF_DEBUG_MODE_FINE(
         SanityChecker::print_vector(input, N, "before precond:"));
 
     // clang-format off
-    for (int i = 0; i < PRECOND_ITERS; ++i) {
+    for (int i = 0; i < PRECOND_OUTER_ITERS; ++i) {
         if (preconditioner == PrecondType::Jacobi) {
             elemwise_div_vectors(output, input, D, N);
         } else if (preconditioner == PrecondType::GaussSeidel) {
@@ -354,42 +342,28 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
             // z <- (L+U)^{-1}*tmp
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
             bsptrsv(crs_mat_U_strict, output, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
+        
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            // TODO: Wrap up in some function
-            for (int inner = 0; inner < PRECOND_INNER_ITERS; ++inner) {
-                if (i == 0) {
-//                     if (inner == 0) {
-//                         // obtain D^-1
-// #pragma omp parallel for schedule(static)
-//                         for (int j = 0; j < N; j++) {
-//                             D_inv[j] = 1.0/D[j];
-//                         }
-//                     }
-                    // comp_tmp_1 <- D^-1*input
-                    elemwise_mult_vectors(comp_tmp_1, D_inv, output, N);
-                } else {
-                    // comp_tmp_1 <- (-D^-1*L)*comp_tmp_1
 
-                    spmv(crs_mat_L_strict, comp_tmp_1, comp_tmp_2 SMAX_ARGS(0, smax, std::string("precon_spmv")));
+            elemwise_mult_vectors(work, D_inv, input, N);
+
+            for (int inner = 1; inner <= PRECOND_INNER_ITERS; ++inner) {
+                // tmp = L * work
+                spmv(crs_mat_L_strict, work, tmp SMAX_ARGS(0, smax, std::string("precon_spmv")));
 #ifdef USE_SMAX
-                    smax->kernel("precon_spmv")->swap_operands();
+                smax->kernel("precon_spmv")->swap_operands();
 #endif
-                    elemwise_mult_vectors(comp_tmp_2, D_inv, comp_tmp_2, N, -1.0);
-                    std::swap(comp_tmp_1, comp_tmp_2);
-                }
-                // output <- output + comp_tmp_1
-                // In each iteration of the preconditioner add one more step
-                sum_vectors(output, output, comp_tmp_1, N);
-            }    
+                elemwise_mult_vectors(tmp, D_inv, tmp, N, -1.0);
+
+                sum_vectors(work, work, tmp, N);
+            }
+
+            copy_vector(output, work, N);
+
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
         }
-    }
-
-    // TODO: Move to solver dtor
-    if (preconditioner == PrecondType::TwoStageGS) {
-        delete[] comp_tmp_1; delete [] comp_tmp_2;
     }
 
     // clang-format on

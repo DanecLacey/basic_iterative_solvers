@@ -164,14 +164,15 @@ void test_apply_preconditioner() {
 
     // Test None
     apply_preconditioner(PrecondType::None, N, nullptr, nullptr, nullptr,
-                         nullptr, vec.data(), rhs.data(), nullptr);
+                         nullptr, vec.data(), rhs.data(), nullptr, nullptr);
     for (int i = 0; i < N; ++i)
         ASSERT_NEAR(vec[i], rhs[i], 1e-9);
     std::cout << "        PrecondType::None test passed." << std::endl;
 
     // Test Jacobi
     apply_preconditioner(PrecondType::Jacobi, N, nullptr, nullptr, D.data(),
-                         D_inv.data(), vec.data(), rhs.data(), nullptr);
+                         D_inv.data(), vec.data(), rhs.data(), nullptr,
+                         nullptr);
     for (int i = 0; i < N; ++i)
         ASSERT_NEAR(vec[i], rhs[i] / D[i], 1e-9);
     std::cout << "        PrecondType::Jacobi test passed." << std::endl;
@@ -190,7 +191,7 @@ void test_apply_preconditioner() {
         std::vector<double> expected_x_gs = {1.0, 2.0, 3.0};
         apply_preconditioner(PrecondType::GaussSeidel, N, &L_strict, nullptr,
                              D.data(), D_inv.data(), vec.data(), b_gs.data(),
-                             nullptr);
+                             nullptr, nullptr);
         for (int i = 0; i < N; ++i)
             ASSERT_NEAR(vec[i], expected_x_gs[i], 1e-9);
         std::cout << "        PrecondType::GaussSeidel test passed."
@@ -211,7 +212,7 @@ void test_apply_preconditioner() {
         std::vector<double> expected_x_bgs = {1.0, 2.0, 3.0};
         apply_preconditioner(PrecondType::BackwardsGaussSeidel, N, nullptr,
                              &U_strict, D.data(), D_inv.data(), vec.data(),
-                             b_bgs.data(), nullptr);
+                             b_bgs.data(), nullptr, nullptr);
         for (int i = 0; i < N; ++i)
             ASSERT_NEAR(vec[i], expected_x_bgs[i], 1e-9);
         std::cout << "        PrecondType::BackwardsGaussSeidel test passed."

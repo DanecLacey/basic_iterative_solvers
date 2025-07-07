@@ -37,6 +37,7 @@ class Solver {
     double *x_0 = nullptr;
     double *b = nullptr;
     double *tmp = nullptr;
+    double *work = nullptr;
     double *residual = nullptr;
     double *residual_0 = nullptr;
     double *D = nullptr;
@@ -68,12 +69,13 @@ class Solver {
     virtual void register_structs() = 0;
 #endif
 
-    // Partially overridden
+    // Partially overridden //
     virtual void allocate_structs(const int N) {
         x_star = new double[N];
         x_0 = new double[N];
         b = new double[N];
         tmp = new double[N];
+        work = new double[N];
         residual = new double[N];
         residual_0 = new double[N];
         D = new double[N];
@@ -96,6 +98,7 @@ class Solver {
 #pragma omp parallel for
         for (int i = 0; i < N; ++i) {
             tmp[i] = 0.0;
+            work[i] = 0.0;
             residual[i] = 0.0;
             residual_0[i] = 0.0;
         }
@@ -114,6 +117,7 @@ class Solver {
         delete[] x_0;
         delete[] b;
         delete[] tmp;
+        delete[] work;
         delete[] residual;
         delete[] residual_0;
         delete[] D;

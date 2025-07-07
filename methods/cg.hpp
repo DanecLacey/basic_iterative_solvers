@@ -7,7 +7,7 @@
 void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
                            const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
                            const MatrixCRS *crs_mat_U, double *D, double *D_inv, double *x_new,
-                           double *x_old, double *tmp, double *p_new,
+                           double *x_old, double *tmp, double *work, double *p_new,
                            double *p_old, double *r_new, double *r_old,
                            double *z_new, double *z_old,
                            Interface *smax = nullptr) {
@@ -37,7 +37,7 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
     TIME(timers->precond,
      apply_preconditioner(
         preconditioner, crs_mat->n_cols, crs_mat_L, crs_mat_U, D, D_inv, z_new,
-        r_new, tmp SMAX_ARGS(0, smax, "M^{-1} * residual"))
+        r_new, tmp, work SMAX_ARGS(0, smax, "M^{-1} * residual"))
     )
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new after preconditioning"));
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new after preconditioning"));
@@ -104,7 +104,7 @@ class ConjugateGradientSolver : public Solver {
         
         apply_preconditioner(
             preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, D_inv, z_old, 
-            residual, tmp SMAX_ARGS(0, smax, "init M^{-1} * residual")
+            residual, tmp, work SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, crs_mat->n_cols, "residual after preconditioning"));
 
@@ -118,7 +118,7 @@ class ConjugateGradientSolver : public Solver {
 
     void iterate(Timers *timers) override {
         cg_separate_iteration(timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-                              crs_mat_U_strict.get(), D, D_inv, x_new, x_old, tmp, p_new,
+                              crs_mat_U_strict.get(), D, D_inv, x_new, x_old, tmp, work, p_new,
                               p_old, residual_new, residual_old, z_new,
                               z_old SMAX_ARGS(smax));
     }
@@ -173,6 +173,8 @@ class ConjugateGradientSolver : public Solver {
             register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), z_old, N, tmp, N, true);
             register_sptrsv(smax, "M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual_new, N);
             register_sptrsv(smax, "M^{-1} * residual_upper", crs_mat_U.get(), z_new, N, tmp, N, true);
+        } else if (preconditioner == PrecondType::TwoStageGS) {
+            // TODO
         }
     }
 #endif
