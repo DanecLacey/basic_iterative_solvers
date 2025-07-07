@@ -7,6 +7,7 @@
 #include "methods/cg.hpp"
 #include "methods/gauss_seidel.hpp"
 #include "methods/gmres.hpp"
+#include "methods/ilu.hpp"
 #include "methods/jacobi.hpp"
 #include "postprocessing.hpp"
 #include "preprocessing.hpp"

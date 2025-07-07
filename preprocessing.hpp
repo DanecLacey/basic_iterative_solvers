@@ -51,6 +51,14 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     solver->crs_mat_L_strict = std::move(crs_mat_L_strict);
     solver->crs_mat_U_strict = std::move(crs_mat_U_strict);
 
+    // Copied from Aashutosh branch //
+    solver->L_factor = std::make_unique<MatrixCRS>();
+    solver->U_factor = std::make_unique<MatrixCRS>();
+    solver->D_factor_vals = std::make_unique<double[]>(solver->crs_mat->n_rows);
+
+    compute_ilu0(solver->crs_mat.get(), solver->L_factor.get(),
+                 solver->U_factor.get());
+
 #ifdef USE_SMAX
     // Register kernels and data to SMAX
     solver->register_structs();

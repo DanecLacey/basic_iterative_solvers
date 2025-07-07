@@ -21,6 +21,23 @@ class Solver {
     std::unique_ptr<MatrixCRS> crs_mat_U;
     std::unique_ptr<MatrixCRS> crs_mat_U_strict;
 
+    // Copied from Aashutosh branch //
+    // For ILU Preconditioners
+    std::unique_ptr<MatrixCRS> L_factor;
+    std::unique_ptr<MatrixCRS> U_factor;
+    std::unique_ptr<double[]> D_factor_vals; // For the diagonal of U
+
+    /*
+    Why L_factor and U_factor?
+    These will store the strictly lower and strictly upper parts of the
+    factorization.
+
+    Why D_factor_vals?
+    The U factor from an LU decomposition is not unit-diagonal; its diagonal
+    contains the pivots. We will store this diagonal separately, just like we do
+    for the Jacobi preconditioner. L_factor will be strictly lower triangular.
+    */
+
     // Common parameters
     double stopping_criteria = 0.0;
     int iter_count = 0;

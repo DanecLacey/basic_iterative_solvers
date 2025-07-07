@@ -310,10 +310,27 @@ inline void dgemv(const double *A, const double *x, double *y, int n_rows_A,
     }
 }
 
+// clang-format off
+// New function for forward substitution with a unit-diagonal L matrix.
+inline void sptrsv_unit_diag(const MatrixCRS *crs_mat_L_strict, double *x, const double *b) {
+    // Solves Lx = b where L is unit lower triangular.
+    for (int row = 0; row < crs_mat_L_strict->n_rows; ++row) {
+        double sum = 0.0;
+        for (int nz_idx = crs_mat_L_strict->row_ptr[row]; nz_idx < crs_mat_L_strict->row_ptr[row + 1]; ++nz_idx) {
+            sum += crs_mat_L_strict->val[nz_idx] * x[crs_mat_L_strict->col[nz_idx]];
+        }
+        // Diagonal is 1.0, so no division needed.
+        x[row] = b[row] - sum;
+    }
+}
+// clang-format on
+
 // Computes z <- M^{-1}y
 inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                                  const MatrixCRS *crs_mat_L_strict,
-                                 const MatrixCRS *crs_mat_U_strict, double *D,
+                                 const MatrixCRS *crs_mat_U_strict,
+                                 const MatrixCRS *L_factor,
+                                 const MatrixCRS *U_factor, double *D,
                                  double *D_inv, double *output, double *input,
                                  double *tmp, double *work, int offset = 0,
                                  Interface *smax = nullptr,
@@ -360,6 +377,19 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
 
             copy_vector(output, work, N);
 
+        } else if (preconditioner == PrecondType::ILU0) {
+            // Copied from Aashutosh branch //
+            
+            // ILU(0) solve: Mz = r  =>  (LU)z = r
+            // We use `tmp` as the intermediate vector y.
+
+            // Step 1: Solve Ly = r for y. Store result in `tmp`.
+            // L_factor is strictly lower, so we need a unit-diagonal solve.
+            sptrsv_unit_diag(L_factor, tmp, input);
+            
+            // Step 2: Solve Uz = y for z. Store final result in `vec`.
+            // The rhs for this solve is the `tmp` vector we just computed.
+            bsptrsv(U_factor, output, D, tmp);
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
