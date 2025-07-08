@@ -55,6 +55,39 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
     for (int i = args_start_index; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-p") {
+            std::string pt = argv[++i];
+
+            if (pt == "j") {
+                cli_args->preconditioner = PrecondType::Jacobi;
+            } else if (pt == "gs") {
+                cli_args->preconditioner = PrecondType::GaussSeidel;
+            } else if (pt == "bgs") {
+                cli_args->preconditioner = PrecondType::BackwardsGaussSeidel;
+            } else if (pt == "sgs") {
+                cli_args->preconditioner = PrecondType::SymmetricGaussSeidel;
+            } else if (pt == "ilut") { 
+                cli_args->preconditioner = PrecondType::ILUT;
+            }
+            else {
+                fprintf(stderr,
+                        "ERROR: assign_cli_inputs: Please choose an available "
+                        "preconditioner type: "
+                        "\n-p j (Jacobi)"
+                        "\n-p gs (Gauss-Seidel)"
+                        "\n-p bgs (Backwards Gauss-Seidel)"
+                        "\n-p sgs (Symmetric Gauss-Seidel)"
+                        "\n-p ilut (Incomplete LU with tolerance)\n" 
+                        );
+                exit(EXIT_FAILURE);
+            }
+        }	    
+
+    /*	
+    //ILU(0) case	
+    // Scan remaining incoming args
+    for (int i = args_start_index; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-p") {
             if (i + 1 >= argc) {
                 printf("ERROR: parse_cli: Not enough arguments given. Some "
                        "extra features"
@@ -91,6 +124,7 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                 exit(EXIT_FAILURE);
             }
         }
+	*/	
         // TODO: reintroduce matrix scaling
         // if (arg == "-scale"){
         // 	 std::string scale = argv[++i];
