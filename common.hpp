@@ -71,8 +71,10 @@ template <> inline std::string to_string(PrecondType type) {
         return "symmetric-gauss-seidel";
     case PrecondType::TwoStageGS:
         return "two-stage gauss-seidel";
-    case PrecondType::ILU0:
-        return "incomplete LU";
+    //case PrecondType::ILU0:
+        //return "incomplete LU";
+    case PrecondType::ILUT: 
+        return "ilut";
     case PrecondType::None:
         return "none";
     default:
