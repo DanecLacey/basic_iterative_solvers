@@ -5,6 +5,101 @@
 #include "solver.hpp"
 #include "sparse_matrix.hpp"
 #include "utilities/utilities.hpp"
+#include "methods/ilu.hpp"
+
+void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
+                   std::unique_ptr<MatrixCRS> &crs_mat) {
+
+    // Numerical preprocessing of matrix
+    // TODO: Scaling options
+
+    // Initialize structs to be used in the solver
+    IF_DEBUG_MODE(printf("Initializing structs\n"))
+    solver->allocate_structs(crs_mat->n_cols);
+    solver->init_structs(crs_mat->n_cols);
+
+#ifdef USE_SMAX
+    // Initialize interface object
+    SMAX::Interface *smax = new SMAX::Interface();
+    solver->smax = smax;
+
+    // Optionally, permute matrix for parallel SpTRSV
+    if (TO_STRING(PERM_MODE) != std::string("NONE"))
+        permute_mat(smax, crs_mat);
+#endif
+
+    // Collect preprocessed CRS A matrix to solver object
+    solver->crs_mat = std::move(crs_mat);
+
+    //std::unique_ptr<MatrixCRS> crs_mat_L = std::make_unique<MatrixCRS>();
+    //std::unique_ptr<MatrixCRS> crs_mat_L_strict = std::make_unique<MatrixCRS>();
+    //std::unique_ptr<MatrixCRS> crs_mat_U = std::make_unique<MatrixCRS>();
+    //std::unique_ptr<MatrixCRS> crs_mat_U_strict = std::make_unique<MatrixCRS>();
+
+     if (solver->preconditioner == PrecondType::ILUT) {
+        std::cout << "INFO: Computing ILUT factorization..." << std::endl;
+        
+        solver->L_factor = std::make_unique<MatrixCRS>();
+        solver->U_factor = std::make_unique<MatrixCRS>();
+        solver->D_factor_vals = std::make_unique<double[]>(solver->crs_mat->n_rows);
+
+        // Define ILUT parameters
+        // For ILU(0) behavior, use p=0 and tau=0.
+        int p = 8; // p = 8 and \tau = 1e-8 are the most optimal for HPCG matrices when used with BiCGSTAB
+        double tau = 1e-8;
+
+        TIME(timers->precond, 
+            compute_ilut(solver->crs_mat.get(), p, tau, solver->L_factor.get(), solver->U_factor.get())
+        );
+
+        // Extract the diagonal from the computed U factor
+        peel_diag_crs(solver->U_factor.get(), solver->D_factor_vals.get());
+        
+        std::cout << "INFO: ILUT factorization complete." << std::endl;
+
+    } else {
+        auto crs_mat_L = std::make_unique<MatrixCRS>();
+        auto crs_mat_L_strict = std::make_unique<MatrixCRS>();
+        auto crs_mat_U = std::make_unique<MatrixCRS>();
+        auto crs_mat_U_strict = std::make_unique<MatrixCRS>();
+        
+        extract_L_U(solver->crs_mat.get(), crs_mat_L.get(), crs_mat_L_strict.get(),
+                    crs_mat_U.get(), crs_mat_U_strict.get());
+        
+        peel_diag_crs(crs_mat_L.get(), solver->D);
+
+        solver->crs_mat_L = std::move(crs_mat_L);
+        solver->crs_mat_U = std::move(crs_mat_U);
+        solver->crs_mat_L_strict = std::move(crs_mat_L_strict);
+        solver->crs_mat_U_strict = std::move(crs_mat_U_strict);
+    }
+
+#ifdef USE_SMAX
+    // Register kernels and data to SMAX
+    solver->register_structs();
+#endif
+
+    // Compute the initial residual vector
+    IF_DEBUG_MODE(printf("Initializing residual vector\n"))
+    solver->init_residual();
+
+    // Use the initial residual and the tolerance to compute
+    // the stopping criteria (tolerance * ||Ax_0 - b||_2)
+    IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
+    solver->init_stopping_criteria();
+};
+
+#endif
+
+/*
+// ------- ILU(0) preprocessing below. Will separate ILUT & ILU(0) preprocessing once both have been verified.
+#ifndef PREPROCESSING_HPP
+#define PREPROCESSING_HPP
+
+#include "common.hpp"
+#include "solver.hpp"
+#include "sparse_matrix.hpp"
+#include "utilities/utilities.hpp"
 
 void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
                    std::unique_ptr<MatrixCRS> &crs_mat) {
@@ -75,3 +170,4 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 };
 
 #endif
+*/
