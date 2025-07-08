@@ -310,6 +310,29 @@ inline void dgemv(const double *A, const double *x, double *y, int n_rows_A,
     }
 }
 
+inline void two_stage_gauss_seidel(const MatrixCRS *crs_mat_strict, double *tmp,
+                                   double *work, double *D_inv, double *input,
+                                   double *output, const int N, int offset = 0,
+                                   Interface *smax = nullptr,
+                                   const std::string &kernel_name = "") {
+    elemwise_mult_vectors(work, D_inv, input, N);
+
+    copy_vector(output, work, N);
+
+    for (int inner = 1; inner <= PRECOND_INNER_ITERS; ++inner) {
+        // tmp = matrix * work
+        spmv(crs_mat_strict, work, tmp SMAX_ARGS(0, smax, kernel_name));
+#ifdef USE_SMAX
+        smax->kernel("precon_spmv")->swap_operands();
+#endif
+        elemwise_mult_vectors(tmp, D_inv, tmp, N, -1.0);
+
+        std::swap(work, tmp);
+
+        sum_vectors(output, output, work, N);
+    }
+}
+
 // Computes z <- M^{-1}y
 inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                                  const MatrixCRS *crs_mat_L_strict,
@@ -344,24 +367,16 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
             bsptrsv(crs_mat_U_strict, output, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         
         } else if (preconditioner == PrecondType::TwoStageGS) {
+            two_stage_gauss_seidel(crs_mat_L_strict, tmp, work, D_inv, input,
+                            output, N SMAX_ARGS(0, smax, std::string("TODO")));
+        } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
+            two_stage_gauss_seidel(crs_mat_L_strict, tmp, work, D_inv, input,
+                            output, N SMAX_ARGS(0, smax, std::string("TODO")));
 
-            elemwise_mult_vectors(work, D_inv, input, N);
+            elemwise_mult_vectors(output, output, D, N);
 
-            copy_vector(output, work, N);
-
-            for (int inner = 1; inner <= PRECOND_INNER_ITERS; ++inner) {
-                // tmp = L * work
-                spmv(crs_mat_L_strict, work, tmp SMAX_ARGS(0, smax, std::string("precon_spmv")));
-#ifdef USE_SMAX
-                smax->kernel("precon_spmv")->swap_operands();
-#endif
-                elemwise_mult_vectors(tmp, D_inv, tmp, N, -1.0);
-
-                std::swap(work, tmp);
-
-                sum_vectors(output, output, work, N);
-            }
-
+            two_stage_gauss_seidel(crs_mat_U_strict, tmp, work, D_inv, output,
+                            output, N SMAX_ARGS(0, smax, std::string("TODO")));
         } else {
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
