@@ -347,6 +347,8 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
 
             elemwise_mult_vectors(work, D_inv, input, N);
 
+            copy_vector(output, work, N);
+
             for (int inner = 1; inner <= PRECOND_INNER_ITERS; ++inner) {
                 // tmp = L * work
                 spmv(crs_mat_L_strict, work, tmp SMAX_ARGS(0, smax, std::string("precon_spmv")));
@@ -355,10 +357,10 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
 #endif
                 elemwise_mult_vectors(tmp, D_inv, tmp, N, -1.0);
 
-                sum_vectors(work, work, tmp, N);
-            }
+                std::swap(work, tmp);
 
-            copy_vector(output, work, N);
+                sum_vectors(output, output, work, N);
+            }
 
         } else {
             // TODO: Would be great to think of a way around this
