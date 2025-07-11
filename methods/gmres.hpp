@@ -441,7 +441,13 @@ class GMRESSolver : public Solver {
             register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L.get(), tmp, N, w, N);
             register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U.get(), w, N, tmp, N, true);
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            // TODO
+            register_spmv(smax, "init M^{-1} * residual", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j", crs_mat_L_strict.get(), work, N, tmp, N);
+        } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
+            register_spmv(smax, "init M^{-1} * residual_lower", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_upper", crs_mat_U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j_lower", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j_upper", crs_mat_U_strict.get(), work, N, tmp, N);
         }
     }
 #endif
