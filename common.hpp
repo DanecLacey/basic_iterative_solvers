@@ -1,5 +1,4 @@
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#pragma once
 
 #include <cmath>
 #include <cstdio>  // For fprintf
@@ -43,7 +42,9 @@ enum class PrecondType {
     BackwardsGaussSeidel,
     SymmetricGaussSeidel,
     TwoStageGS,
-    SymmetricTwoStageGS
+    SymmetricTwoStageGS,
+    ILU0,
+    ILUT
 };
 
 enum class SolverType {
@@ -73,6 +74,10 @@ template <> inline std::string to_string(PrecondType type) {
         return "two-stage gauss-seidel";
     case PrecondType::SymmetricTwoStageGS:
         return "symmetric two-stage gauss-seidel";
+    case PrecondType::ILU0:
+        return "incomplete LU";
+    case PrecondType::ILUT:
+        return "incomplete LU-T";
     case PrecondType::None:
         return "none";
     default:
@@ -343,17 +348,9 @@ class SanityChecker {
         std::cout << "]" << std::endl;
     }
 
-    static void print_extract_L_U_error(int nz_idx) {
-        fprintf(stderr, "ERROR: extract_L_U: nz_idx %i cannot be segmented.\n",
+    static void print_split_LU_error(int nz_idx) {
+        fprintf(stderr, "ERROR: split_LU: nz_idx %i cannot be segmented.\n",
                 nz_idx);
-        exit(EXIT_FAILURE);
-    }
-
-    static void print_extract_L_plus_D(int nz_idx) {
-        fprintf(
-            stderr,
-            "ERROR: print_extract_L_plus_D: nz_idx %i cannot be segmented.\n",
-            nz_idx);
         exit(EXIT_FAILURE);
     }
 
@@ -376,7 +373,7 @@ class SanityChecker {
                                        double *tmp, double *p_new,
                                        double *p_old, double *residual_new,
                                        double *residual_old, double *residual_0,
-                                       double *D, double *v, double *h,
+                                       double *A_D, double *v, double *h,
                                        double *s, double *t, double rho_new,
                                        double rho_old, std::string phase) {
         std::cout << phase << std::endl;
@@ -388,7 +385,7 @@ class SanityChecker {
         print_vector<double>(residual_new, N, "residual_new");
         print_vector<double>(residual_old, N, "residual_old");
         print_vector<double>(residual_0, N, "residual_0");
-        print_vector<double>(D, N, "D");
+        print_vector<double>(A_D, N, "A_D");
         print_vector<double>(v, N, "v");
         print_vector<double>(h, N, "h");
         print_vector<double>(s, N, "s");
@@ -506,24 +503,10 @@ class SanityChecker {
         int copied_elems_count = L_nnz + U_nnz + D_nnz;
         if (copied_elems_count != total_nnz) {
             fprintf(stderr,
-                    "ERROR: extract_L_U: %i out of %i elements were copied "
+                    "ERROR: split_LU: %i out of %i elements were copied "
                     "from coo_mat.\n",
                     copied_elems_count, total_nnz);
             exit(EXIT_FAILURE);
         }
     }
-
-    static void check_copied_L_plus_D_elements(int total_nnz, int L_plus_D_nnz,
-                                               int U_nnz) {
-        int copied_elems_count = L_plus_D_nnz + U_nnz;
-        if (copied_elems_count != total_nnz) {
-            fprintf(stderr,
-                    "ERROR: extract_L_plus_D: %i out of %i elements were "
-                    "copied from coo_mat.\n",
-                    copied_elems_count, total_nnz);
-            exit(EXIT_FAILURE);
-        }
-    }
 };
-
-#endif

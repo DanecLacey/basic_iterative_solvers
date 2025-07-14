@@ -1,5 +1,4 @@
-#ifndef KERNELS_HPP
-#define KERNELS_HPP
+#pragma once
 
 #include <utility>
 #ifndef PRECOND_ITERS
@@ -335,9 +334,10 @@ inline void two_stage_gauss_seidel(const MatrixCRS *strict, double *tmp,
 // Computes z <- M^{-1}y
 inline void apply_preconditioner(const PrecondType preconditioner, const int N,
                                  const MatrixCRS *L_strict,
-                                 const MatrixCRS *U_strict, double *D,
-                                 double *D_inv, double *output, double *input,
-                                 double *tmp, double *work, int offset = 0,
+                                 const MatrixCRS *U_strict, double *A_D,
+                                 double *A_D_inv, double *L_D, double *U_D,
+                                 double *output, double *input, double *tmp,
+                                 double *work, int offset = 0,
                                  Interface *smax = nullptr,
                                  const std::string kernel_name = "") {
 
@@ -347,36 +347,46 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
     // clang-format off
     for (int i = 0; i < PRECOND_OUTER_ITERS; ++i) {
         if (preconditioner == PrecondType::Jacobi) {
-            elemwise_div_vectors(output, input, D, N);
+            elemwise_div_vectors(output, input, A_D, N);
         } else if (preconditioner == PrecondType::GaussSeidel) {
-            sptrsv(L_strict, output, D, input SMAX_ARGS(0, smax, kernel_name));
+            sptrsv(L_strict, output, A_D, input SMAX_ARGS(0, smax, kernel_name));
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            bsptrsv(U_strict, output, D, input SMAX_ARGS(0, smax, kernel_name));
+            bsptrsv(U_strict, output, A_D, input SMAX_ARGS(0, smax, kernel_name));
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
             // tmp <- (L+D)^{-1}*r
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before lower solve"));
-            sptrsv(L_strict, tmp, D, input SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
+            sptrsv(L_strict, tmp, A_D, input SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
 
             // tmp <- D(L+D)^{-1}*r
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before divide"));
-            elemwise_mult_vectors(tmp, tmp, D, N);
+            elemwise_mult_vectors(tmp, tmp, A_D, N);
 
             // z <- (L+U)^{-1}*tmp
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
-            bsptrsv(U_strict, output, D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
+            bsptrsv(U_strict, output, A_D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
         
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            two_stage_gauss_seidel(L_strict, tmp, work, D_inv, input,
+            two_stage_gauss_seidel(L_strict, tmp, work, A_D_inv, input,
                             output, N SMAX_ARGS(0, smax, std::string(kernel_name)));
         } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
-            two_stage_gauss_seidel(L_strict, tmp, work, D_inv, input,
+            two_stage_gauss_seidel(L_strict, tmp, work, A_D_inv, input,
                             output, N SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
 
-            elemwise_mult_vectors(output, output, D, N);
+            elemwise_mult_vectors(output, output, A_D, N);
 
-            two_stage_gauss_seidel(U_strict, tmp, work, D_inv, output,
+            two_stage_gauss_seidel(U_strict, tmp, work, A_D_inv, output,
                             output, N SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
-        } else {
+        } else if (preconditioner == PrecondType::ILU0 || preconditioner == PrecondType::ILUT) {
+            // tmp <- L^{-1}*r
+            // NOTE: L_D := ones(N), since we don't divide by anything
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before lower solve"));
+            sptrsv(L_strict, tmp, L_D, input SMAX_ARGS(0, smax, std::string(kernel_name + "_lower")));
+
+            // z <- U^{-1}*tmp
+            IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before upper solve"));
+            bsptrsv(U_strict, output, U_D, tmp SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
+        }
+        else {
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
         }
@@ -386,5 +396,3 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
     IF_DEBUG_MODE_FINE(
         SanityChecker::print_vector(output, N, "after precond:"));
 }
-
-#endif

@@ -83,7 +83,7 @@ class GaussSeidelSolver : public Solver {
     void iterate(Timers *timers) override {
         gs_separate_iteration(
             timers, U_strict.get(), L_strict.get(), tmp,
-            D, b, x SMAX_ARGS(smax)
+            A_D, b, x SMAX_ARGS(smax)
         );
     }
 
@@ -124,8 +124,8 @@ class SymmetricGaussSeidelSolver : public GaussSeidelSolver {
     }
 
     void iterate(Timers *timers) override {
-        gs_separate_iteration(timers, U_strict.get(), L_strict.get(), tmp, D, b, x SMAX_ARGS(smax));
-        bgs_separate_iteration(timers, U_strict.get(), L_strict.get(), tmp, D, b, x SMAX_ARGS(smax));
+        gs_separate_iteration(timers, U_strict.get(), L_strict.get(), tmp, A_D, b, x SMAX_ARGS(smax));
+        bgs_separate_iteration(timers, U_strict.get(), L_strict.get(), tmp, A_D, b, x SMAX_ARGS(smax));
     }
 
 #ifdef USE_SMAX

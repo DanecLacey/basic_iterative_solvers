@@ -40,8 +40,10 @@ class Solver {
     double *work = nullptr;
     double *residual = nullptr;
     double *residual_0 = nullptr;
-    double *D = nullptr;
-    double *D_inv = nullptr;
+    double *A_D = nullptr; // Diagonal of A
+    double *A_D_inv = nullptr;
+    double *L_D = nullptr; // Diagonal of L
+    double *U_D = nullptr; // Diagonal of U
 
     // Bookkeeping
     double *collected_residual_norms = nullptr;
@@ -78,8 +80,10 @@ class Solver {
         work = new double[N];
         residual = new double[N];
         residual_0 = new double[N];
-        D = new double[N];
-        D_inv = new double[N];
+        A_D = new double[N];
+        A_D_inv = new double[N];
+        L_D = new double[N];
+        U_D = new double[N];
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
@@ -88,8 +92,10 @@ class Solver {
                 x_star[i] = 0.0;
                 x_0[i] = INIT_X_VAL;
                 b[i] = B_VAL;
-                D[i] = 0.0;
-                D_inv[i] = 0.0;
+                A_D[i] = 1.0; // div safe default
+                A_D_inv[i] = 0.0;
+                L_D[i] = 1.0; // div safe default
+                U_D[i] = 1.0; // div safe default
             }
         }
     }
@@ -120,8 +126,10 @@ class Solver {
         delete[] work;
         delete[] residual;
         delete[] residual_0;
-        delete[] D;
-        delete[] D_inv;
+        delete[] A_D;
+        delete[] A_D_inv;
+        delete[] L_D;
+        delete[] U_D;
         delete[] collected_residual_norms;
         delete[] time_per_iteration;
     }

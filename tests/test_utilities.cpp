@@ -93,8 +93,8 @@ void test_convert_coo_to_crs() {
     std::cout << "    All convert_coo_to_crs tests passed." << std::endl;
 }
 
-void test_extract_L_U() {
-    std::cout << "    Running extract_L_U tests..." << std::endl;
+void test_split_LU() {
+    std::cout << "    Running split_LU tests..." << std::endl;
     // A = [[10,  1,  2],
     //      [ 3, 20,  4],
     //      [ 5,  6, 30]]
@@ -104,7 +104,7 @@ void test_extract_L_U() {
     A.val = new double[9]{10, 1, 2, 3, 20, 4, 5, 6, 30};
 
     MatrixCRS L, L_strict, U, U_strict;
-    extract_L_U(&A, &L, &L_strict, &U, &U_strict);
+    split_LU(&A, &L, &L_strict, &U, &U_strict);
 
     // Expected L (lower + diagonal)
     ASSERT_EQUAL(L.nnz, 6, "L.nnz");
@@ -117,7 +117,7 @@ void test_extract_L_U() {
         ASSERT_EQUAL(L.col[i], exp_L_col[i], "L.col");
         ASSERT_NEAR(L.val[i], exp_L_val[i], 1e-9);
     }
-    std::cout << "        extract_L_U: L matrix test passed." << std::endl;
+    std::cout << "        split_LU: L matrix test passed." << std::endl;
 
     // Expected L_strict (strictly lower)
     ASSERT_EQUAL(L_strict.nnz, 3, "L_strict.nnz");
@@ -131,8 +131,7 @@ void test_extract_L_U() {
         ASSERT_EQUAL(L_strict.col[i], exp_Ls_col[i], "L_strict.col");
         ASSERT_NEAR(L_strict.val[i], exp_Ls_val[i], 1e-9);
     }
-    std::cout << "        extract_L_U: L_strict matrix test passed."
-              << std::endl;
+    std::cout << "        split_LU: L_strict matrix test passed." << std::endl;
 
     // Expected U (upper + diagonal)
     ASSERT_EQUAL(U.nnz, 6, "U.nnz");
@@ -145,7 +144,7 @@ void test_extract_L_U() {
         ASSERT_EQUAL(U.col[i], exp_U_col[i], "U.col");
         ASSERT_NEAR(U.val[i], exp_U_val[i], 1e-9);
     }
-    std::cout << "        extract_L_U: U matrix test passed." << std::endl;
+    std::cout << "        split_LU: U matrix test passed." << std::endl;
 
     // Expected U_strict (strictly upper)
     ASSERT_EQUAL(U_strict.nnz, 3, "U_strict.nnz");
@@ -159,10 +158,9 @@ void test_extract_L_U() {
         ASSERT_EQUAL(U_strict.col[i], exp_Us_col[i], "U_strict.col");
         ASSERT_NEAR(U_strict.val[i], exp_Us_val[i], 1e-9);
     }
-    std::cout << "        extract_L_U: U_strict matrix test passed."
-              << std::endl;
+    std::cout << "        split_LU: U_strict matrix test passed." << std::endl;
 
-    std::cout << "    All extract_L_U tests passed." << std::endl;
+    std::cout << "    All split_LU tests passed." << std::endl;
 }
 
 void test_peel_diag_crs() {
@@ -177,16 +175,16 @@ void test_peel_diag_crs() {
     A.col = new int[9]{1, 0, 2, 0, 1, 2, 2, 0, 1};
     A.val = new double[9]{1, 10, 2, 3, 20, 4, 30, 5, 6};
 
-    std::vector<double> D(3);
-    std::vector<double> D_inv(3);
-    peel_diag_crs(&A, D.data(), D_inv.data());
+    std::vector<double> A_D(3);
+    std::vector<double> A_D_inv(3);
+    peel_diag_crs(&A, A_D.data(), A_D_inv.data());
 
     // Check diagonal vector
     std::vector<double> expected_D = {10, 20, 30};
     std::vector<double> expected_D_inv = {1.0 / 10, 1.0 / 20, 1.0 / 30};
     for (int i = 0; i < 3; ++i) {
-        ASSERT_NEAR(D[i], expected_D[i], 1e-9);
-        ASSERT_NEAR(D_inv[i], expected_D_inv[i], 1e-9);
+        ASSERT_NEAR(A_D[i], expected_D[i], 1e-9);
+        ASSERT_NEAR(A_D_inv[i], expected_D_inv[i], 1e-9);
     }
     std::cout << "        peel_diag_crs: Diagonal vector extraction passed."
               << std::endl;
@@ -215,7 +213,7 @@ struct RegisterUtilitiesTests {
     RegisterUtilitiesTests() {
         register_test("Utilities::EuclideanVecNorm", test_euclidean_vec_norm);
         register_test("Utilities::ConvertCOOToCRS", test_convert_coo_to_crs);
-        register_test("Utilities::ExtractLAndU", test_extract_L_U);
+        register_test("Utilities::ExtractLAndU", test_split_LU);
         register_test("Utilities::PeelDiagCRS", test_peel_diag_crs);
     }
 };

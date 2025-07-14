@@ -1,5 +1,4 @@
-#ifndef PREPROCESSING_HPP
-#define PREPROCESSING_HPP
+#pragma once
 
 #include "common.hpp"
 #include "solver.hpp"
@@ -37,13 +36,11 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     std::unique_ptr<MatrixCRS> L_strict = std::make_unique<MatrixCRS>();
     std::unique_ptr<MatrixCRS> U = std::make_unique<MatrixCRS>();
     std::unique_ptr<MatrixCRS> U_strict = std::make_unique<MatrixCRS>();
-    extract_L_U(solver->A.get(), L.get(), L_strict.get(), U.get(),
-                U_strict.get());
 
-    // NOTE: The triangular matrix we use to peel D must be sorted in each row
-    // It's easier just to sort both L and U now, eventhough we only need D once
-    peel_diag_crs(L.get(), solver->D, solver->D_inv);
-    peel_diag_crs(U.get(), solver->D, solver->D_inv);
+    // Split A into L and U copies, depending on the selected preconditioner
+    factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, L.get(),
+              L_strict.get(), solver->L_D, U.get(), U_strict.get(), solver->U_D,
+              solver->preconditioner);
 
     // Collect preprocessed CRS L and U matrices to solver object
     solver->L = std::move(L);
@@ -65,5 +62,3 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
     solver->init_stopping_criteria();
 };
-
-#endif

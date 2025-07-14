@@ -146,16 +146,14 @@ void update_g(Timers *timers, int N, int n_solver_iters, int restart_len,
                               n_solver_iters, residual_norm))
 }
 
-void gmres_separate_iteration(Timers *timers, const PrecondType preconditioner,
-                              const MatrixCRS *A, const MatrixCRS *L,
-                              const MatrixCRS *U, double *D, double *D_inv,
-                              int n_solver_iters, const int restart_count,
-                              const int restart_len, double &residual_norm,
-                              double *V, double *H, double *H_tmp, double *J,
-                              double *Q, double *Q_tmp, double *w, double *R,
-                              double *g, double *g_tmp, double *b, double *x,
-                              double *tmp, double *work, double beta,
-                              Interface *smax = nullptr) {
+void gmres_separate_iteration(
+    Timers *timers, const PrecondType preconditioner, const MatrixCRS *A,
+    const MatrixCRS *L, const MatrixCRS *U, double *A_D, double *A_D_inv,
+    double *L_D, double *U_D, int n_solver_iters, const int restart_count,
+    const int restart_len, double &residual_norm, double *V, double *H,
+    double *H_tmp, double *J, double *Q, double *Q_tmp, double *w, double *R,
+    double *g, double *g_tmp, double *b, double *x, double *tmp, double *work,
+    double beta, Interface *smax = nullptr) {
     /* NOTES:
             - The orthonormal vectors in V are stored as row vectors
     */
@@ -172,7 +170,8 @@ void gmres_separate_iteration(Timers *timers, const PrecondType preconditioner,
 
     // w_j <- M^{-1}w_j
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, N, L, U, D, D_inv, w, w, tmp,
+         apply_preconditioner(preconditioner, N, L, U, A_D, A_D_inv, L_D, U_D,
+                              w, w, tmp,
                               work SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
@@ -286,7 +285,8 @@ class GMRESSolver : public Solver {
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, A->n_cols, "residual before preconditioning"));
         apply_preconditioner(preconditioner, A->n_cols, L_strict.get(),
-                             U_strict.get(), D, D_inv, residual, residual, tmp,
+                             U_strict.get(), A_D, A_D_inv, L_D, U_D, residual,
+                             residual, tmp,
                              work SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
             residual, A->n_cols, "residual after preconditioning"));
@@ -316,10 +316,10 @@ class GMRESSolver : public Solver {
 
     void iterate(Timers *timers) override {
         gmres_separate_iteration(
-            timers, preconditioner, A.get(), L_strict.get(), U_strict.get(), D,
-            D_inv, iter_count, gmres_restart_count, gmres_restart_len,
-            residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g, g_tmp, b, x, tmp,
-            work, beta SMAX_ARGS(smax));
+            timers, preconditioner, A.get(), L_strict.get(), U_strict.get(),
+            A_D, A_D_inv, L_D, U_D, iter_count, gmres_restart_count,
+            gmres_restart_len, residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g,
+            g_tmp, b, x, tmp, work, beta SMAX_ARGS(smax));
     }
 
     void get_explicit_x() override {

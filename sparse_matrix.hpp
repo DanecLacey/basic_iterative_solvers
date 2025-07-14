@@ -1,5 +1,4 @@
-#ifndef SPARSE_MATRIX_HPP
-#define SPARSE_MATRIX_HPP
+#pragma once
 
 #include <iostream>
 #include <numeric>
@@ -692,6 +691,4 @@ void MatrixCOO::scamac_make_mtx(const std::string matrix_file_name) {
     this->n_cols = (std::set<int>((this->J).begin(), (this->J).end())).size();
     this->nnz = (this->values).size();
 };
-#endif
-
 #endif

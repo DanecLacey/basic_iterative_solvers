@@ -1,5 +1,4 @@
-#ifndef POSTPROCESSING_HPP
-#define POSTPROCESSING_HPP
+#pragma once
 
 #include "common.hpp"
 #include "solver.hpp"
@@ -73,5 +72,3 @@ void postprocessing(Args *cli_args, Solver *solver, Timers *timers) {
     solver->smax->utils->print_timers();
 #endif
 };
-
-#endif

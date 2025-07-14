@@ -3,15 +3,15 @@
 #include "../solver.hpp"
 #include "../utilities/smax_helpers.hpp"
 
-// clang-format off
 void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
                            const MatrixCRS *A, const MatrixCRS *L,
-                           const MatrixCRS *U, double *D, double *D_inv, double *x_new,
-                           double *x_old, double *tmp, double *work, double *p_new,
-                           double *p_old, double *r_new, double *r_old,
-                           double *z_new, double *z_old,
+                           const MatrixCRS *U, double *A_D, double *A_D_inv,
+                           double *L_D, double *U_D, double *x_new,
+                           double *x_old, double *tmp, double *work,
+                           double *p_new, double *p_old, double *r_new,
+                           double *r_old, double *z_new, double *z_old,
                            Interface *smax = nullptr) {
-
+    // clang-format off
     // pre-compute tmp <- A*p_old
     TIME(timers->spmv, spmv(A, p_old, tmp SMAX_ARGS(0, smax, "tmp <- A*p_old")))
 
@@ -36,7 +36,7 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
 
     TIME(timers->precond,
      apply_preconditioner(
-        preconditioner, A->n_cols, L, U, D, D_inv, z_new,
+        preconditioner, A->n_cols, L, U, A_D, A_D_inv, L_D, U_D, z_new,
         r_new, tmp, work SMAX_ARGS(0, smax, "M^{-1} * residual"))
     )
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, A->n_cols, "z_new after preconditioning"));
@@ -50,6 +50,7 @@ void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
 
     // p_new <- z_new + beta * p_old
     TIME(timers->sum, sum_vectors(p_new, z_new, p_old, A->n_cols, beta))
+    // clang-format on
 }
 
 class ConjugateGradientSolver : public Solver {
@@ -96,14 +97,15 @@ class ConjugateGradientSolver : public Solver {
         }
     }
 
-     void init_residual() override {
+    void init_residual() override {
+        // clang-format off
         compute_residual(A.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
 
         // Precondition the initial residual
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, A->n_cols, "residual before preconditioning"));
         
         apply_preconditioner(
-            preconditioner, A->n_cols, L_strict.get(), U_strict.get(), D, D_inv, z_old, 
+            preconditioner, A->n_cols, L_strict.get(), U_strict.get(), A_D, A_D_inv, L_D, U_D, z_old, 
             residual, tmp, work SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, A->n_cols, "residual after preconditioning"));
@@ -114,13 +116,14 @@ class ConjugateGradientSolver : public Solver {
         // residual_norm = infty_vec_norm(residual, A->n_cols);
         residual_norm = euclidean_vec_norm(residual, A->n_cols);
         Solver::init_residual();
+        // clang-format on
     }
 
     void iterate(Timers *timers) override {
         cg_separate_iteration(timers, preconditioner, A.get(), L_strict.get(),
-                              U_strict.get(), D, D_inv, x_new, x_old, tmp, work, p_new,
-                              p_old, residual_new, residual_old, z_new,
-                              z_old SMAX_ARGS(smax));
+                              U_strict.get(), A_D, A_D_inv, L_D, U_D, x_new,
+                              x_old, tmp, work, p_new, p_old, residual_new,
+                              residual_old, z_new, z_old SMAX_ARGS(smax));
     }
 
     void exchange() override {
@@ -129,6 +132,7 @@ class ConjugateGradientSolver : public Solver {
         std::swap(residual_old, residual_new);
         std::swap(x_old, x_new);
 #ifdef USE_SMAX
+        // clang-format off
         auto *spmv = dynamic_cast<SMAX::KERNELS::SpMVKernel *>(smax->kernel("tmp <- A*p_old"));
         spmv->args->x->val = static_cast<void *>(p_old);
         if (preconditioner == PrecondType::GaussSeidel || preconditioner == PrecondType::BackwardsGaussSeidel) {
@@ -143,6 +147,7 @@ class ConjugateGradientSolver : public Solver {
             upper_sptrsv->args->x->val = static_cast<void *>(z_new);
             upper_sptrsv->args->y->val = static_cast<void *>(tmp);
         }
+        // clang-format on
 #endif
     }
 
@@ -159,6 +164,7 @@ class ConjugateGradientSolver : public Solver {
 
 #ifdef USE_SMAX
     void register_structs() override {
+        // clang-format off
         int N = A->n_cols;
         register_spmv(smax, "residual_spmv", A.get(), x_old, N, tmp, N);
         register_spmv(smax, "tmp <- A*p_old", A.get(), p_old, N, tmp, N);
@@ -182,6 +188,7 @@ class ConjugateGradientSolver : public Solver {
             register_spmv(smax, "M^{-1} * residual_lower", L_strict.get(), work, N, tmp, N);
             register_spmv(smax, "M^{-1} * residual_upper", U_strict.get(), work, N, tmp, N);
         }
+        // clang-format on
     }
 #endif
 
@@ -196,4 +203,3 @@ class ConjugateGradientSolver : public Solver {
         delete[] z_old;
     }
 };
-// clang-format on

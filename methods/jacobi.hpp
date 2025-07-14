@@ -84,7 +84,7 @@ class JacobiSolver : public Solver {
     }
 
     void iterate(Timers *timers) override {
-        jacobi_separate_iteration(timers, A.get(), D, b, x_new, x_old SMAX_ARGS(smax));
+        jacobi_separate_iteration(timers, A.get(), A_D, b, x_new, x_old SMAX_ARGS(smax));
     }
 
     void exchange() override {
