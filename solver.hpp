@@ -157,15 +157,13 @@ class Solver {
     }
 
     bool check_stopping_criteria() {
-        // bool norm_convergence = std::abs(residual_norm) < stopping_criteria;
-        bool norm_convergence = residual_norm < stopping_criteria;
+        bool norm_convergence = std::abs(residual_norm) < stopping_criteria;
         // We count GMRES restarts as an iteration
         bool over_max_iters = iter_count >= (max_iters - gmres_restart_count);
-        // bool divergence = std::abs(residual_norm) > DBL_MAX;
-        bool divergence = residual_norm > DBL_MAX;
+        bool divergence = std::abs(residual_norm) > DBL_MAX;
         IF_DEBUG_MODE_FINE(
 			if (norm_convergence)
-            	printf("norm convergence met: %f < %f\n", residual_norm, stopping_criteria);
+            	printf("norm convergence met: %f < %f\n", std::abs(residual_norm), stopping_criteria);
 			if (over_max_iters)
 				printf("over max iters: %i >= %i\n", iter_count, max_iters);
 			if (divergence)
