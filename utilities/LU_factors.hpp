@@ -419,8 +419,13 @@ inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     }
 
     // --- Step 4: Split the resulting A_ilu into final L and U factors ---
+#ifdef USE_SMAX
+    split_LU(&A_ilu, L, L_strict, U, U_strict);
+#else
+    // We throw away L and U_strict, since they aren't needed
     MatrixCRS temp_L, temp_U_strict;
     split_LU(&A_ilu, &temp_L, L_strict, U, &temp_U_strict);
+#endif
 }
 
 inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
@@ -486,8 +491,22 @@ inline void factor_LU(const MatrixCRS *A, double *A_D, double *A_D_inv,
         if (preconditioner == PrecondType::ILU0)
             factor_ILU0(A, L, L_strict, L_D, U, U_strict, U_D);
         if (preconditioner == PrecondType::ILUT)
-            factor_ILU0(A, L, L_strict, L_D, U, U_strict, U_D);
+            factor_ILUT(A, L, L_strict, L_D, U, U_strict, U_D);
 
         peel_diag_crs(U, U_D);
+#ifdef USE_SMAX
+        // Set all diagonal elements to 1
+        // NOTE: Since the SMAX library peels and stores the diagonal internally
+        // We want that it peels L_D := ones(N)
+#pragma omp parallel for
+        for (int i = 0; i < L->n_rows; ++i) {
+            for (int idx = L->row_ptr[i]; idx < L->row_ptr[i + 1]; ++idx) {
+                if (L->col[idx] == i) {
+                    L->val[idx] = 1.0;
+                    break; // done with this row
+                }
+            }
+        }
+#endif
     }
 }

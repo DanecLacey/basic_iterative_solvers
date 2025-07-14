@@ -192,7 +192,11 @@ class BiCGSTABSolver : public Solver {
             auto *sptrsv2 = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * s"));
             sptrsv2->args->x->val = static_cast<void *>(s_tmp);
             sptrsv2->args->y->val = static_cast<void *>(s);
-        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+        } else if (
+            preconditioner == PrecondType::SymmetricGaussSeidel ||
+            preconditioner == PrecondType::ILU0 ||  
+            preconditioner == PrecondType::ILUT
+        ) {
             auto *sptrsv1_lower = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * p_old_lower"));
             sptrsv1_lower->args->x->val = static_cast<void *>(tmp);
             sptrsv1_lower->args->y->val = static_cast<void *>(p_old);
@@ -233,7 +237,11 @@ class BiCGSTABSolver : public Solver {
             register_sptrsv(smax, "init M^{-1} * residual", U.get(), residual, N, residual_old, N, true);
             register_sptrsv(smax, "M^{-1} * p_old", U.get(), y, N, p_old, N, true);
             register_sptrsv(smax, "M^{-1} * s", U.get(), s_tmp, N, s, N, true);
-        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+        } else if (
+            preconditioner == PrecondType::SymmetricGaussSeidel ||
+            preconditioner == PrecondType::ILU0 ||  
+            preconditioner == PrecondType::ILUT
+        ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual_old, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);
             register_sptrsv(smax, "M^{-1} * p_old_lower", L.get(), tmp, N, p_old, N);

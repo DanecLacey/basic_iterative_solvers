@@ -32,21 +32,15 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     // It is convenient for gauss-seidel-like methods to have
     // (strict) lower and upper triangular copies. While not
     // explicitly necessary for all methods, it's just nice to have on hand.
-    std::unique_ptr<MatrixCRS> L = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> L_strict = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> U = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> U_strict = std::make_unique<MatrixCRS>();
+    solver->L = std::make_unique<MatrixCRS>();
+    solver->L_strict = std::make_unique<MatrixCRS>();
+    solver->U = std::make_unique<MatrixCRS>();
+    solver->U_strict = std::make_unique<MatrixCRS>();
 
     // Split A into L and U copies, depending on the selected preconditioner
-    factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, L.get(),
-              L_strict.get(), solver->L_D, U.get(), U_strict.get(), solver->U_D,
-              solver->preconditioner);
-
-    // Collect preprocessed CRS L and U matrices to solver object
-    solver->L = std::move(L);
-    solver->U = std::move(U);
-    solver->L_strict = std::move(L_strict);
-    solver->U_strict = std::move(U_strict);
+    factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, solver->L.get(),
+              solver->L_strict.get(), solver->L_D, solver->U.get(),
+              solver->U_strict.get(), solver->U_D, solver->preconditioner);
 
 #ifdef USE_SMAX
     // Register kernels and data to SMAX

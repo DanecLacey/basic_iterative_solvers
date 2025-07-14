@@ -17,8 +17,9 @@ bool orthogonalize_V(Timers *timers, int N, int n_solver_iters, int restart_len,
                                   H[n_solver_iters + j * restart_len]))
 
         // Breakdown case (Saad ch. 6.5.4)
-        if (std::abs(H[n_solver_iters + j * restart_len]) < 1e-25)
-            return true;
+        // TODO: false positives
+        // if (std::abs(H[n_solver_iters + j * restart_len]) < 1e-50)
+        //     return true;
 
         // w_j <- w_j - h_ij*v_k
         TIME(timers->sum, subtract_vectors(w, w, &V[j * N], N,
@@ -429,7 +430,11 @@ class GMRESSolver : public Solver {
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
             register_sptrsv(smax, "init M^{-1} * residual", U.get(), residual, N, residual, N, true);
             register_sptrsv(smax, "M^{-1} * w_j", U.get(), w, N, w, N, true);
-        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+        } else if (
+            preconditioner == PrecondType::SymmetricGaussSeidel ||
+            preconditioner == PrecondType::ILU0 ||
+            preconditioner == PrecondType::ILUT
+        ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);
             register_sptrsv(smax, "M^{-1} * w_j_lower", L.get(), tmp, N, w, N);

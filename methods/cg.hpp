@@ -139,7 +139,11 @@ class ConjugateGradientSolver : public Solver {
             auto *sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual"));
             sptrsv->args->x->val = static_cast<void *>(z_new);
             sptrsv->args->y->val = static_cast<void *>(residual_new);
-        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+        } else if (
+            preconditioner == PrecondType::SymmetricGaussSeidel ||
+            preconditioner == PrecondType::ILU0 ||  
+            preconditioner == PrecondType::ILUT
+        ) {
             auto *lower_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual_lower"));
             lower_sptrsv->args->x->val = static_cast<void *>(tmp);
             lower_sptrsv->args->y->val = static_cast<void *>(residual_new);
@@ -174,7 +178,11 @@ class ConjugateGradientSolver : public Solver {
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
             register_sptrsv(smax, "init M^{-1} * residual", U.get(), z_old, N, residual, N, true);
             register_sptrsv(smax, "M^{-1} * residual", U.get(), z_new, N, residual_new, N, true);
-        } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
+        } else if (
+            preconditioner == PrecondType::SymmetricGaussSeidel ||
+            preconditioner == PrecondType::ILU0 ||  
+            preconditioner == PrecondType::ILUT
+        ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), z_old, N, tmp, N, true);
             register_sptrsv(smax, "M^{-1} * residual_lower", L.get(), tmp, N, residual_new, N);

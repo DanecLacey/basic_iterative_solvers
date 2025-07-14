@@ -88,7 +88,7 @@ struct MatrixCRS {
 #endif
     }
 
-    void print(void) {
+    void print(bool print_perm = false) {
         std::cout << "n_rows = " << n_rows << std::endl;
         std::cout << "n_cols = " << n_cols << std::endl;
         std::cout << "nnz = " << nnz << std::endl;
@@ -112,17 +112,19 @@ struct MatrixCRS {
         std::cout << "]" << std::endl;
 
 #ifdef USE_SMAX
-        std::cout << "perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << perm[i] << ", ";
-        }
-        std::cout << "]" << std::endl;
+        if(print_perm){
+            std::cout << "perm = [";
+            for (int i = 0; i < n_rows; ++i) {
+                std::cout << perm[i] << ", ";
+            }
+            std::cout << "]" << std::endl;
 
-        std::cout << "inv_perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << inv_perm[i] << ", ";
+            std::cout << "inv_perm = [";
+            for (int i = 0; i < n_rows; ++i) {
+                std::cout << inv_perm[i] << ", ";
+            }
+            std::cout << "]" << std::endl;
         }
-        std::cout << "]" << std::endl;
 #endif
     }
 

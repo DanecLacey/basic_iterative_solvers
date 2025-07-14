@@ -130,7 +130,7 @@ if(USE_SMAX)
         
         # Set permutation mode (and set default if not defined)
         if(NOT SMAX_PERM_MODE)
-            set(SMAX_PERM_MODE NONE CACHE STRING "Choose the permutation mode." FORCE)
+            set(SMAX_PERM_MODE RS CACHE STRING "Choose the permutation mode." FORCE)
         endif()
         set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "RS" "BFS" "SC" "PC" "PC_BAL" "RACE")
         message(STATUS "Permutation Mode: ${SMAX_PERM_MODE}")
