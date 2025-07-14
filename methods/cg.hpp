@@ -5,51 +5,51 @@
 
 // clang-format off
 void cg_separate_iteration(Timers *timers, const PrecondType preconditioner,
-                           const MatrixCRS *crs_mat, const MatrixCRS *crs_mat_L,
-                           const MatrixCRS *crs_mat_U, double *D, double *D_inv, double *x_new,
+                           const MatrixCRS *A, const MatrixCRS *L,
+                           const MatrixCRS *U, double *D, double *D_inv, double *x_new,
                            double *x_old, double *tmp, double *work, double *p_new,
                            double *p_old, double *r_new, double *r_old,
                            double *z_new, double *z_old,
                            Interface *smax = nullptr) {
 
     // pre-compute tmp <- A*p_old
-    TIME(timers->spmv, spmv(crs_mat, p_old, tmp SMAX_ARGS(0, smax, "tmp <- A*p_old")))
+    TIME(timers->spmv, spmv(A, p_old, tmp SMAX_ARGS(0, smax, "tmp <- A*p_old")))
 
     double tmp_dot;
-    TIME(timers->dot, tmp_dot = dot(r_old, z_old, crs_mat->n_cols))
+    TIME(timers->dot, tmp_dot = dot(r_old, z_old, A->n_cols))
 
     // alpha <- (r_old, z_old) / (Ap_old, p_old)
     double alpha;
-    TIME(timers->dot, alpha = tmp_dot / dot(tmp, p_old, crs_mat->n_cols))
+    TIME(timers->dot, alpha = tmp_dot / dot(tmp, p_old, A->n_cols))
 
     IF_DEBUG_MODE_FINE(printf("alpha = %f\n", alpha))
 
     // x_new <- x_old + alpha * p_old
-    TIME(timers->sum, sum_vectors(x_new, x_old, p_old, crs_mat->n_cols, alpha))
+    TIME(timers->sum, sum_vectors(x_new, x_old, p_old, A->n_cols, alpha))
 
     // r_new <- r_old - alpha * Ap_old
-    TIME(timers->sum, subtract_vectors(r_new, r_old, tmp, crs_mat->n_cols, alpha))
+    TIME(timers->sum, subtract_vectors(r_new, r_old, tmp, A->n_cols, alpha))
 
     // z_new <- M^{-1}r_new
-    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new before preconditioning"));
-    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new before preconditioning"));
+    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, A->n_cols, "z_new before preconditioning"));
+    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, A->n_cols, "r_new before preconditioning"));
 
     TIME(timers->precond,
      apply_preconditioner(
-        preconditioner, crs_mat->n_cols, crs_mat_L, crs_mat_U, D, D_inv, z_new,
+        preconditioner, A->n_cols, L, U, D, D_inv, z_new,
         r_new, tmp, work SMAX_ARGS(0, smax, "M^{-1} * residual"))
     )
-    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, crs_mat->n_cols, "z_new after preconditioning"));
-    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, crs_mat->n_cols, "r_new after preconditioning"));
+    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_new, A->n_cols, "z_new after preconditioning"));
+    IF_DEBUG_MODE_FINE(SanityChecker::print_vector(r_new, A->n_cols, "r_new after preconditioning"));
 
     // beta <- (r_new, z_new) / (r_old, z_old)
     double beta;
-    TIME(timers->dot, beta = dot(r_new, z_new, crs_mat->n_cols) / tmp_dot)
+    TIME(timers->dot, beta = dot(r_new, z_new, A->n_cols) / tmp_dot)
 
     IF_DEBUG_MODE_FINE(printf("beta = %f\n", beta))
 
     // p_new <- z_new + beta * p_old
-    TIME(timers->sum, sum_vectors(p_new, z_new, p_old, crs_mat->n_cols, beta))
+    TIME(timers->sum, sum_vectors(p_new, z_new, p_old, A->n_cols, beta))
 }
 
 class ConjugateGradientSolver : public Solver {
@@ -97,28 +97,28 @@ class ConjugateGradientSolver : public Solver {
     }
 
      void init_residual() override {
-        compute_residual(crs_mat.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        compute_residual(A.get(), x_old, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
 
         // Precondition the initial residual
-        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, crs_mat->n_cols, "residual before preconditioning"));
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(residual, A->n_cols, "residual before preconditioning"));
         
         apply_preconditioner(
-            preconditioner, crs_mat->n_cols, crs_mat_L_strict.get(), crs_mat_U_strict.get(), D, D_inv, z_old, 
+            preconditioner, A->n_cols, L_strict.get(), U_strict.get(), D, D_inv, z_old, 
             residual, tmp, work SMAX_ARGS(0, smax, "init M^{-1} * residual")
         );
-        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, crs_mat->n_cols, "residual after preconditioning"));
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(z_old, A->n_cols, "residual after preconditioning"));
 
         // Make copies of initial residual for solver
-        copy_vector(p_old, z_old, crs_mat->n_cols);
-        copy_vector(residual_old, residual, crs_mat->n_cols);
-        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        copy_vector(p_old, z_old, A->n_cols);
+        copy_vector(residual_old, residual, A->n_cols);
+        // residual_norm = infty_vec_norm(residual, A->n_cols);
+        residual_norm = euclidean_vec_norm(residual, A->n_cols);
         Solver::init_residual();
     }
 
     void iterate(Timers *timers) override {
-        cg_separate_iteration(timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-                              crs_mat_U_strict.get(), D, D_inv, x_new, x_old, tmp, work, p_new,
+        cg_separate_iteration(timers, preconditioner, A.get(), L_strict.get(),
+                              U_strict.get(), D, D_inv, x_new, x_old, tmp, work, p_new,
                               p_old, residual_new, residual_old, z_new,
                               z_old SMAX_ARGS(smax));
     }
@@ -152,35 +152,35 @@ class ConjugateGradientSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        // residual_norm = infty_vec_norm(residual_new, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual_new, crs_mat->n_cols);
+        // residual_norm = infty_vec_norm(residual_new, A->n_cols);
+        residual_norm = euclidean_vec_norm(residual_new, A->n_cols);
         Solver::record_residual_norm();
     }
 
 #ifdef USE_SMAX
     void register_structs() override {
-        int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat.get(), x_old, N, tmp, N);
-        register_spmv(smax, "tmp <- A*p_old", crs_mat.get(), p_old, N, tmp, N);
+        int N = A->n_cols;
+        register_spmv(smax, "residual_spmv", A.get(), x_old, N, tmp, N);
+        register_spmv(smax, "tmp <- A*p_old", A.get(), p_old, N, tmp, N);
         if (preconditioner == PrecondType::GaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L.get(), z_old, N, residual, N);
-            register_sptrsv(smax, "M^{-1} * residual", crs_mat_L.get(), z_new, N, residual_new, N);
+            register_sptrsv(smax, "init M^{-1} * residual", L.get(), z_old, N, residual, N);
+            register_sptrsv(smax, "M^{-1} * residual", L.get(), z_new, N, residual_new, N);
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U.get(), z_old, N, residual, N, true);
-            register_sptrsv(smax, "M^{-1} * residual", crs_mat_U.get(), z_new, N, residual_new, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual", U.get(), z_old, N, residual, N, true);
+            register_sptrsv(smax, "M^{-1} * residual", U.get(), z_new, N, residual_new, N, true);
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual, N);
-            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), z_old, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual_new, N);
-            register_sptrsv(smax, "M^{-1} * residual_upper", crs_mat_U.get(), z_new, N, tmp, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), z_old, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * residual_lower", L.get(), tmp, N, residual_new, N);
+            register_sptrsv(smax, "M^{-1} * residual_upper", U.get(), z_new, N, tmp, N, true);
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * residual", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * residual", L_strict.get(), work, N, tmp, N);
         } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "init M^{-1} * residual_upper", crs_mat_U_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * residual_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * residual_upper", crs_mat_U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_upper", U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * residual_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * residual_upper", U_strict.get(), work, N, tmp, N);
         }
     }
 #endif

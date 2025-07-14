@@ -27,37 +27,37 @@ void test_native_spmv() {
     std::cout << "    Running native_spmv tests..." << std::endl;
 
     // Test Case 1: Simple 3x3 diagonal matrix
-    MatrixCRS crs_mat_1(3, 3, 3);
+    MatrixCRS A_1(3, 3, 3);
 
     int row_ptr1[] = {0, 1, 2, 3};
     int col1[] = {0, 1, 2};
     double val1[] = {1.0, 2.0, 3.0};
-    std::copy(row_ptr1, row_ptr1 + 4, crs_mat_1.row_ptr);
-    std::copy(col1, col1 + 3, crs_mat_1.col);
-    std::copy(val1, val1 + 3, crs_mat_1.val);
+    std::copy(row_ptr1, row_ptr1 + 4, A_1.row_ptr);
+    std::copy(col1, col1 + 3, A_1.col);
+    std::copy(val1, val1 + 3, A_1.val);
 
     std::vector<double> x1 = {1.0, 1.0, 1.0};
     std::vector<double> y1(3);
     std::vector<double> expected_y1 = {1.0, 2.0, 3.0};
-    native_spmv(&crs_mat_1, x1.data(), y1.data());
+    native_spmv(&A_1, x1.data(), y1.data());
     for (size_t i = 0; i < y1.size(); ++i) {
         ASSERT_NEAR(y1[i], expected_y1[i], 1e-9);
     }
     std::cout << "        native_spmv: 3x3 diagonal test passed." << std::endl;
 
     // Test Case 2: 3x3 dense matrix
-    MatrixCRS crs_mat_2(3, 3, 9);
+    MatrixCRS A_2(3, 3, 9);
     int row_ptr2[] = {0, 3, 6, 9};
     int col2[] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
     double val2[] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0};
-    std::copy(row_ptr2, row_ptr2 + 4, crs_mat_2.row_ptr);
-    std::copy(col2, col2 + 9, crs_mat_2.col);
-    std::copy(val2, val2 + 9, crs_mat_2.val);
+    std::copy(row_ptr2, row_ptr2 + 4, A_2.row_ptr);
+    std::copy(col2, col2 + 9, A_2.col);
+    std::copy(val2, val2 + 9, A_2.val);
 
     std::vector<double> x2 = {1.0, 2.0, 3.0};
     std::vector<double> y2(3);
     std::vector<double> expected_y2 = {14.0, 32.0, 50.0};
-    native_spmv(&crs_mat_2, x2.data(), y2.data());
+    native_spmv(&A_2, x2.data(), y2.data());
     for (size_t i = 0; i < y2.size(); ++i) {
         ASSERT_NEAR(y2[i], expected_y2[i], 1e-9);
     }

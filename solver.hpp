@@ -15,11 +15,11 @@ class Solver {
 #endif
 
     // Common structs
-    std::unique_ptr<MatrixCRS> crs_mat;
-    std::unique_ptr<MatrixCRS> crs_mat_L;
-    std::unique_ptr<MatrixCRS> crs_mat_L_strict;
-    std::unique_ptr<MatrixCRS> crs_mat_U;
-    std::unique_ptr<MatrixCRS> crs_mat_U_strict;
+    std::unique_ptr<MatrixCRS> A;
+    std::unique_ptr<MatrixCRS> L;
+    std::unique_ptr<MatrixCRS> L_strict;
+    std::unique_ptr<MatrixCRS> U;
+    std::unique_ptr<MatrixCRS> U_strict;
 
     // Common parameters
     double stopping_criteria = 0.0;
@@ -128,15 +128,15 @@ class Solver {
 
     // clang-format off
     virtual void init_residual() {
-        copy_vector(residual_0, residual, crs_mat->n_cols);
+        copy_vector(residual_0, residual, A->n_cols);
         collected_residual_norms[collected_residual_norms_count++] = residual_norm;
     }
 
     virtual void save_x_star() {
-        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x_star, crs_mat->n_rows, "x_star"));
-        compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x_star, A->n_rows, "x_star"));
+        compute_residual(A.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        // residual_norm = infty_vec_norm(residual, A->n_cols);
+        residual_norm = euclidean_vec_norm(residual, A->n_cols);
         collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
     }
 

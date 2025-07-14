@@ -6,28 +6,27 @@
 // https://jiechenjiechen.github.io/pub/fbcgs.pdf
 // https://doi.org/10.1137/0913035
 void bicgstab_separate_iteration(
-    Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
-    const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
-    double *D_inv, double *x_new, double *x_old, double *tmp, double *work,
-    double *p_new, double *p_old, double *residual_new, double *residual_old,
+    Timers *timers, const PrecondType preconditioner, const MatrixCRS *A,
+    const MatrixCRS *L, const MatrixCRS *U, double *D, double *D_inv,
+    double *x_new, double *x_old, double *tmp, double *work, double *p_new,
+    double *p_old, double *residual_new, double *residual_old,
     double *residual_0, double *v, double *h, double *s, double *s_tmp,
     double *t, double *t_tmp, double *y, double *z, double &rho_new,
     double rho_old, Interface *smax = nullptr) {
 
-    int N = crs_mat->n_cols;
+    int N = A->n_cols;
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_bicgstab_vectors(
-        crs_mat->n_cols, x_new, x_old, tmp, p_new, p_old, residual_new,
-        residual_old, residual_0, D, v, h, s, t, rho_new, rho_old, "before"))
+        A->n_cols, x_new, x_old, tmp, p_new, p_old, residual_new, residual_old,
+        residual_0, D, v, h, s, t, rho_new, rho_old, "before"))
 
     // y <- M^{-1}p_old
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, D_inv,
-                              y, p_old, tmp,
+         apply_preconditioner(preconditioner, N, L, U, D, D_inv, y, p_old, tmp,
                               work SMAX_ARGS(0, smax, "M^{-1} * p_old")))
 
     // v <- A*y
-    TIME(timers->spmv, spmv(crs_mat, y, v SMAX_ARGS(0, smax, "v <- A*y")))
+    TIME(timers->spmv, spmv(A, y, v SMAX_ARGS(0, smax, "v <- A*y")))
 
     // alpha <- rho_old / (r_0, v)
     double alpha;
@@ -40,13 +39,11 @@ void bicgstab_separate_iteration(
 
     // s_tmp <- M^{-1}s
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, D_inv,
-                              s_tmp, s, tmp,
+         apply_preconditioner(preconditioner, N, L, U, D, D_inv, s_tmp, s, tmp,
                               work SMAX_ARGS(0, smax, "M^{-1} * s")))
 
     // z <- A*s_tmp
-    TIME(timers->spmv,
-         spmv(crs_mat, s_tmp, z SMAX_ARGS(0, smax, "z <- A*s_tmp")))
+    TIME(timers->spmv, spmv(A, s_tmp, z SMAX_ARGS(0, smax, "z <- A*s_tmp")))
 
     double omega;
     TIME(timers->dot, omega = dot(z, s, N) / dot(z, z, N))
@@ -79,8 +76,8 @@ void bicgstab_separate_iteration(
     TIME(timers->sum, sum_vectors(p_new, residual_new, tmp, N, beta))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_bicgstab_vectors(
-        crs_mat->n_cols, x_new, x_old, tmp, p_new, p_old, residual_new,
-        residual_old, residual_0, D, v, h, s, t, rho_new, rho_old, "after"))
+        A->n_cols, x_new, x_old, tmp, p_new, p_old, residual_new, residual_old,
+        residual_0, D, v, h, s, t, rho_new, rho_old, "after"))
 }
 
 class BiCGSTABSolver : public Solver {
@@ -146,35 +143,34 @@ class BiCGSTABSolver : public Solver {
     }
 
     void init_residual() override {
-        compute_residual(crs_mat.get(), x_old, b, residual,
+        compute_residual(A.get(), x_old, b, residual,
                          tmp SMAX_ARGS(smax, "residual_spmv"));
 
-        copy_vector(residual_old, residual, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        copy_vector(residual_old, residual, A->n_cols);
+        residual_norm = euclidean_vec_norm(residual, A->n_cols);
 
         // Precondition the initial residual
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
-            residual, crs_mat->n_cols, "residual before preconditioning"));
-        apply_preconditioner(preconditioner, crs_mat->n_cols,
-                             crs_mat_L_strict.get(), crs_mat_U_strict.get(), D,
-                             D_inv, residual, residual, tmp,
+            residual, A->n_cols, "residual before preconditioning"));
+        apply_preconditioner(preconditioner, A->n_cols, L_strict.get(),
+                             U_strict.get(), D, D_inv, residual, residual, tmp,
                              work SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(
-            residual, crs_mat->n_cols, "residual after preconditioning"));
+            residual, A->n_cols, "residual after preconditioning"));
 
         // Make copies of initial residual for solver
-        copy_vector(p_old, residual, crs_mat->n_cols);
+        copy_vector(p_old, residual, A->n_cols);
 
-        rho_old = dot(residual_old, residual, crs_mat->n_cols);
+        rho_old = dot(residual_old, residual, A->n_cols);
         Solver::init_residual();
     }
 
     void iterate(Timers *timers) override {
         bicgstab_separate_iteration(
-            timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-            crs_mat_U_strict.get(), D, D_inv, x_new, x_old, tmp, work, p_new,
-            p_old, residual_new, residual_old, residual_0, v, h, s, s_tmp, t,
-            t_tmp, y, z, rho_new, rho_old SMAX_ARGS(smax));
+            timers, preconditioner, A.get(), L_strict.get(), U_strict.get(), D,
+            D_inv, x_new, x_old, tmp, work, p_new, p_old, residual_new,
+            residual_old, residual_0, v, h, s, s_tmp, t, t_tmp, y, z, rho_new,
+            rho_old SMAX_ARGS(smax));
         std::swap(residual, residual_new);
     }
 
@@ -216,42 +212,42 @@ class BiCGSTABSolver : public Solver {
     }
 
     void record_residual_norm() override {
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        residual_norm = euclidean_vec_norm(residual, A->n_cols);
         Solver::record_residual_norm();
     }
 
 #ifdef USE_SMAX
     void register_structs() override {
-        int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat.get(), x_old, N, tmp, N);
-        register_spmv(smax, "v <- A*y", crs_mat.get(), y, N, v, N);
-        register_spmv(smax, "z <- A*s_tmp", crs_mat.get(), s_tmp, N, z, N);
+        int N = A->n_cols;
+        register_spmv(smax, "residual_spmv", A.get(), x_old, N, tmp, N);
+        register_spmv(smax, "v <- A*y", A.get(), y, N, v, N);
+        register_spmv(smax, "z <- A*s_tmp", A.get(), s_tmp, N, z, N);
         if (preconditioner == PrecondType::GaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L.get(), residual, N, residual_old, N);
-            register_sptrsv(smax, "M^{-1} * p_old", crs_mat_L.get(), y, N, p_old, N);
-            register_sptrsv(smax, "M^{-1} * s", crs_mat_L.get(), s_tmp, N, s, N);
+            register_sptrsv(smax, "init M^{-1} * residual", L.get(), residual, N, residual_old, N);
+            register_sptrsv(smax, "M^{-1} * p_old", L.get(), y, N, p_old, N);
+            register_sptrsv(smax, "M^{-1} * s", L.get(), s_tmp, N, s, N);
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U.get(), residual, N, residual_old, N, true);
-            register_sptrsv(smax, "M^{-1} * p_old", crs_mat_U.get(), y, N, p_old, N, true);
-            register_sptrsv(smax, "M^{-1} * s", crs_mat_U.get(), s_tmp, N, s, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual", U.get(), residual, N, residual_old, N, true);
+            register_sptrsv(smax, "M^{-1} * p_old", U.get(), y, N, p_old, N, true);
+            register_sptrsv(smax, "M^{-1} * s", U.get(), s_tmp, N, s, N, true);
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual_old, N);
-            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), residual, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * p_old_lower", crs_mat_L.get(), tmp, N, p_old, N);
-            register_sptrsv(smax, "M^{-1} * p_old_upper", crs_mat_U.get(), y, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * s_lower", crs_mat_L.get(), tmp, N, s, N);
-            register_sptrsv(smax, "M^{-1} * s_upper", crs_mat_U.get(), s_tmp, N, tmp, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual_old, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * p_old_lower", L.get(), tmp, N, p_old, N);
+            register_sptrsv(smax, "M^{-1} * p_old_upper", U.get(), y, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * s_lower", L.get(), tmp, N, s, N);
+            register_sptrsv(smax, "M^{-1} * s_upper", U.get(), s_tmp, N, tmp, N, true);
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * p_old", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * s", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * p_old", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * s", L_strict.get(), work, N, tmp, N);
         } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "init M^{-1} * residual_upper", crs_mat_U_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * p_old_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * p_old_upper", crs_mat_U_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * s_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * s_upper", crs_mat_U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_upper", U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * p_old_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * p_old_upper", U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * s_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * s_upper", U_strict.get(), work, N, tmp, N);
         }
     }
 #endif

@@ -68,10 +68,10 @@ void run_solver_test(Solver *solver, const std::string &test_name) {
     b_vec = {0.0, 0.0, 4.0};
     x_true = {1.0, 2.0, 3.0};
 
-    auto crs_mat = std::make_unique<MatrixCRS>();
-    convert_coo_to_crs(coo_mat.get(), crs_mat.get());
+    auto A = std::make_unique<MatrixCRS>();
+    convert_coo_to_crs(coo_mat.get(), A.get());
 
-    preprocessing(&cli_args, solver, &timers, crs_mat);
+    preprocessing(&cli_args, solver, &timers, A);
 
     copy_vector(solver->b, b_vec.data(), b_vec.size());
     init_vector(solver->x_0, 0.0, x_true.size());
@@ -117,11 +117,11 @@ void test_bicgstab_with_jacobi_on_diag_dominant_matrix() {
     b_vec = {8.0, 16.0, 28.0};
     x_true = {1.0, 2.0, 3.0};
 
-    auto crs_mat = std::make_unique<MatrixCRS>();
-    convert_coo_to_crs(coo_mat.get(), crs_mat.get());
+    auto A = std::make_unique<MatrixCRS>();
+    convert_coo_to_crs(coo_mat.get(), A.get());
 
     // 2. Preprocess
-    preprocessing(&cli_args, &solver, &timers, crs_mat);
+    preprocessing(&cli_args, &solver, &timers, A);
     copy_vector(solver.b, b_vec.data(), b_vec.size());
     init_vector(solver.x_0, 0.0, x_true.size());
     solver.init_structs(x_true.size());
@@ -166,11 +166,11 @@ void test_bicgstab_with_jacobi_on_diag_dominant_matrix() {
 //                                 -3*1 + 10*2 - 1*3,  // -3 + 20 - 3 = 14
 //                                    0*1 - 4*2 + 10*3 }; //  0 - 8 + 30 = 22
 
-//     auto crs_mat = std::make_unique<MatrixCRS>();
-//     convert_coo_to_crs(coo_mat.get(), crs_mat.get());
+//     auto A = std::make_unique<MatrixCRS>();
+//     convert_coo_to_crs(coo_mat.get(), A.get());
 
 //     // 2. Preprocess (This will call your compute_ilut)
-//     preprocessing(&cli_args, &solver, &timers, crs_mat);
+//     preprocessing(&cli_args, &solver, &timers, A);
 
 //     // Overwrite b and x0 with our known values
 //     copy_vector(solver.b, b_vec.data(), b_vec.size());

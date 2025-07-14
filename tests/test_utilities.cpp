@@ -71,23 +71,23 @@ void test_convert_coo_to_crs() {
     coo_mat.J = {0, 2, 1, 0, 1, 2};
     coo_mat.values = {10, 20, 30, 40, 50, 60};
 
-    MatrixCRS crs_mat;
-    convert_coo_to_crs(&coo_mat, &crs_mat);
+    MatrixCRS A;
+    convert_coo_to_crs(&coo_mat, &A);
 
-    ASSERT_EQUAL(crs_mat.n_rows, 3, "n_rows");
-    ASSERT_EQUAL(crs_mat.n_cols, 3, "n_cols");
-    ASSERT_EQUAL(crs_mat.nnz, 6, "nnz");
+    ASSERT_EQUAL(A.n_rows, 3, "n_rows");
+    ASSERT_EQUAL(A.n_cols, 3, "n_cols");
+    ASSERT_EQUAL(A.nnz, 6, "nnz");
 
     int expected_row_ptr[] = {0, 2, 3, 6};
     for (int i = 0; i < 4; ++i) {
-        ASSERT_EQUAL(crs_mat.row_ptr[i], expected_row_ptr[i], "row_ptr");
+        ASSERT_EQUAL(A.row_ptr[i], expected_row_ptr[i], "row_ptr");
     }
 
     int expected_col[] = {0, 2, 1, 0, 1, 2};
     double expected_val[] = {10, 20, 30, 40, 50, 60};
     for (int i = 0; i < 6; ++i) {
-        ASSERT_EQUAL(crs_mat.col[i], expected_col[i], "col");
-        ASSERT_NEAR(crs_mat.val[i], expected_val[i], 1e-9);
+        ASSERT_EQUAL(A.col[i], expected_col[i], "col");
+        ASSERT_NEAR(A.val[i], expected_val[i], 1e-9);
     }
 
     std::cout << "    All convert_coo_to_crs tests passed." << std::endl;
@@ -98,13 +98,13 @@ void test_extract_L_U() {
     // A = [[10,  1,  2],
     //      [ 3, 20,  4],
     //      [ 5,  6, 30]]
-    MatrixCRS crs_mat(3, 3, 9);
-    crs_mat.row_ptr = new int[4]{0, 3, 6, 9};
-    crs_mat.col = new int[9]{0, 1, 2, 0, 1, 2, 0, 1, 2};
-    crs_mat.val = new double[9]{10, 1, 2, 3, 20, 4, 5, 6, 30};
+    MatrixCRS A(3, 3, 9);
+    A.row_ptr = new int[4]{0, 3, 6, 9};
+    A.col = new int[9]{0, 1, 2, 0, 1, 2, 0, 1, 2};
+    A.val = new double[9]{10, 1, 2, 3, 20, 4, 5, 6, 30};
 
     MatrixCRS L, L_strict, U, U_strict;
-    extract_L_U(&crs_mat, &L, &L_strict, &U, &U_strict);
+    extract_L_U(&A, &L, &L_strict, &U, &U_strict);
 
     // Expected L (lower + diagonal)
     ASSERT_EQUAL(L.nnz, 6, "L.nnz");
@@ -172,14 +172,14 @@ void test_peel_diag_crs() {
     //      [3, 20, 4],
     //      [30, 5, 6]]
     // Diagonals are at indices 1, 4, 6
-    MatrixCRS crs_mat(3, 3, 9);
-    crs_mat.row_ptr = new int[4]{0, 3, 6, 9};
-    crs_mat.col = new int[9]{1, 0, 2, 0, 1, 2, 2, 0, 1};
-    crs_mat.val = new double[9]{1, 10, 2, 3, 20, 4, 30, 5, 6};
+    MatrixCRS A(3, 3, 9);
+    A.row_ptr = new int[4]{0, 3, 6, 9};
+    A.col = new int[9]{1, 0, 2, 0, 1, 2, 2, 0, 1};
+    A.val = new double[9]{1, 10, 2, 3, 20, 4, 30, 5, 6};
 
     std::vector<double> D(3);
     std::vector<double> D_inv(3);
-    peel_diag_crs(&crs_mat, D.data(), D_inv.data());
+    peel_diag_crs(&A, D.data(), D_inv.data());
 
     // Check diagonal vector
     std::vector<double> expected_D = {10, 20, 30};
@@ -193,16 +193,16 @@ void test_peel_diag_crs() {
 
     // Check that the matrix was correctly modified (diagonals swapped to end of
     // row data) Expected row 0: [1, 2, 10] with cols [1, 2, 0]
-    ASSERT_NEAR(crs_mat.val[2], 10.0, 1e-9);
-    ASSERT_EQUAL(crs_mat.col[2], 0, "crs_mat.col[2]");
+    ASSERT_NEAR(A.val[2], 10.0, 1e-9);
+    ASSERT_EQUAL(A.col[2], 0, "A.col[2]");
 
     // Expected row 1: [3, 4, 20] with cols [0, 2, 1]
-    ASSERT_NEAR(crs_mat.val[5], 20.0, 1e-9);
-    ASSERT_EQUAL(crs_mat.col[5], 1, "crs_mat.col[5]");
+    ASSERT_NEAR(A.val[5], 20.0, 1e-9);
+    ASSERT_EQUAL(A.col[5], 1, "A.col[5]");
 
     // Expected row 2: [5, 6, 30] with cols [0, 1, 2]
-    ASSERT_NEAR(crs_mat.val[8], 30.0, 1e-9);
-    ASSERT_EQUAL(crs_mat.col[8], 2, "crs_mat.col[8]");
+    ASSERT_NEAR(A.val[8], 30.0, 1e-9);
+    ASSERT_EQUAL(A.col[8], 2, "A.col[8]");
 
     std::cout << "        peel_diag_crs: Matrix modification passed."
               << std::endl;

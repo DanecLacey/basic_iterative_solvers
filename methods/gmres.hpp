@@ -146,32 +146,33 @@ void update_g(Timers *timers, int N, int n_solver_iters, int restart_len,
                               n_solver_iters, residual_norm))
 }
 
-void gmres_separate_iteration(
-    Timers *timers, const PrecondType preconditioner, const MatrixCRS *crs_mat,
-    const MatrixCRS *crs_mat_L, const MatrixCRS *crs_mat_U, double *D,
-    double *D_inv, int n_solver_iters, const int restart_count,
-    const int restart_len, double &residual_norm, double *V, double *H,
-    double *H_tmp, double *J, double *Q, double *Q_tmp, double *w, double *R,
-    double *g, double *g_tmp, double *b, double *x, double *tmp, double *work,
-    double beta, Interface *smax = nullptr) {
+void gmres_separate_iteration(Timers *timers, const PrecondType preconditioner,
+                              const MatrixCRS *A, const MatrixCRS *L,
+                              const MatrixCRS *U, double *D, double *D_inv,
+                              int n_solver_iters, const int restart_count,
+                              const int restart_len, double &residual_norm,
+                              double *V, double *H, double *H_tmp, double *J,
+                              double *Q, double *Q_tmp, double *w, double *R,
+                              double *g, double *g_tmp, double *b, double *x,
+                              double *tmp, double *work, double beta,
+                              Interface *smax = nullptr) {
     /* NOTES:
             - The orthonormal vectors in V are stored as row vectors
     */
 
     n_solver_iters -= restart_count * restart_len;
-    int N = crs_mat->n_cols;
+    int N = A->n_cols;
     IF_DEBUG_MODE(
         SanityChecker::print_gmres_iter_counts(n_solver_iters, restart_count))
 
     // w_j <- A*v_j
     TIME(timers->spmv,
-         spmv(crs_mat, &V[n_solver_iters * N],
+         spmv(A, &V[n_solver_iters * N],
               w SMAX_ARGS(n_solver_iters * N, smax, "w_j <- A*v_j")))
 
     // w_j <- M^{-1}w_j
     TIME(timers->precond,
-         apply_preconditioner(preconditioner, N, crs_mat_L, crs_mat_U, D, D_inv,
-                              w, w, tmp,
+         apply_preconditioner(preconditioner, N, L, U, D, D_inv, w, w, tmp,
                               work SMAX_ARGS(0, smax, "M^{-1} * w_j")))
 
     IF_DEBUG_MODE_FINE(SanityChecker::print_vector<double>(w, N, "w"))
@@ -271,31 +272,27 @@ class GMRESSolver : public Solver {
     }
 
     void init_residual() override {
-        IF_DEBUG_MODE(
-            SanityChecker::print_vector(x, crs_mat->n_cols, "old_x1"));
-        compute_residual(crs_mat.get(), x, b, residual,
+        IF_DEBUG_MODE(SanityChecker::print_vector(x, A->n_cols, "old_x1"));
+        compute_residual(A.get(), x, b, residual,
                          tmp SMAX_ARGS(smax, "residual_spmv"));
 
         // Record the unpreconditioned residual norm for the first iteration!
         if (!gmres_restarted) {
-            residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+            residual_norm = euclidean_vec_norm(residual, A->n_cols);
             collected_residual_norms[collected_residual_norms_count++] =
                 residual_norm;
         }
         // Precondition the initial residual
         IF_DEBUG_MODE(SanityChecker::print_vector(
-            residual, crs_mat->n_cols, "residual before preconditioning"));
-        apply_preconditioner(preconditioner, crs_mat->n_cols,
-                             crs_mat_L_strict.get(), crs_mat_U_strict.get(), D,
-                             D_inv, residual, residual, tmp,
+            residual, A->n_cols, "residual before preconditioning"));
+        apply_preconditioner(preconditioner, A->n_cols, L_strict.get(),
+                             U_strict.get(), D, D_inv, residual, residual, tmp,
                              work SMAX_ARGS(0, smax, "init M^{-1} * residual"));
         IF_DEBUG_MODE(SanityChecker::print_vector(
-            residual, crs_mat->n_cols, "residual after preconditioning"));
-        double precond_residual_norm =
-            euclidean_vec_norm(residual, crs_mat->n_cols);
+            residual, A->n_cols, "residual after preconditioning"));
+        double precond_residual_norm = euclidean_vec_norm(residual, A->n_cols);
 
-        IF_DEBUG_MODE(
-            SanityChecker::print_vector(x, crs_mat->n_cols, "old_x2"));
+        IF_DEBUG_MODE(SanityChecker::print_vector(x, A->n_cols, "old_x2"));
         beta = precond_residual_norm; // NOTE: Beta should be according to
                                       // euclidean norm (Saad)
 
@@ -305,12 +302,11 @@ class GMRESSolver : public Solver {
         // V[0] <- r / beta
         // i.e. The first row of V (orthonormal search vectors) gets scaled
         // initial residual
-        scale(V, residual, 1.0 / beta, crs_mat->n_cols);
-        IF_DEBUG_MODE(SanityChecker::print_vector(residual, crs_mat->n_cols,
-                                                  "init_residual"));
-        IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", residual_norm))
+        scale(V, residual, 1.0 / beta, A->n_cols);
         IF_DEBUG_MODE(
-            SanityChecker::print_vector(V, crs_mat->n_cols, "init_v"));
+            SanityChecker::print_vector(residual, A->n_cols, "init_residual"));
+        IF_DEBUG_MODE(printf("||init_residual||_2 = %f\n", residual_norm))
+        IF_DEBUG_MODE(SanityChecker::print_vector(V, A->n_cols, "init_v"));
 
         if (gmres_restarted) {
             residual_norm = precond_residual_norm;
@@ -320,10 +316,10 @@ class GMRESSolver : public Solver {
 
     void iterate(Timers *timers) override {
         gmres_separate_iteration(
-            timers, preconditioner, crs_mat.get(), crs_mat_L_strict.get(),
-            crs_mat_U_strict.get(), D, D_inv, iter_count, gmres_restart_count,
-            gmres_restart_len, residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g,
-            g_tmp, b, x, tmp, work, beta SMAX_ARGS(smax));
+            timers, preconditioner, A.get(), L_strict.get(), U_strict.get(), D,
+            D_inv, iter_count, gmres_restart_count, gmres_restart_len,
+            residual_norm, V, H, H_tmp, J, Q, Q_tmp, w, R, g, g_tmp, b, x, tmp,
+            work, beta SMAX_ARGS(smax));
     }
 
     void get_explicit_x() override {
@@ -357,16 +353,15 @@ class GMRESSolver : public Solver {
         // TODO: Change to appropriate dgemv routine
         // Vy <- V*y [(m x 1) = (m x n)(n x 1)]
         // dgemm_transpose1(V, y, Vy, (gmres_restart_len
-        // + 1), crs_mat->n_cols, 1);
-        dgemm_transpose1(V, y, Vy, crs_mat->n_cols, n_solver_iters + 1, 1);
+        // + 1), A->n_cols, 1);
+        dgemm_transpose1(V, y, Vy, A->n_cols, n_solver_iters + 1, 1);
 
         // dense_MMM_t<VT>(V, &y[0], Vy, n_rows, restart_len, 1);
 
-        IF_DEBUG_MODE_FINE(
-            SanityChecker::print_vector(Vy, crs_mat->n_cols, "Vy"));
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(Vy, A->n_cols, "Vy"));
 
         // Finally, compute x <- x_0 + Vy [(n x 1) = (n x 1) + (n x m)(m x 1)]
-        for (int i = 0; i < crs_mat->n_cols; ++i) {
+        for (int i = 0; i < A->n_cols; ++i) {
             x[i] = x_old[i] + Vy[i];
 #ifdef DEBUG_MODE_FINE
             std::cout << "x[" << i << "] = " << x_old[i] << " + " << Vy[i]
@@ -374,8 +369,7 @@ class GMRESSolver : public Solver {
 #endif
         }
 
-        IF_DEBUG_MODE_FINE(
-            SanityChecker::print_vector(x, crs_mat->n_cols, "new_x"));
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x, A->n_cols, "new_x"));
     }
 
     void save_x_star() override {
@@ -401,11 +395,11 @@ class GMRESSolver : public Solver {
             IF_DEBUG_MODE(printf("GMRES restart: %i\n", gmres_restart_count))
             // x <- x_0 + Vy
             get_explicit_x();
-            copy_vector(x_old, x, crs_mat->n_cols);
+            copy_vector(x_old, x, A->n_cols);
 
             // Re-initialize relevant data structures after restarting GMRES
             // NOTE: x is the only struct which is not re-initialized
-            init_structs(crs_mat->n_cols);
+            init_structs(A->n_cols);
 
             // TODO: This shouldn't be necessary
             // Re-initialize residual with new inital x approximation
@@ -426,28 +420,28 @@ class GMRESSolver : public Solver {
 
 #ifdef USE_SMAX
     void register_structs() override {
-        int N = crs_mat->n_cols;
-        register_spmv(smax, "residual_spmv", crs_mat.get(), x, N, tmp, N);
-        register_spmv(smax, "w_j <- A*v_j", crs_mat.get(), V, N * (gmres_restart_len + 1), w, N);
+        int N = A->n_cols;
+        register_spmv(smax, "residual_spmv", A.get(), x, N, tmp, N);
+        register_spmv(smax, "w_j <- A*v_j", A.get(), V, N * (gmres_restart_len + 1), w, N);
         if (preconditioner == PrecondType::GaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_L.get(), residual, N, residual, N);
-            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_L.get(), w, N, w, N);
+            register_sptrsv(smax, "init M^{-1} * residual", L.get(), residual, N, residual, N);
+            register_sptrsv(smax, "M^{-1} * w_j", L.get(), w, N, w, N);
         } else if (preconditioner == PrecondType::BackwardsGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual", crs_mat_U.get(), residual, N, residual, N, true);
-            register_sptrsv(smax, "M^{-1} * w_j", crs_mat_U.get(), w, N, w, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual", U.get(), residual, N, residual, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j", U.get(), w, N, w, N, true);
         } else if (preconditioner == PrecondType::SymmetricGaussSeidel) {
-            register_sptrsv(smax, "init M^{-1} * residual_lower", crs_mat_L.get(), tmp, N, residual, N);
-            register_sptrsv(smax, "init M^{-1} * residual_upper", crs_mat_U.get(), residual, N, tmp, N, true);
-            register_sptrsv(smax, "M^{-1} * w_j_lower", crs_mat_L.get(), tmp, N, w, N);
-            register_sptrsv(smax, "M^{-1} * w_j_upper", crs_mat_U.get(), w, N, tmp, N, true);
+            register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
+            register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);
+            register_sptrsv(smax, "M^{-1} * w_j_lower", L.get(), tmp, N, w, N);
+            register_sptrsv(smax, "M^{-1} * w_j_upper", U.get(), w, N, tmp, N, true);
         } else if (preconditioner == PrecondType::TwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * w_j", crs_mat_L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j", L_strict.get(), work, N, tmp, N);
         } else if (preconditioner == PrecondType::SymmetricTwoStageGS) {
-            register_spmv(smax, "init M^{-1} * residual_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "init M^{-1} * residual_upper", crs_mat_U_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * w_j_lower", crs_mat_L_strict.get(), work, N, tmp, N);
-            register_spmv(smax, "M^{-1} * w_j_upper", crs_mat_U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "init M^{-1} * residual_upper", U_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j_lower", L_strict.get(), work, N, tmp, N);
+            register_spmv(smax, "M^{-1} * w_j_upper", U_strict.get(), work, N, tmp, N);
         }
     }
 #endif

@@ -302,118 +302,117 @@ inline void convert_coo_to_crs(MatrixCOO *coo_mat, MatrixCRS *crs_mat) {
 }
 
 // NOTE: very lazy way to do this
-inline void extract_L_U(MatrixCRS *crs_mat, MatrixCRS *crs_mat_L,
-                        MatrixCRS *crs_mat_L_strict, MatrixCRS *crs_mat_U,
-                        MatrixCRS *crs_mat_U_strict) {
+inline void extract_L_U(MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                        MatrixCRS *U, MatrixCRS *U_strict) {
     int D_nz_count = 0;
 
     // Force same dimensions for consistency
-    crs_mat_U->n_rows = crs_mat->n_rows;
-    crs_mat_U->n_cols = crs_mat->n_cols;
-    crs_mat_U->nnz = 0;
-    crs_mat_U_strict->n_rows = crs_mat->n_rows;
-    crs_mat_U_strict->n_cols = crs_mat->n_cols;
-    crs_mat_U_strict->nnz = 0;
-    crs_mat_L->n_rows = crs_mat->n_rows;
-    crs_mat_L->n_cols = crs_mat->n_cols;
-    crs_mat_L->nnz = 0;
-    crs_mat_L_strict->n_rows = crs_mat->n_rows;
-    crs_mat_L_strict->n_cols = crs_mat->n_cols;
-    crs_mat_L_strict->nnz = 0;
+    U->n_rows = A->n_rows;
+    U->n_cols = A->n_cols;
+    U->nnz = 0;
+    U_strict->n_rows = A->n_rows;
+    U_strict->n_cols = A->n_cols;
+    U_strict->nnz = 0;
+    L->n_rows = A->n_rows;
+    L->n_cols = A->n_cols;
+    L->nnz = 0;
+    L_strict->n_rows = A->n_rows;
+    L_strict->n_cols = A->n_cols;
+    L_strict->nnz = 0;
 
-    for (int i = 0; i < crs_mat->n_rows; ++i) {
+    for (int i = 0; i < A->n_rows; ++i) {
     }
 
     // Count nnz
-    for (int i = 0; i < crs_mat->n_rows; ++i) {
-        int row_start = crs_mat->row_ptr[i];
-        int row_end = crs_mat->row_ptr[i + 1];
+    for (int i = 0; i < A->n_rows; ++i) {
+        int row_start = A->row_ptr[i];
+        int row_end = A->row_ptr[i + 1];
 
         // Loop over each non-zero entry in the current row
         for (int idx = row_start; idx < row_end; ++idx) {
-            int col = crs_mat->col[idx];
+            int col = A->col[idx];
 
             if (col <= i) {
-                ++crs_mat_L->nnz;
+                ++L->nnz;
                 if (col < i) {
-                    ++crs_mat_L_strict->nnz;
+                    ++L_strict->nnz;
                 }
             }
             if (col >= i) {
-                ++crs_mat_U->nnz;
+                ++U->nnz;
                 if (col > i) {
-                    ++crs_mat_U_strict->nnz;
+                    ++U_strict->nnz;
                 }
             }
         }
     }
 
     // Allocate heap space and assign known metadata
-    crs_mat_L->col = new int[crs_mat_L->nnz];
-    crs_mat_L->row_ptr = new int[crs_mat->n_rows + 1];
-    crs_mat_L->val = new double[crs_mat_L->nnz];
-    crs_mat_L->row_ptr[0] = 0;
-    crs_mat_L->n_rows = crs_mat->n_rows;
-    crs_mat_L->n_cols = crs_mat->n_cols;
+    L->col = new int[L->nnz];
+    L->row_ptr = new int[A->n_rows + 1];
+    L->val = new double[L->nnz];
+    L->row_ptr[0] = 0;
+    L->n_rows = A->n_rows;
+    L->n_cols = A->n_cols;
 
-    crs_mat_L_strict->col = new int[crs_mat_L_strict->nnz];
-    crs_mat_L_strict->row_ptr = new int[crs_mat->n_rows + 1];
-    crs_mat_L_strict->val = new double[crs_mat_L_strict->nnz];
-    crs_mat_L_strict->row_ptr[0] = 0;
-    crs_mat_L_strict->n_rows = crs_mat->n_rows;
-    crs_mat_L_strict->n_cols = crs_mat->n_cols;
+    L_strict->col = new int[L_strict->nnz];
+    L_strict->row_ptr = new int[A->n_rows + 1];
+    L_strict->val = new double[L_strict->nnz];
+    L_strict->row_ptr[0] = 0;
+    L_strict->n_rows = A->n_rows;
+    L_strict->n_cols = A->n_cols;
 
-    crs_mat_U->col = new int[crs_mat_U->nnz];
-    crs_mat_U->row_ptr = new int[crs_mat->n_rows + 1];
-    crs_mat_U->val = new double[crs_mat_U->nnz];
-    crs_mat_U->row_ptr[0] = 0;
-    crs_mat_U->n_rows = crs_mat->n_rows;
-    crs_mat_U->n_cols = crs_mat->n_cols;
+    U->col = new int[U->nnz];
+    U->row_ptr = new int[A->n_rows + 1];
+    U->val = new double[U->nnz];
+    U->row_ptr[0] = 0;
+    U->n_rows = A->n_rows;
+    U->n_cols = A->n_cols;
 
-    crs_mat_U_strict->col = new int[crs_mat_U_strict->nnz];
-    crs_mat_U_strict->row_ptr = new int[crs_mat->n_rows + 1];
-    crs_mat_U_strict->val = new double[crs_mat_U_strict->nnz];
-    crs_mat_U_strict->row_ptr[0] = 0;
-    crs_mat_U_strict->n_rows = crs_mat->n_rows;
-    crs_mat_U_strict->n_cols = crs_mat->n_cols;
+    U_strict->col = new int[U_strict->nnz];
+    U_strict->row_ptr = new int[A->n_rows + 1];
+    U_strict->val = new double[U_strict->nnz];
+    U_strict->row_ptr[0] = 0;
+    U_strict->n_rows = A->n_rows;
+    U_strict->n_cols = A->n_cols;
 
     // Assign nonzeros
     int L_count = 0;
     int L_strict_count = 0;
     int U_count = 0;
     int U_strict_count = 0;
-    for (int i = 0; i < crs_mat->n_rows; ++i) {
-        int row_start = crs_mat->row_ptr[i];
-        int row_end = crs_mat->row_ptr[i + 1];
+    for (int i = 0; i < A->n_rows; ++i) {
+        int row_start = A->row_ptr[i];
+        int row_end = A->row_ptr[i + 1];
 
         // Loop over each non-zero entry in the current row
         for (int idx = row_start; idx < row_end; ++idx) {
-            int col = crs_mat->col[idx];
-            double val = crs_mat->val[idx];
+            int col = A->col[idx];
+            double val = A->val[idx];
 
             if (col <= i) {
-                crs_mat_L->col[L_count] = col;
-                crs_mat_L->val[L_count++] = val;
+                L->col[L_count] = col;
+                L->val[L_count++] = val;
                 if (col < i) {
-                    crs_mat_L_strict->col[L_strict_count] = col;
-                    crs_mat_L_strict->val[L_strict_count++] = val;
+                    L_strict->col[L_strict_count] = col;
+                    L_strict->val[L_strict_count++] = val;
                 }
             }
             if (col >= i) {
-                crs_mat_U->col[U_count] = col;
-                crs_mat_U->val[U_count++] = val;
+                U->col[U_count] = col;
+                U->val[U_count++] = val;
                 if (col > i) {
-                    crs_mat_U_strict->col[U_strict_count] = col;
-                    crs_mat_U_strict->val[U_strict_count++] = val;
+                    U_strict->col[U_strict_count] = col;
+                    U_strict->val[U_strict_count++] = val;
                 }
             }
         }
 
         // Update row pointers
-        crs_mat_L->row_ptr[i + 1] = L_count;
-        crs_mat_L_strict->row_ptr[i + 1] = L_strict_count;
-        crs_mat_U->row_ptr[i + 1] = U_count;
-        crs_mat_U_strict->row_ptr[i + 1] = U_strict_count;
+        L->row_ptr[i + 1] = L_count;
+        L_strict->row_ptr[i + 1] = L_strict_count;
+        U->row_ptr[i + 1] = U_count;
+        U_strict->row_ptr[i + 1] = U_strict_count;
     }
 }
 
