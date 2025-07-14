@@ -36,6 +36,9 @@ option(USE_LIKWID "Enable LIKWID performance monitoring" OFF)
 option(USE_SCAMAC "Enable SCAMAC matrix generator" OFF)
 option(USE_SMAX "Enable SMAX support" OFF)
 
+option(USE_FAST_MMIO "Enable fast matrix market support" OFF)
+include(cmake/CPM.cmake)
+
 # ========== Sources and Targets ==========
 
 
@@ -134,6 +137,27 @@ else()
     message(STATUS "SMAX support is disabled.")
 endif()
 
+# === fast mmio Support ===
+if(USE_FAST_MMIO)
+    message(STATUS "Fast MMIO support is enabled.")
+    include(cmake/fastmmio.cmake) 
+else()
+    message(STATUS "Fast MMIO support is disabled.")
+endif()
+# sort of ugly work around 
+if(USE_FAST_MMIO)
+    target_sources(fmmio
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/utilities/mmio.cpp
+    )
+    target_compile_definitions(fmmio INTERFACE USE_FAST_MMIO)
+    add_library(mmio ALIAS fmmio)
+else()
+    add_library(mmio STATIC utilities/mmio.cpp)
+    target_include_directories(mmio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+target_link_libraries(basic_iterative_solvers PRIVATE mmio)
+
 # Set include directories for both main and test executables
 # This tells the compiler where to find your .hpp files (headers)
 target_include_directories(basic_iterative_solvers PRIVATE
@@ -152,6 +176,7 @@ target_include_directories(run_tests PRIVATE
 
 # Optional: Add a custom command to easily run tests
 add_custom_target(test_all COMMAND run_tests WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(run_tests PRIVATE mmio)
 
 # ========== Set Compiler and Flags ==========
 # If the user didn't specify a compiler, default to g++
@@ -226,4 +251,8 @@ endif()
 
 if(USE_SMAX)
     add_definitions(-DPERM_MODE=${SMAX_PERM_MODE})
+endif()
+
+if(USE_FAST_MMIO)
+    add_definitions(-DUSE_FAST_MMIO)
 endif()

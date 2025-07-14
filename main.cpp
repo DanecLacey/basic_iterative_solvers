@@ -53,6 +53,8 @@ void run(Args *cli_args, Timers *timers) {
     coo_mat->read_from_mtx(cli_args->matrix_file_name);
 #endif
 
+    exit(1);
+
     IF_DEBUG_MODE(printf("Converting COO matrix to CRS\n"))
     std::unique_ptr<MatrixCRS> crs_mat = std::make_unique<MatrixCRS>();
     convert_coo_to_crs(coo_mat.get(), crs_mat.get());
