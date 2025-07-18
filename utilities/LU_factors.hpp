@@ -8,21 +8,26 @@ inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
                      MatrixCRS *U, MatrixCRS *U_strict) {
     int D_nz_count = 0;
 
-    // Force same dimensions for consistency
+    
+    // These will safely accumulate the counts in parallel.
+    int l_nnz = 0;
+    int l_strict_nnz = 0;
+    int u_nnz = 0;
+    int u_strict_nnz = 0;
+    
+    // Set fixed-size metadata.
     U->n_rows = A->n_rows;
     U->n_cols = A->n_cols;
-    U->nnz = 0;
     U_strict->n_rows = A->n_rows;
     U_strict->n_cols = A->n_cols;
-    U_strict->nnz = 0;
     L->n_rows = A->n_rows;
     L->n_cols = A->n_cols;
-    L->nnz = 0;
     L_strict->n_rows = A->n_rows;
     L_strict->n_cols = A->n_cols;
-    L_strict->nnz = 0;
-
-    // Count nnz
+    
+    // We use local variables in the OpenMP loop.
+    // The loop iterates over rows and increments the local counters.
+    #pragma omp parallel for reduction(+:l_nnz, l_strict_nnz, u_nnz, u_strict_nnz) schedule(static)
     for (int i = 0; i < A->n_rows; ++i) {
         int row_start = A->row_ptr[i];
         int row_end = A->row_ptr[i + 1];
@@ -32,48 +37,47 @@ inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
             int col = A->col[idx];
 
             if (col <= i) {
-                ++L->nnz;
+                l_nnz++; // Increment local variable
                 if (col < i) {
-                    ++L_strict->nnz;
+                    l_strict_nnz++; // Increment local variable
                 }
             }
             if (col >= i) {
-                ++U->nnz;
+                u_nnz++; // Increment local variable
                 if (col > i) {
-                    ++U_strict->nnz;
+                    u_strict_nnz++; // Increment local variable
                 }
             }
         }
     }
+
+    // Now, we assign the final, correct counts to the struct members
+    // This happens *after* the parallel region is finished.
+    L->nnz = l_nnz;
+    L_strict->nnz = l_strict_nnz;
+    U->nnz = u_nnz;
+    U_strict->nnz = u_strict_nnz;
 
     // Allocate heap space and assign known metadata
     L->col = new int[L->nnz];
     L->row_ptr = new int[A->n_rows + 1];
     L->val = new double[L->nnz];
     L->row_ptr[0] = 0;
-    L->n_rows = A->n_rows;
-    L->n_cols = A->n_cols;
-
+    
     L_strict->col = new int[L_strict->nnz];
     L_strict->row_ptr = new int[A->n_rows + 1];
     L_strict->val = new double[L_strict->nnz];
     L_strict->row_ptr[0] = 0;
-    L_strict->n_rows = A->n_rows;
-    L_strict->n_cols = A->n_cols;
 
     U->col = new int[U->nnz];
     U->row_ptr = new int[A->n_rows + 1];
     U->val = new double[U->nnz];
     U->row_ptr[0] = 0;
-    U->n_rows = A->n_rows;
-    U->n_cols = A->n_cols;
 
     U_strict->col = new int[U_strict->nnz];
     U_strict->row_ptr = new int[A->n_rows + 1];
     U_strict->val = new double[U_strict->nnz];
     U_strict->row_ptr[0] = 0;
-    U_strict->n_rows = A->n_rows;
-    U_strict->n_cols = A->n_cols;
 
     // Assign nonzeros
     int L_count = 0;
@@ -133,57 +137,44 @@ inline void filter_by_p_and_sort(int p,
     std::sort(row.begin(), row.end());
 }
 
-// Implements ILUT(p, tau) based on Saad's paper,
-// primarily following Algorithm 3.2 on page 5.
+// Implements ILUT(p, tau) based on a robust interpretation of Saad's paper.
 inline void factor_ILUT(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
                         double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
                         double *U_D) {
     int n = A->n_rows;
 
-    // These will store the final factors, built row-by-row.
     std::vector<std::vector<std::pair<int, double>>> L_rows(n);
     std::vector<std::vector<std::pair<int, double>>> U_rows(n);
 
-    // This workspace corresponds to `row(1:n)` in Saad's Algorithm 3.2.
-    // It acts as a sparse accumulator for the current row `i`.
     std::vector<double> w_vals(n, 0.0);
     std::vector<int> w_indices_list;
-    w_indices_list.reserve(n); // Reserve space to avoid reallocations
-    std::vector<bool> w_pattern(n, false); // Fast check for non-zero existence
+    w_indices_list.reserve(n);
+    std::vector<bool> w_pattern(n, false);
 
-    // Main loop for each row `i` of the factorization.
-    // Corresponds to `do i=2, n` in Algorithm 3.2, Line 1.
     for (int i = 0; i < n; ++i) {
-
-        // --- ALGORITHM 3.2, Line 2: `row(1:n) = a(i, 1:n)` (Sparse Copy) ---
-        // We "scatter" the i-th row of A into our workspace `w`.
-        double row_norm = 0.0;
+        // --- Phase 1: Elimination ---
+        
+        // 1a. Scatter A(i,*) into the workspace `w` and get row norm.
+        double row_norm_sq = 0.0;
         for (int j_pos = A->row_ptr[i]; j_pos < A->row_ptr[i + 1]; ++j_pos) {
             int j = A->col[j_pos];
             double val = A->val[j_pos];
             w_vals[j] = val;
-            if (!w_pattern[j]) { // If this is a new non-zero for this row
+            if (!w_pattern[j]) {
                 w_indices_list.push_back(j);
                 w_pattern[j] = true;
             }
-            row_norm += val * val;
+            row_norm_sq += val * val;
         }
-        row_norm = std::sqrt(row_norm);
-
-        // Sort indices of the current row to process columns k < i in
-        // increasing order. This is necessary for the elimination loop to be
-        // correct.
+        
+        // Sort indices to ensure k is processed in increasing order.
         std::sort(w_indices_list.begin(), w_indices_list.end());
 
-        // --- ALGORITHM 3.2, Line 3-9: Elimination Loop ---
-        // `for (k=1, i-1 and where row(k) is nonzero) do`
-        int current_len = w_indices_list.size();
-        for (int k_idx = 0; k_idx < current_len; ++k_idx) {
+        // 1b. Elimination loop using previously computed rows of U.
+        for (int k_idx = 0; k_idx < w_indices_list.size(); ++k_idx) {
             int k = w_indices_list[k_idx];
-            if (k >= i)
-                break; // We are now in the U-part of the row, stop elimination.
+            if (k >= i) break;
 
-            // --- ALGORITHM 3.2, Line 4: `row(k) := row(k) / a(k,k)` ---
             // Find pivot U(k,k) from the previously computed k-th row of U.
             double pivot = 0.0;
             for (const auto &u_entry : U_rows[k]) {
@@ -192,37 +183,18 @@ inline void factor_ILUT(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
                     break;
                 }
             }
-            // --- CRITICAL STABILITY CHECK ---
-            // If the pivot from a previous row is too small, we cannot safely
-            // use this row for elimination. Skipping it is much safer than
-            // creating huge numbers in the factors.
-            if (std::abs(pivot) < 1e-12) {
-                continue; // Skip elimination with this unstable row
-            }
-
+            
+            // This check is vital. If a previous pivot was bad, we cannot use it.
+            if (std::abs(pivot) < 1e-16) { continue; }
+            
             double factor = w_vals[k] / pivot;
+            w_vals[k] = factor; // Store the L-factor temporarily in the workspace.
 
-            // --- ALGORITHM 3.2, Line 5: Apply a dropping rule to `row(k)` ---
-            // NOTE: This is the first of two dropping stages. Here we apply
-            // a tolerance drop to the L-factor before the update.
-            if (std::abs(factor) < (ILUT_TAU * row_norm)) {
-                // We drop this L-factor by simply not using it for the update.
-                // We also conceptually set w_vals[k] to 0 for later filtering.
-                w_vals[k] = 0.0;
-                continue;
-            }
-
-            // Store the final L-factor value.
-            w_vals[k] = factor;
-
-            // --- ALGORITHM 3.2, Lines 6-8: `if (row(k) != 0) then ... sparse
-            // update ...` --- Update row `i` using row `k` of U.
+            // Sparse update: w = w - factor * U(k,*)
             for (const auto &u_entry : U_rows[k]) {
                 int j = u_entry.first;
-                if (j > k) { // For each U(k,j)
-                    // If w_vals[j] is currently zero, this update creates a new
-                    // fill-in.
-                    if (!w_pattern[j]) {
+                if (j > k) { 
+                    if (!w_pattern[j]) { // This update creates a new fill-in.
                         w_indices_list.push_back(j);
                         w_pattern[j] = true;
                     }
@@ -230,93 +202,72 @@ inline void factor_ILUT(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
                 }
             }
         }
+        // After this loop, `w_vals` contains the fully computed, non-dropped row.
 
-        // --- ALGORITHM 3.2, Line 10-12: CORRECTED Dropping Rule Logic and copy
-        // to L and U --- The order of p- and tau-dropping is critical. We first
-        // select the p-largest candidates to define the structure, then apply
-        // the numerical tau-drop to this smaller set of candidates.
-
-        // STEP 1: Gather all potential candidates from the workspace without
-        // any dropping.
-        std::vector<std::pair<int, double>> l_row_candidates, u_row_candidates;
+        // --- Phase 2: Dropping and Storing ---
+        
+        std::vector<std::pair<int, double>> l_row_final, u_row_final;
         double u_diag = 0.0;
+        double drop_tol = ILUT_TAU * std::sqrt(row_norm_sq);
 
+        // 2a. Separate `w` into L and U parts, applying tau-dropping.
         for (int col_idx : w_indices_list) {
             double val = w_vals[col_idx];
-            if (col_idx < i) {
-                l_row_candidates.push_back({col_idx, val});
-            } else if (col_idx == i) {
-                u_diag = val; // Keep diagonal separate, it's not part of the
-                              // p-filter
-            } else {
-                u_row_candidates.push_back({col_idx, val});
+            if (std::abs(val) > drop_tol) {
+                if (col_idx < i) {
+                    l_row_final.push_back({col_idx, val});
+                } else if (col_idx == i) {
+                    u_diag = val;
+                } else {
+                    u_row_final.push_back({col_idx, val});
+                }
             }
         }
 
-        // STEP 2: Apply the p-filter FIRST. This determines the sparsity
-        // pattern by keeping the p-largest elements by magnitude from all
-        // candidates.
-        filter_by_p_and_sort(ILUT_P, l_row_candidates);
-        filter_by_p_and_sort(ILUT_P, u_row_candidates);
-
-        // STEP 3: Apply the tau-filter to the SURVIVORS of the p-filter.
-        // This refines the values within the chosen sparsity pattern.
-        std::vector<std::pair<int, double>> l_row, u_row;
-        const double drop_tol = ILUT_TAU * row_norm;
-
-        for (const auto &entry : l_row_candidates) {
-            if (std::abs(entry.second) > drop_tol) {
-                l_row.push_back(entry);
-            }
+        // 2b. Apply p-dropping to the survivors of the tau-drop.
+        filter_by_p_and_sort(ILUT_P, l_row_final);
+        filter_by_p_and_sort(ILUT_P, u_row_final);
+        
+        // 2c. Robustly handle the diagonal pivot.
+        if (std::abs(u_diag) < drop_tol + 1e-16) { // Check against tolerance
+            u_diag = (u_diag >= 0 ? 1.0 : -1.0) * (drop_tol + 1e-8); // Safer replacement
         }
-        for (const auto &entry : u_row_candidates) {
-            if (std::abs(entry.second) > drop_tol) {
-                u_row.push_back(entry);
-            }
-        }
+        
+        // Finalize the U part for this row
+        u_row_final.push_back({i, u_diag});
+        std::sort(u_row_final.begin(), u_row_final.end());
+        
+        L_rows[i] = l_row_final;
+        U_rows[i] = u_row_final;
 
-        // STEP 4: Handle the diagonal element. It's never dropped.
-        if (std::abs(u_diag) < 1e-12) {
-            u_diag = 1e-4 * row_norm; // Pivot replacement
-        }
-        u_row.push_back({i, u_diag});
-        std::sort(u_row.begin(), u_row.end()); // Keep U row sorted
-
-        // Store the final, correctly filtered rows. Corresponds to lines 11
-        // & 12.
-        L_rows[i] = l_row; // l_row is already sorted by filter_by_p_and_sort
-        U_rows[i] = u_row;
-
-        // --- ALGORITHM 3.2, Line 13: `row(1:n) = 0` (Sparse set-to-zero) ---
-        // We reset only the parts of the workspace we actually used.
+        // --- Phase 3: Cleanup ---
         for (int col_idx : w_indices_list) {
             w_vals[col_idx] = 0.0;
             w_pattern[col_idx] = false;
         }
         w_indices_list.clear();
-    } // --- ALGORITHM 3.2, Line 14: `enddo` ---
+    }
 
-    // --- Finalization: Convert vector-of-vectors to CRS format ---
+    // --- Finalization: Convert to CRS and set up L_D, U_D ---
+    // (This part of your code was good, I'm just adding the L_D/U_D setup)
     int l_nnz = 0, u_nnz = 0;
-    for (int i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         l_nnz += L_rows[i].size();
         u_nnz += U_rows[i].size();
     }
 
-    L->n_rows = n;
-    L->n_cols = n;
-    L->nnz = l_nnz;
-    L->row_ptr = new int[n + 1];
-    L->col = new int[l_nnz];
-    L->val = new double[l_nnz];
-    U->n_rows = n;
-    U->n_cols = n;
+    L_strict->n_rows = L->n_rows = n;
+    L_strict->n_cols = L->n_cols = n;
+    L_strict->nnz = L->nnz = l_nnz;
+    L->row_ptr = new int[n + 1]; L->col = new int[l_nnz]; L->val = new double[l_nnz];
+    L_strict->row_ptr = new int[n + 1]; L_strict->col = new int[l_nnz]; L_strict->val = new double[l_nnz];
+    
+    U_strict->n_rows = U->n_rows = n;
+    U_strict->n_cols = U->n_cols = n;
     U->nnz = u_nnz;
-    U->row_ptr = new int[n + 1];
-    U->col = new int[u_nnz];
-    U->val = new double[u_nnz];
-
-    int l_pos = 0, u_pos = 0;
+    U->row_ptr = new int[n + 1]; U->col = new int[u_nnz]; U->val = new double[u_nnz];
+    
+    int l_pos = 0;
     for (int i = 0; i < n; ++i) {
         L->row_ptr[i] = l_pos;
         for (const auto &entry : L_rows[i]) {
@@ -324,17 +275,187 @@ inline void factor_ILUT(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
             L->val[l_pos] = entry.second;
             l_pos++;
         }
+    }
+    L->row_ptr[n] = l_pos;
+    
+    // Create L_strict by copying L
+    std::copy(L->row_ptr, L->row_ptr + n + 1, L_strict->row_ptr);
+    std::copy(L->col, L->col + l_nnz, L_strict->col);
+    std::copy(L->val, L->val + l_nnz, L_strict->val);
+
+    // Set L_D to ones for the unit-diagonal L solve
+    for(int i = 0; i < n; ++i) L_D[i] = 1.0;
+    
+    // Populate U and peel its diagonal into U_D
+    int u_pos = 0;
+    for (int i = 0; i < n; ++i) {
         U->row_ptr[i] = u_pos;
         for (const auto &entry : U_rows[i]) {
             U->col[u_pos] = entry.first;
             U->val[u_pos] = entry.second;
+            if (entry.first == i) {
+                U_D[i] = entry.second; // Peel diagonal
+            }
             u_pos++;
         }
     }
-    L->row_ptr[n] = l_pos;
     U->row_ptr[n] = u_pos;
+
+    // Create U_strict from U (not strictly needed by the solver, but good for consistency)
+    split_LU(U, new MatrixCRS(), new MatrixCRS(), new MatrixCRS(), U_strict);
 }
 
+// Implements ILU(0) factorization without creating a full matrix copy.
+// It uses a row-wise workspace, similar to the ILUT implementation.
+inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                        double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
+                        double *U_D) {
+    int n = A->n_rows;
+
+    // These will store the final factors, built row-by-row.
+    std::vector<std::vector<std::pair<int, double>>> L_rows(n);
+    std::vector<std::vector<std::pair<int, double>>> U_rows(n);
+
+    // Workspace for the current row i. `w_vals` holds the values,
+    // and `w_indices` tracks the non-zero pattern of the original row A(i, *).
+    std::vector<double> w_vals(n, 0.0);
+    std::vector<int> w_indices;
+    w_indices.reserve(A->nnz / n + 10); // Pre-allocate based on average nnz/row
+
+    // Main loop for each row `i` of the factorization.
+    for (int i = 0; i < n; ++i) {
+        
+        // --- Step 1: Scatter row A(i,*) into the workspace ---
+        // This establishes the fixed sparsity pattern for the ILU(0) calculations.
+        for (int j_pos = A->row_ptr[i]; j_pos < A->row_ptr[i + 1]; ++j_pos) {
+            int j = A->col[j_pos];
+            w_vals[j] = A->val[j_pos];
+            w_indices.push_back(j);
+        }
+        // Sort indices to process dependencies (k) in increasing order.
+        std::sort(w_indices.begin(), w_indices.end());
+
+        // --- Step 2: Elimination loop ---
+        // For each non-zero k < i in the current row's pattern...
+        for (int k : w_indices) {
+            if (k >= i) break;
+
+            // Find the pivot U(k,k) from the previously computed k-th row of U.
+            double pivot = 0.0;
+            for (const auto &u_entry : U_rows[k]) {
+                if (u_entry.first == k) {
+                    pivot = u_entry.second;
+                    break;
+                }
+            }
+            
+            // Check for unstable pivot. If it's bad, we can't use this row for elimination.
+            if (std::abs(pivot) < 1e-16) continue;
+
+            // Compute the L-factor L(i,k)
+            double factor = w_vals[k] / pivot;
+            w_vals[k] = factor; // Store it in the workspace.
+
+            // Perform sparse update: w(j) -= L(i,k) * U(k,j)
+            // We only update elements j that are already in the sparsity pattern of row i.
+            for (const auto &u_entry : U_rows[k]) {
+                int j = u_entry.first;
+                // Check if an element A(i,j) exists. w_vals[j] != 0 is a proxy for this.
+                if (j > k && w_vals[j] != 0.0) {
+                     w_vals[j] -= factor * u_entry.second;
+                }
+            }
+        } // End of elimination for row i
+
+        // --- Step 3: Gather the computed row into final L and U structures ---
+        std::vector<std::pair<int, double>> l_row_final, u_row_final;
+        double u_diag = 0.0;
+        
+        for (int j : w_indices) {
+            if (j < i) {
+                l_row_final.push_back({j, w_vals[j]});
+            } else if (j == i) {
+                u_diag = w_vals[j];
+            } else { // j > i
+                u_row_final.push_back({j, w_vals[j]});
+            }
+        }
+        
+        // Robust pivot handling for the diagonal element U(i,i)
+        if (std::abs(u_diag) < ILU0_PIVOT_TOLERANCE) {
+            u_diag = (u_diag >= 0 ? 1.0 : -1.0) * ILU0_PIVOT_REPLACEMENT;
+        }
+        u_row_final.push_back({i, u_diag});
+        std::sort(u_row_final.begin(), u_row_final.end());
+
+        L_rows[i] = l_row_final;
+        U_rows[i] = u_row_final;
+
+        // --- Step 4: Cleanup workspace for the next iteration ---
+        for (int j : w_indices) {
+            w_vals[j] = 0.0;
+        }
+        w_indices.clear();
+    }
+
+    // --- Finalization: Convert vector-of-vectors to CRS format ---
+    // (This code is identical to the finalization in the ILUT function)
+    int l_nnz = 0, u_nnz = 0;
+    for (int i = 0; i < n; ++i) {
+        l_nnz += L_rows[i].size();
+        u_nnz += U_rows[i].size();
+    }
+    
+    // Allocate all required matrices
+    L_strict->n_rows = L->n_rows = n;
+    L_strict->n_cols = L->n_cols = n;
+    L_strict->nnz = L->nnz = l_nnz;
+    L->row_ptr = new int[n + 1]; L->col = new int[l_nnz]; L->val = new double[l_nnz];
+    L_strict->row_ptr = new int[n + 1]; L_strict->col = new int[l_nnz]; L_strict->val = new double[l_nnz];
+    
+    U->n_rows = n; U->n_cols = n; U->nnz = u_nnz;
+    U->row_ptr = new int[n + 1]; U->col = new int[u_nnz]; U->val = new double[u_nnz];
+    
+    // Populate L (which is already strictly lower)
+    int pos = 0;
+    for (int i = 0; i < n; ++i) {
+        L->row_ptr[i] = pos;
+        for (const auto &entry : L_rows[i]) {
+            L->col[pos] = entry.first;
+            L->val[pos] = entry.second;
+            pos++;
+        }
+    }
+    L->row_ptr[n] = pos;
+    
+    // L_strict is the same as L for ILU(0) as constructed
+    std::copy(L->row_ptr, L->row_ptr + n + 1, L_strict->row_ptr);
+    std::copy(L->col, L->col + l_nnz, L_strict->col);
+    std::copy(L->val, L->val + l_nnz, L_strict->val);
+
+    // For a unit-diagonal L-solve, L_D must be all ones.
+    for (int i = 0; i < n; ++i) L_D[i] = 1.0;
+
+    // Populate U and peel its diagonal into U_D
+    pos = 0;
+    for (int i = 0; i < n; ++i) {
+        U->row_ptr[i] = pos;
+        for (const auto &entry : U_rows[i]) {
+            U->col[pos] = entry.first;
+            U->val[pos] = entry.second;
+            if (entry.first == i) {
+                U_D[i] = entry.second;
+            }
+            pos++;
+        }
+    }
+    U->row_ptr[n] = pos;
+    
+    // This isn't strictly needed if U_strict isn't used elsewhere, but good for completeness
+    split_LU(U, new MatrixCRS(), new MatrixCRS(), new MatrixCRS(), U_strict);
+}
+
+/*
 // inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L_strict,
 //                         MatrixCRS *U_with_diag) {
 inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
@@ -428,6 +549,7 @@ inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
 #endif
 }
 
+*/
 inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
 
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
