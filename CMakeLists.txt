@@ -28,7 +28,7 @@ set(_B_VAL 1.0 CACHE STRING "")
 set(_ILU0_PIVOT_TOLERANCE 1e-8 CACHE STRING "")
 set(_ILU0_PIVOT_REPLACEMENT 1e-4 CACHE STRING "")
 set(_ILUT_P 8 CACHE STRING "")
-set(_ILUT_TAU 1e-8 CACHE STRING "")
+set(_ILUT_TAU 1e-5 CACHE STRING "") #1e - 5 is a more aggressiving dropping strategy, 1e - 3 too aggressive. 1e - 8 was too loose.
 
 # Debugging
 option(DEBUG_MODE "Enable debug mode" OFF)
