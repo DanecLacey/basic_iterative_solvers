@@ -1,5 +1,4 @@
-#ifndef PREPROCESSING_HPP
-#define PREPROCESSING_HPP
+#pragma once
 
 #include "common.hpp"
 #include "solver.hpp"
@@ -7,15 +6,15 @@
 #include "utilities/utilities.hpp"
 
 void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
-                   std::unique_ptr<MatrixCRS> &crs_mat) {
+                   std::unique_ptr<MatrixCRS> &A) {
 
     // Numerical preprocessing of matrix
     // TODO: Scaling options
 
     // Initialize structs to be used in the solver
     IF_DEBUG_MODE(printf("Initializing structs\n"))
-    solver->allocate_structs(crs_mat->n_cols);
-    solver->init_structs(crs_mat->n_cols);
+    solver->allocate_structs(A->n_cols);
+    solver->init_structs(A->n_cols);
 
 #ifdef USE_SMAX
     // Initialize interface object
@@ -24,32 +23,24 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 
     // Optionally, permute matrix for parallel SpTRSV
     if (TO_STRING(PERM_MODE) != std::string("NONE"))
-        permute_mat(smax, crs_mat);
+        permute_mat(smax, A);
 #endif
 
     // Collect preprocessed CRS A matrix to solver object
-    solver->crs_mat = std::move(crs_mat);
+    solver->A = std::move(A);
 
     // It is convenient for gauss-seidel-like methods to have
     // (strict) lower and upper triangular copies. While not
     // explicitly necessary for all methods, it's just nice to have on hand.
-    std::unique_ptr<MatrixCRS> crs_mat_L = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> crs_mat_L_strict = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> crs_mat_U = std::make_unique<MatrixCRS>();
-    std::unique_ptr<MatrixCRS> crs_mat_U_strict = std::make_unique<MatrixCRS>();
-    extract_L_U(solver->crs_mat.get(), crs_mat_L.get(), crs_mat_L_strict.get(),
-                crs_mat_U.get(), crs_mat_U_strict.get());
+    solver->L = std::make_unique<MatrixCRS>();
+    solver->L_strict = std::make_unique<MatrixCRS>();
+    solver->U = std::make_unique<MatrixCRS>();
+    solver->U_strict = std::make_unique<MatrixCRS>();
 
-    // NOTE: The triangular matrix we use to peel D must be sorted in each row
-    // It's easier just to sort both L and U now, eventhough we only need D once
-    peel_diag_crs(crs_mat_L.get(), solver->D, solver->D_inv);
-    peel_diag_crs(crs_mat_U.get(), solver->D, solver->D_inv);
-
-    // Collect preprocessed CRS L and U matrices to solver object
-    solver->crs_mat_L = std::move(crs_mat_L);
-    solver->crs_mat_U = std::move(crs_mat_U);
-    solver->crs_mat_L_strict = std::move(crs_mat_L_strict);
-    solver->crs_mat_U_strict = std::move(crs_mat_U_strict);
+    // Split A into L and U copies, depending on the selected preconditioner
+    factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, solver->L.get(),
+              solver->L_strict.get(), solver->L_D, solver->U.get(),
+              solver->U_strict.get(), solver->U_D, solver->preconditioner);
 
 #ifdef USE_SMAX
     // Register kernels and data to SMAX
@@ -65,5 +56,3 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
     solver->init_stopping_criteria();
 };
-
-#endif

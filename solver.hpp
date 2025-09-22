@@ -15,11 +15,11 @@ class Solver {
 #endif
 
     // Common structs
-    std::unique_ptr<MatrixCRS> crs_mat;
-    std::unique_ptr<MatrixCRS> crs_mat_L;
-    std::unique_ptr<MatrixCRS> crs_mat_L_strict;
-    std::unique_ptr<MatrixCRS> crs_mat_U;
-    std::unique_ptr<MatrixCRS> crs_mat_U_strict;
+    std::unique_ptr<MatrixCRS> A;
+    std::unique_ptr<MatrixCRS> L;
+    std::unique_ptr<MatrixCRS> L_strict;
+    std::unique_ptr<MatrixCRS> U;
+    std::unique_ptr<MatrixCRS> U_strict;
 
     // Common parameters
     double stopping_criteria = 0.0;
@@ -40,8 +40,10 @@ class Solver {
     double *work = nullptr;
     double *residual = nullptr;
     double *residual_0 = nullptr;
-    double *D = nullptr;
-    double *D_inv = nullptr;
+    double *A_D = nullptr; // Diagonal of A
+    double *A_D_inv = nullptr;
+    double *L_D = nullptr; // Diagonal of L
+    double *U_D = nullptr; // Diagonal of U
 
     // Bookkeeping
     double *collected_residual_norms = nullptr;
@@ -78,8 +80,10 @@ class Solver {
         work = new double[N];
         residual = new double[N];
         residual_0 = new double[N];
-        D = new double[N];
-        D_inv = new double[N];
+        A_D = new double[N];
+        A_D_inv = new double[N];
+        L_D = new double[N];
+        U_D = new double[N];
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
@@ -88,8 +92,10 @@ class Solver {
                 x_star[i] = 0.0;
                 x_0[i] = INIT_X_VAL;
                 b[i] = B_VAL;
-                D[i] = 0.0;
-                D_inv[i] = 0.0;
+                A_D[i] = 1.0; // div safe default
+                A_D_inv[i] = 0.0;
+                L_D[i] = 1.0; // div safe default
+                U_D[i] = 1.0; // div safe default
             }
         }
     }
@@ -120,23 +126,25 @@ class Solver {
         delete[] work;
         delete[] residual;
         delete[] residual_0;
-        delete[] D;
-        delete[] D_inv;
+        delete[] A_D;
+        delete[] A_D_inv;
+        delete[] L_D;
+        delete[] U_D;
         delete[] collected_residual_norms;
         delete[] time_per_iteration;
     }
 
     // clang-format off
     virtual void init_residual() {
-        copy_vector(residual_0, residual, crs_mat->n_cols);
+        copy_vector(residual_0, residual, A->n_cols);
         collected_residual_norms[collected_residual_norms_count++] = residual_norm;
     }
 
     virtual void save_x_star() {
-        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x_star, crs_mat->n_rows, "x_star"));
-        compute_residual(crs_mat.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
-        // residual_norm = infty_vec_norm(residual, crs_mat->n_cols);
-        residual_norm = euclidean_vec_norm(residual, crs_mat->n_cols);
+        IF_DEBUG_MODE_FINE(SanityChecker::print_vector(x_star, A->n_rows, "x_star"));
+        compute_residual(A.get(), x_star, b, residual, tmp SMAX_ARGS(smax, "residual_spmv"));
+        // residual_norm = infty_vec_norm(residual, A->n_cols);
+        residual_norm = euclidean_vec_norm(residual, A->n_cols);
         collected_residual_norms[collected_residual_norms_count + 1] = residual_norm;
     }
 

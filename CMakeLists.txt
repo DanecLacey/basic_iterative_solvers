@@ -25,6 +25,10 @@ set(_PRECOND_OUTER_ITERS 1 CACHE STRING "")
 set(_PRECOND_INNER_ITERS 0 CACHE STRING "")
 set(_INIT_X_VAL 0.1 CACHE STRING "")
 set(_B_VAL 1.0 CACHE STRING "")
+set(_ILU0_PIVOT_TOLERANCE 1e-8 CACHE STRING "")
+set(_ILU0_PIVOT_REPLACEMENT 1e-4 CACHE STRING "")
+set(_ILUT_P 8 CACHE STRING "")
+set(_ILUT_TAU 1e-5 CACHE STRING "") #1e - 5 is a more aggressiving dropping strategy, 1e - 3 too aggressive. 1e - 8 was too loose.
 
 # Debugging
 option(DEBUG_MODE "Enable debug mode" OFF)
@@ -126,7 +130,7 @@ if(USE_SMAX)
         
         # Set permutation mode (and set default if not defined)
         if(NOT SMAX_PERM_MODE)
-            set(SMAX_PERM_MODE NONE CACHE STRING "Choose the permutation mode." FORCE)
+            set(SMAX_PERM_MODE RS CACHE STRING "Choose the permutation mode." FORCE)
         endif()
         set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "RS" "BFS" "SC" "PC" "PC_BAL" "RACE")
         message(STATUS "Permutation Mode: ${SMAX_PERM_MODE}")
@@ -234,6 +238,10 @@ add_definitions(
     -DB_VAL=${_B_VAL}
     -DPRECOND_OUTER_ITERS=${_PRECOND_OUTER_ITERS}
     -DPRECOND_INNER_ITERS=${_PRECOND_INNER_ITERS}
+    -DILU0_PIVOT_TOLERANCE=${_ILU0_PIVOT_TOLERANCE}
+    -DILU0_PIVOT_REPLACEMENT=${_ILU0_PIVOT_REPLACEMENT}
+    -DILUT_P=${_ILUT_P}
+    -DILUT_TAU=${_ILUT_TAU}
 )
 
 if(DEBUG_MODE)

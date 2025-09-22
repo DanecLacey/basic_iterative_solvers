@@ -1,5 +1,4 @@
-#ifndef SOLVER_HARNESS_HPP
-#define SOLVER_HARNESS_HPP
+#pragma once
 
 #include "common.hpp"
 #include "solver.hpp"
@@ -37,5 +36,3 @@ void solve(Args *cli_args, Solver *solver, Timers *timers) {
 
     IF_DEBUG_MODE(printf("Completing solver harness\n"))
 };
-
-#endif

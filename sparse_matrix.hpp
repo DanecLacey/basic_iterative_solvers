@@ -1,5 +1,4 @@
-#ifndef SPARSE_MATRIX_HPP
-#define SPARSE_MATRIX_HPP
+#pragma once
 
 #include <iostream>
 #include <numeric>
@@ -89,7 +88,7 @@ struct MatrixCRS {
 #endif
     }
 
-    void print(void) {
+    void print(bool print_perm = false) {
         std::cout << "n_rows = " << n_rows << std::endl;
         std::cout << "n_cols = " << n_cols << std::endl;
         std::cout << "nnz = " << nnz << std::endl;
@@ -113,17 +112,19 @@ struct MatrixCRS {
         std::cout << "]" << std::endl;
 
 #ifdef USE_SMAX
-        std::cout << "perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << perm[i] << ", ";
-        }
-        std::cout << "]" << std::endl;
+        if(print_perm){
+            std::cout << "perm = [";
+            for (int i = 0; i < n_rows; ++i) {
+                std::cout << perm[i] << ", ";
+            }
+            std::cout << "]" << std::endl;
 
-        std::cout << "inv_perm = [";
-        for (int i = 0; i < n_rows; ++i) {
-            std::cout << inv_perm[i] << ", ";
+            std::cout << "inv_perm = [";
+            for (int i = 0; i < n_rows; ++i) {
+                std::cout << inv_perm[i] << ", ";
+            }
+            std::cout << "]" << std::endl;
         }
-        std::cout << "]" << std::endl;
 #endif
     }
 
@@ -692,6 +693,4 @@ void MatrixCOO::scamac_make_mtx(const std::string matrix_file_name) {
     this->n_cols = (std::set<int>((this->J).begin(), (this->J).end())).size();
     this->nnz = (this->values).size();
 };
-#endif
-
 #endif
