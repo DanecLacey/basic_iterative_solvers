@@ -242,14 +242,14 @@ class GMRESSolver : public Solver {
         // routine. All other invocations will be due to resets, in which case
         // the approximate x vector will be explicity computed.
         if (!gmres_restarted) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
             for (int i = 0; i < N; ++i) {
                 x[i] = x_0[i];
                 x_old[i] = x_0[i];
             }
         }
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N * (gmres_restart_len + 1); ++i) {
             V[i] = 0.0;
         }
@@ -432,8 +432,7 @@ class GMRESSolver : public Solver {
             register_sptrsv(smax, "M^{-1} * w_j", U.get(), w, N, w, N, true);
         } else if (
             preconditioner == PrecondType::SymmetricGaussSeidel ||
-            preconditioner == PrecondType::ILU0 ||
-            preconditioner == PrecondType::ILUT
+            preconditioner == PrecondType::ILU0
         ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);

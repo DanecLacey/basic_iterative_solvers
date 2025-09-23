@@ -119,7 +119,7 @@ inline void bsptrsv(const MatrixCRS *U, double *x, const double *D,
 inline void subtract_vectors(double *result_vec, const double *vec1,
                              const double *vec2, const int N,
                              const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] - scale * vec2[i];
     }
@@ -137,7 +137,7 @@ inline void sum_vectors(double *result_vec, const double *vec1,
 inline void elemwise_mult_vectors(double *result_vec, const double *vec1,
                                   const double *vec2, const int N,
                                   const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] * scale * vec2[i];
     }
@@ -146,7 +146,7 @@ inline void elemwise_mult_vectors(double *result_vec, const double *vec1,
 inline void elemwise_div_vectors(double *result_vec, const double *vec1,
                                  const double *vec2, const int N,
                                  const double scale = 1.0) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         result_vec[i] = vec1[i] / (scale * vec2[i]);
     }
@@ -221,7 +221,7 @@ inline void scale(double *result_vec, const double *vec, const double scalar,
 
 inline void init_dense_identity_matrix(double *mat, const int n_rows,
                                        const int n_cols) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < n_rows; ++i) {
         for (int j = 0; j < n_cols; ++j) {
             if (i == j) {
@@ -234,7 +234,7 @@ inline void init_dense_identity_matrix(double *mat, const int n_rows,
 }
 
 inline void init_vector(double *vec, double val, long size) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < size; ++i) {
         vec[i] = val;
     }
@@ -250,7 +250,7 @@ inline void copy_dense_matrix(double *new_mat, const double *old_mat,
 }
 
 inline void copy_vector(double *output, const double *input, const int n_rows) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int row = 0; row < n_rows; ++row) {
         output[row] = input[row];
     }
@@ -376,7 +376,7 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
 
             two_stage_gauss_seidel(U_strict, tmp, work, A_D_inv, output,
                             output, N SMAX_ARGS(0, smax, std::string(kernel_name + "_upper")));
-        } else if (preconditioner == PrecondType::ILU0 || preconditioner == PrecondType::ILUT) {
+        } else if (preconditioner == PrecondType::ILU0) {
             // tmp <- L^{-1}*r
             // NOTE: L_D := ones(N), since we don't divide by anything
             IF_DEBUG_MODE_FINE(SanityChecker::print_vector(tmp, N, "tmp before lower solve"));

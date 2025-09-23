@@ -7,7 +7,7 @@ void jacobi_fused_iteration(const MatrixCRS *A, const double *b, double *x_new,
                             const double *x_old) {
     double diag_elem;
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
         double sum = 0.0;
         int start_row = A->row_ptr[row_idx];
@@ -29,7 +29,7 @@ void normalize_x(double *x_new, const double *x_old, const double *D,
     double scaled_x_old;
     double adjusted_x;
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int row_idx = 0; row_idx < n_rows; ++row_idx) {
         scaled_x_old = D[row_idx] * x_old[row_idx];
 
@@ -69,7 +69,7 @@ class JacobiSolver : public Solver {
 
     void init_structs(const int N) override {
         Solver::init_structs(N);
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
             x_new[i] = 0.0;
             x_old[i] = x_0[i];

@@ -43,8 +43,7 @@ enum class PrecondType {
     SymmetricGaussSeidel,
     TwoStageGS,
     SymmetricTwoStageGS,
-    ILU0,
-    ILUT
+    ILU0
 };
 
 enum class SolverType {
@@ -76,8 +75,6 @@ template <> inline std::string to_string(PrecondType type) {
         return "symmetric two-stage gauss-seidel";
     case PrecondType::ILU0:
         return "incomplete LU(0)";
-    case PrecondType::ILUT:
-        return "incomplete LU(0)-T";
     case PrecondType::None:
         return "none";
     default:
@@ -442,7 +439,7 @@ class SanityChecker {
         double *Q_t = new double[(restart_len + 1) * (restart_len + 1)];
 
 // init
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < (restart_len + 1) * (restart_len + 1); ++i) {
             Q_t[i] = 0.0;
         }
@@ -461,7 +458,7 @@ class SanityChecker {
         double *Q_tR = new double[(restart_len + 1) * (restart_len)];
 
 // init
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < (restart_len + 1) * restart_len; ++i) {
             Q_tR[i] = 0.0;
         }

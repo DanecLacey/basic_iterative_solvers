@@ -127,7 +127,7 @@ class BiCGSTABSolver : public Solver {
 
     void init_structs(const int N) override {
         Solver::init_structs(N);
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
             x_new[i] = 0.0;
             x_old[i] = x_0[i];
@@ -194,8 +194,7 @@ class BiCGSTABSolver : public Solver {
             sptrsv2->args->y->val = static_cast<void *>(s);
         } else if (
             preconditioner == PrecondType::SymmetricGaussSeidel ||
-            preconditioner == PrecondType::ILU0 ||  
-            preconditioner == PrecondType::ILUT
+            preconditioner == PrecondType::ILU0
         ) {
             auto *sptrsv1_lower = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * p_old_lower"));
             sptrsv1_lower->args->x->val = static_cast<void *>(tmp);
@@ -239,8 +238,7 @@ class BiCGSTABSolver : public Solver {
             register_sptrsv(smax, "M^{-1} * s", U.get(), s_tmp, N, s, N, true);
         } else if (
             preconditioner == PrecondType::SymmetricGaussSeidel ||
-            preconditioner == PrecondType::ILU0 ||  
-            preconditioner == PrecondType::ILUT
+            preconditioner == PrecondType::ILU0
         ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual_old, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), residual, N, tmp, N, true);

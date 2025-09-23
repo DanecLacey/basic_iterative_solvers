@@ -67,7 +67,7 @@ class GaussSeidelSolver : public Solver {
 
     void init_structs(const int N) override {
         Solver::init_structs(N);
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
             x[i] = x_0[i];
         }

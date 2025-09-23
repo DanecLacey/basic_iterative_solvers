@@ -79,8 +79,6 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                 cli_args->preconditioner = PrecondType::SymmetricTwoStageGS;
             } else if (pt == "ilu0") {
                 cli_args->preconditioner = PrecondType::ILU0;
-            } else if (pt == "ilut") {
-                cli_args->preconditioner = PrecondType::ILUT;
             } else {
                 fprintf(stderr,
                         "ERROR: assign_cli_inputs: Please choose an available "
@@ -90,9 +88,8 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                         "\n-p bgs (Backwards Gauss-Seidel)"
                         "\n-p sgs (Symmetric Gauss-Seidel)"
                         "\n-p 2st (2 Stage Gauss-Seidel)"
-                        "\n-p 2st (Symmetric 2 Stage Gauss-Seidel)"
+                        "\n-p s2st (Symmetric 2 Stage Gauss-Seidel)"
                         "\n-p ilu0 (Incomplete LU with 0 fill-in)"
-                        "\n-p ilut (Incomplete LU0 with tolerance)"
                         "\n");
                 exit(EXIT_FAILURE);
             }

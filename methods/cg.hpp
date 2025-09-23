@@ -84,7 +84,7 @@ class ConjugateGradientSolver : public Solver {
 
     void init_structs(const int N) override {
         Solver::init_structs(N);
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
             x_new[i] = 0.0;
             x_old[i] = x_0[i];
@@ -141,8 +141,7 @@ class ConjugateGradientSolver : public Solver {
             sptrsv->args->y->val = static_cast<void *>(residual_new);
         } else if (
             preconditioner == PrecondType::SymmetricGaussSeidel ||
-            preconditioner == PrecondType::ILU0 ||  
-            preconditioner == PrecondType::ILUT
+            preconditioner == PrecondType::ILU0
         ) {
             auto *lower_sptrsv = dynamic_cast<SMAX::KERNELS::SpTRSVKernel *>(smax->kernel("M^{-1} * residual_lower"));
             lower_sptrsv->args->x->val = static_cast<void *>(tmp);
@@ -180,8 +179,7 @@ class ConjugateGradientSolver : public Solver {
             register_sptrsv(smax, "M^{-1} * residual", U.get(), z_new, N, residual_new, N, true);
         } else if (
             preconditioner == PrecondType::SymmetricGaussSeidel ||
-            preconditioner == PrecondType::ILU0 ||  
-            preconditioner == PrecondType::ILUT
+            preconditioner == PrecondType::ILU0
         ) {
             register_sptrsv(smax, "init M^{-1} * residual_lower", L.get(), tmp, N, residual, N);
             register_sptrsv(smax, "init M^{-1} * residual_upper", U.get(), z_old, N, tmp, N, true);

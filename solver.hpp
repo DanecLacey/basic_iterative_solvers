@@ -87,7 +87,7 @@ class Solver {
 
         if (!gmres_restarted) {
             // NOTE: We don't want to overwrite these when restarting GMRES
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
             for (int i = 0; i < N; ++i) {
                 x_star[i] = 0.0;
                 x_0[i] = INIT_X_VAL;
@@ -101,7 +101,7 @@ class Solver {
     }
 
     virtual void init_structs(const int N) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
             tmp[i] = 0.0;
             work[i] = 0.0;

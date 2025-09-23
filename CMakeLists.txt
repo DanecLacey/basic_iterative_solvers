@@ -27,11 +27,8 @@ set(_INIT_X_VAL 0.1 CACHE STRING "")
 set(_B_VAL 1.0 CACHE STRING "")
 set(_ILU0_PIVOT_TOLERANCE 1e-8 CACHE STRING "")
 set(_ILU0_PIVOT_REPLACEMENT 1e-4 CACHE STRING "")
-set(_ILUT_P 8 CACHE STRING "")
-set(_ILUT_TAU 1e-5 CACHE STRING "") #1e - 5 is a more aggressiving dropping strategy, 1e - 3 too aggressive. 1e - 8 was too loose.
 
 # Debugging
-option(DEBUG_MODE "Enable debug mode" OFF)
 option(DEBUG_MODE_FINE "Enable fine-grained debug mode" OFF)
 option(OUTPUT_SPARSITY "Enable sparsity output" OFF)
 
@@ -240,14 +237,7 @@ add_definitions(
     -DPRECOND_INNER_ITERS=${_PRECOND_INNER_ITERS}
     -DILU0_PIVOT_TOLERANCE=${_ILU0_PIVOT_TOLERANCE}
     -DILU0_PIVOT_REPLACEMENT=${_ILU0_PIVOT_REPLACEMENT}
-    -DILUT_P=${_ILUT_P}
-    -DILUT_TAU=${_ILUT_TAU}
 )
-
-if(DEBUG_MODE)
-    add_definitions(-DDEBUG_MODE)
-    add_compile_options(-g)
-endif()
 
 if(DEBUG_MODE_FINE)
     add_definitions(-DDEBUG_MODE_FINE)
