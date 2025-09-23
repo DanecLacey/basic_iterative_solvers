@@ -124,6 +124,12 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
 inline void init_timers(Timers *timers) {
     CREATE_STOPWATCH(total)
     CREATE_STOPWATCH(preprocessing)
+    CREATE_STOPWATCH(preprocessing_init)
+#ifdef USE_SMAX
+    CREATE_STOPWATCH(preprocessing_perm)
+    CREATE_STOPWATCH(preprocessing_register)
+#endif
+    CREATE_STOPWATCH(preprocessing_factor)
     CREATE_STOPWATCH(solve)
     CREATE_STOPWATCH(per_iteration)
     CREATE_STOPWATCH(iterate)
@@ -152,6 +158,16 @@ inline void init_timers(Timers *timers) {
 inline void print_timers(Args *cli_args, Timers *timers) {
     long double total_time = timers->total_time->get_wtime();
     long double preprocessing_time = timers->preprocessing_time->get_wtime();
+    long double preprocessing_init_time =
+        timers->preprocessing_init_time->get_wtime();
+#ifdef USE_SMAX
+    long double preprocessing_perm_time =
+        timers->preprocessing_perm_time->get_wtime();
+    long double preprocessing_register_time =
+        timers->preprocessing_register_time->get_wtime();
+#endif
+    long double preprocessing_factor_time =
+        timers->preprocessing_factor_time->get_wtime();
     long double solve_time = timers->solve_time->get_wtime();
     long double precond_time = timers->precond_time->get_wtime();
     long double iterate_time = timers->iterate_time->get_wtime();
@@ -189,6 +205,16 @@ inline void print_timers(Args *cli_args, Timers *timers) {
 		std::cout << total_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| Preprocessing time: " << std::right << std::setw(right_flush_width);
 		std::cout << preprocessing_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | Init time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_init_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | Factor time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_time  << "[s]" << std::endl;
+#ifdef USE_SMAX
+		std::cout << std::left << std::setw(left_flush_width) << "| | Perm time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_perm_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | Register time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_register_time  << "[s]" << std::endl;
+#endif
 		std::cout << std::left << std::setw(left_flush_width) << "| Solve time: " << std::right << std::setw(right_flush_width);
 		std::cout << solve_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | Iterate time: " << std::right << std::setw(right_flush_width);

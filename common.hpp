@@ -266,6 +266,12 @@ class Stopwatch {
 struct Timers {
     Stopwatch *total_time;
     Stopwatch *preprocessing_time;
+    Stopwatch *preprocessing_init_time;
+#ifdef USE_SMAX
+    Stopwatch *preprocessing_perm_time;
+    Stopwatch *preprocessing_register_time;
+#endif
+    Stopwatch *preprocessing_factor_time;
     Stopwatch *solve_time;
     Stopwatch *per_iteration_time;
     Stopwatch *iterate_time;
@@ -293,6 +299,12 @@ struct Timers {
     ~Timers() {
         DELETE_STOPWATCH(total_time);
         DELETE_STOPWATCH(preprocessing_time);
+        DELETE_STOPWATCH(preprocessing_init_time);
+#ifdef USE_SMAX
+        DELETE_STOPWATCH(preprocessing_perm_time);
+        DELETE_STOPWATCH(preprocessing_register_time);
+#endif
+        DELETE_STOPWATCH(preprocessing_factor_time);
         DELETE_STOPWATCH(solve_time);
         DELETE_STOPWATCH(per_iteration_time);
         DELETE_STOPWATCH(iterate_time);

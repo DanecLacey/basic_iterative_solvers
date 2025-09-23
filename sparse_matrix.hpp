@@ -88,6 +88,45 @@ struct MatrixCRS {
 #endif
     }
 
+    // --- Copy assignment operator ---
+    MatrixCRS &operator=(MatrixCRS const &other) {
+        if (this != &other) {
+            // 1) Free existing storage
+            delete[] val;
+            delete[] col;
+            delete[] row_ptr;
+
+            // 2) Copy sizes
+            nnz = other.nnz;
+            n_rows = other.n_rows;
+            n_cols = other.n_cols;
+
+            // 3) Allocate new storage
+            if (nnz > 0) {
+                val = new double[nnz];
+                col = new int[nnz];
+                row_ptr = new int[n_rows + 1];
+
+                // 4) Copy data
+                row_ptr[0] = other.row_ptr[0];
+#pragma omp parallel for schedule(static)
+                for (int i = 0; i < n_rows; ++i) {
+                    row_ptr[i + 1] = other.row_ptr[i + 1];
+                    for (int j = other.row_ptr[i]; j < other.row_ptr[i + 1];
+                         ++j) {
+                        col[j] = other.col[j];
+                        val[j] = other.val[j];
+                    }
+                }
+            } else {
+                val = nullptr;
+                col = nullptr;
+                row_ptr = nullptr;
+            }
+        }
+        return *this;
+    }
+
     void print(bool print_perm = false) {
         std::cout << "n_rows = " << n_rows << std::endl;
         std::cout << "n_cols = " << n_cols << std::endl;
@@ -112,7 +151,7 @@ struct MatrixCRS {
         std::cout << "]" << std::endl;
 
 #ifdef USE_SMAX
-        if(print_perm){
+        if (print_perm) {
             std::cout << "perm = [";
             for (int i = 0; i < n_rows; ++i) {
                 std::cout << perm[i] << ", ";

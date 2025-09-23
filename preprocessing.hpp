@@ -13,10 +13,14 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 
     // Initialize structs to be used in the solver
     IF_DEBUG_MODE(printf("Initializing structs\n"))
+    timers->preprocessing_init_time->start();
     solver->allocate_structs(A->n_cols);
     solver->init_structs(A->n_cols);
+    timers->preprocessing_init_time->stop();
 
 #ifdef USE_SMAX
+    timers->preprocessing_perm_time->start();
+
     // Initialize interface object
     SMAX::Interface *smax = new SMAX::Interface();
     solver->smax = smax;
@@ -24,6 +28,8 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     // Optionally, permute matrix for parallel SpTRSV
     if (TO_STRING(PERM_MODE) != std::string("NONE"))
         permute_mat(smax, A);
+
+    timers->preprocessing_perm_time->stop();
 #endif
 
     // Collect preprocessed CRS A matrix to solver object
@@ -37,16 +43,21 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     solver->U = std::make_unique<MatrixCRS>();
     solver->U_strict = std::make_unique<MatrixCRS>();
 
+    timers->preprocessing_factor_time->start();
     // Split A into L and U copies, depending on the selected preconditioner
     factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, solver->L.get(),
               solver->L_strict.get(), solver->L_D, solver->U.get(),
               solver->U_strict.get(), solver->U_D, solver->preconditioner);
+    timers->preprocessing_factor_time->stop();
 
 #ifdef USE_SMAX
+    timers->preprocessing_register_time->start();
     // Register kernels and data to SMAX
     solver->register_structs();
+    timers->preprocessing_register_time->stop();
 #endif
 
+    timers->preprocessing_init_time->start();
     // Compute the initial residual vector
     IF_DEBUG_MODE(printf("Initializing residual vector\n"))
     solver->init_residual();
@@ -55,4 +66,5 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     // the stopping criteria (tolerance * ||Ax_0 - b||_2)
     IF_DEBUG_MODE(printf("Initializing stopping criteria\n"))
     solver->init_stopping_criteria();
+    timers->preprocessing_init_time->stop();
 };

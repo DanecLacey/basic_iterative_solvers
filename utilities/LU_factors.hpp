@@ -3,9 +3,8 @@
 #include "../common.hpp"
 #include "../sparse_matrix.hpp"
 
-// NOTE: very lazy way to do this
-inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
-                     MatrixCRS *U, MatrixCRS *U_strict) {
+inline void split_LU_old(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                         MatrixCRS *U, MatrixCRS *U_strict) {
     int D_nz_count = 0;
 
     // These will safely accumulate the counts in parallel.
@@ -119,10 +118,188 @@ inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     }
 }
 
-// Implements ILU(0) factorization without creating a full matrix copy.
-inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
-                        double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
-                        double *U_D) {
+// Based on "extract_D_L_U" in SmaxKernels
+inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                         MatrixCRS *U, MatrixCRS *U_strict) {
+
+    // Clear data from targets
+    // NOTE: Why not just use "clear()" methods?
+    if (L->row_ptr != nullptr)
+        delete[] L->row_ptr;
+    if (L->col != nullptr)
+        delete[] L->col;
+    if (L->val != nullptr)
+        delete[] L->val;
+
+    if (L_strict->row_ptr != nullptr)
+        delete[] L_strict->row_ptr;
+    if (L_strict->col != nullptr)
+        delete[] L_strict->col;
+    if (L_strict->val != nullptr)
+        delete[] L_strict->val;
+
+    if (U->row_ptr != nullptr)
+        delete[] U->row_ptr;
+    if (U->col != nullptr)
+        delete[] U->col;
+    if (U->val != nullptr)
+        delete[] U->val;
+
+    if (U_strict->row_ptr != nullptr)
+        delete[] U_strict->row_ptr;
+    if (U_strict->col != nullptr)
+        delete[] U_strict->col;
+    if (U_strict->val != nullptr)
+        delete[] U_strict->val;
+
+    L->nnz = 0;
+    L_strict->nnz = 0;
+    U->nnz = 0;
+    U_strict->nnz = 0;
+
+    // Count nnz
+    int L_tmp_nnz = 0;
+    int L_strict_tmp_nnz = 0;
+    int U_tmp_nnz = 0;
+    int U_strict_tmp_nnz = 0;
+    for (int i = 0; i < A->n_rows; ++i) {
+        int row_start = A->row_ptr[i];
+        int row_end = A->row_ptr[i + 1];
+
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = A->col[idx];
+
+            if (col < i) {
+                ++L_tmp_nnz;
+                ++L_strict_tmp_nnz;
+            }
+            if (col == i) {
+                ++L_tmp_nnz;
+                ++U_tmp_nnz;
+            }
+            if (col > i) {
+                ++U_tmp_nnz;
+                ++U_strict_tmp_nnz;
+            }
+        }
+    }
+    // Make tmp structs
+    int N = A->n_rows;
+    MatrixCRS *L_tmp = new MatrixCRS(N, N, L_tmp_nnz);
+    MatrixCRS *L_strict_tmp = new MatrixCRS(N, N, L_strict_tmp_nnz);
+    MatrixCRS *U_tmp = new MatrixCRS(N, N, U_tmp_nnz);
+    MatrixCRS *U_strict_tmp = new MatrixCRS(N, N, U_strict_tmp_nnz);
+
+    // Assign nonzeros
+    int L_tmp_count = 0;
+    int L_strict_tmp_count = 0;
+    int U_tmp_count = 0;
+    int U_strict_tmp_count = 0;
+    for (int i = 0; i < A->n_rows; ++i) {
+        int row_start = A->row_ptr[i];
+        int row_end = A->row_ptr[i + 1];
+
+        // Loop over each non-zero entry in the current row
+        for (int idx = row_start; idx < row_end; ++idx) {
+            int col = A->col[idx];
+            double val = A->val[idx];
+
+            if (col < i) {
+                L_tmp->val[L_tmp_count] = val;
+                L_tmp->col[L_tmp_count++] = col;
+                L_strict_tmp->val[L_strict_tmp_count] = val;
+                L_strict_tmp->col[L_strict_tmp_count++] = col;
+            }
+            if (col == i) {
+                L_tmp->val[L_tmp_count] = val;
+                L_tmp->col[L_tmp_count++] = col;
+                U_tmp->val[U_tmp_count] = val;
+                U_tmp->col[U_tmp_count++] = col;
+            }
+            if (col > i) {
+                U_tmp->val[U_tmp_count] = val;
+                U_tmp->col[U_tmp_count++] = col;
+                U_strict_tmp->val[U_strict_tmp_count] = val;
+                U_strict_tmp->col[U_strict_tmp_count++] = col;
+            }
+        }
+
+        // Update row pointers
+        L_tmp->row_ptr[i + 1] = L_tmp_count;
+        L_strict_tmp->row_ptr[i + 1] = L_strict_tmp_count;
+        U_tmp->row_ptr[i + 1] = U_tmp_count;
+        U_strict_tmp->row_ptr[i + 1] = U_strict_tmp_count;
+    }
+
+    // Give L and U metadata
+    L->n_rows = A->n_rows;
+    L->n_cols = A->n_cols;
+    L->nnz = L_tmp->nnz;
+    L->val = new double[L_tmp->nnz];
+    L->col = new int[L_tmp->nnz];
+    L->row_ptr = new int[L->n_rows + 1];
+    L->row_ptr[0] = 0;
+
+    L_strict->n_rows = A->n_rows;
+    L_strict->n_cols = A->n_cols;
+    L_strict->nnz = L_strict_tmp->nnz;
+    L_strict->val = new double[L_strict_tmp->nnz];
+    L_strict->col = new int[L_strict_tmp->nnz];
+    L_strict->row_ptr = new int[L_strict->n_rows + 1];
+    L_strict->row_ptr[0] = 0;
+
+    U->n_rows = A->n_rows;
+    U->n_cols = A->n_cols;
+    U->nnz = U_tmp->nnz;
+    U->val = new double[U_tmp->nnz];
+    U->col = new int[U_tmp->nnz];
+    U->row_ptr = new int[U->n_rows + 1];
+    U->row_ptr[0] = 0;
+
+    U_strict->n_rows = A->n_rows;
+    U_strict->n_cols = A->n_cols;
+    U_strict->nnz = U_strict_tmp->nnz;
+    U_strict->val = new double[U_strict_tmp->nnz];
+    U_strict->col = new int[U_strict_tmp->nnz];
+    U_strict->row_ptr = new int[U_strict->n_rows + 1];
+    U_strict->row_ptr[0] = 0;
+
+    // Finally, numa-friendly copy tmp matrices to L and U
+    // if (use_level_sched) {
+    // TODO
+    //     // Copy triangular matrices in a NUMA friendly way for SpTRSV
+    //     smax->utils->level_aware_copy(D_plus_L_tmp->row_ptr,
+    //     D_plus_L.row_ptr,
+    //                                   D_plus_L_tmp->col, D_plus_L.col,
+    //                                   D_plus_L_tmp->val, D_plus_L.val);
+    //     smax->utils->level_aware_copy(U_tmp->row_ptr, U.row_ptr, U_tmp->col,
+    //                                   U.col, U_tmp->val, U.val);
+    // } else {
+    *L = *L_tmp;
+    *L_strict = *L_strict_tmp;
+    *U = *U_tmp;
+    *U_strict = *U_strict_tmp;
+    // }
+
+    delete L_tmp;
+    delete L_strict_tmp;
+    delete U_tmp;
+    delete U_strict_tmp;
+}
+
+inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                     MatrixCRS *U, MatrixCRS *U_strict) {
+#if 1
+    split_LU_old(A, L, L_strict, U, U_strict);
+#elif 0
+    split_LU_new(A, L, L_strict, U, U_strict);
+#endif
+}
+
+inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
+                            MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
+                            MatrixCRS *U_strict, double *U_D) {
     int n = A->n_rows;
 
     // These will store the final factors, built row-by-row.
@@ -318,8 +495,24 @@ inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     split_LU(U, new MatrixCRS(), new MatrixCRS(), new MatrixCRS(), U_strict);
 }
 
-inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
+inline void factor_ILU0_new(const MatrixCRS *A, MatrixCRS *L,
+                            MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
+                            MatrixCRS *U_strict, double *U_D) {
+    // TODO
+}
 
+inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
+                        double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
+                        double *U_D) {
+#if 1
+    factor_ILU0_old(A, L, L_strict, L_D, U, U_strict, U_D);
+#elif 0
+    factor_ILU0_new(A, L, L_strict, L_D, U, U_strict, U_D);
+#endif
+}
+
+inline void peel_diag_crs_old(MatrixCRS *A, double *D,
+                              double *D_inv = nullptr) {
     for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
         int row_start = A->row_ptr[row_idx];
         int row_end = A->row_ptr[row_idx + 1] -
@@ -362,6 +555,20 @@ inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
     }
 }
 
+inline void peel_diag_crs_new(MatrixCRS *A, double *D,
+                              double *D_inv = nullptr) {
+    // TODO
+}
+
+inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
+
+#if 1
+    peel_diag_crs_old(A, D, D_inv);
+#elif 0
+    peel_diag_crs_new(A, D, D_inv);
+#endif
+}
+
 inline void factor_LU(MatrixCRS *A, double *A_D, double *A_D_inv, MatrixCRS *L,
                       MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
                       MatrixCRS *U_strict, double *U_D,
@@ -377,12 +584,10 @@ inline void factor_LU(MatrixCRS *A, double *A_D, double *A_D_inv, MatrixCRS *L,
 
     // In the case of ILU preconditioning, overwrite these with LU factors
     if (preconditioner == PrecondType::ILU0) {
-        if (preconditioner == PrecondType::ILU0)
-            factor_ILU0(A, L, L_strict, L_D, U, U_strict, U_D);
-
+        factor_ILU0(A, L, L_strict, L_D, U, U_strict, U_D);
         peel_diag_crs(U, U_D);
+
 #ifdef USE_SMAX
-        // Set all diagonal elements to 1
         // NOTE: Since the SMAX library peels and stores the diagonal internally
         // We want that it peels L_D := ones(N)
 #pragma omp parallel for schedule(static)
