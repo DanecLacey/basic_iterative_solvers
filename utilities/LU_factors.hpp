@@ -124,38 +124,25 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
 
     // Clear data from targets
     // NOTE: Why not just use "clear()" methods?
-    if (L->row_ptr != nullptr)
-        delete[] L->row_ptr;
-    if (L->col != nullptr)
-        delete[] L->col;
-    if (L->val != nullptr)
-        delete[] L->val;
+    // clang-format off
+    if (L->row_ptr != nullptr) { delete[] L->row_ptr; L->row_ptr = nullptr; }
+    if (L->col != nullptr)     { delete[] L->col;     L->col = nullptr; }
+    if (L->val != nullptr)     { delete[] L->val;     L->val = nullptr; }
 
-    if (L_strict->row_ptr != nullptr)
-        delete[] L_strict->row_ptr;
-    if (L_strict->col != nullptr)
-        delete[] L_strict->col;
-    if (L_strict->val != nullptr)
-        delete[] L_strict->val;
+    if (L_strict->row_ptr != nullptr) { delete[] L_strict->row_ptr; L_strict->row_ptr = nullptr; }
+    if (L_strict->col != nullptr)     { delete[] L_strict->col;     L_strict->col = nullptr; }
+    if (L_strict->val != nullptr)     { delete[] L_strict->val;     L_strict->val = nullptr; }
 
-    if (U->row_ptr != nullptr)
-        delete[] U->row_ptr;
-    if (U->col != nullptr)
-        delete[] U->col;
-    if (U->val != nullptr)
-        delete[] U->val;
+    if (U->row_ptr != nullptr) { delete[] U->row_ptr; U->row_ptr = nullptr; }
+    if (U->col != nullptr)     { delete[] U->col;     U->col = nullptr; }
+    if (U->val != nullptr)     { delete[] U->val;     U->val = nullptr; }
 
-    if (U_strict->row_ptr != nullptr)
-        delete[] U_strict->row_ptr;
-    if (U_strict->col != nullptr)
-        delete[] U_strict->col;
-    if (U_strict->val != nullptr)
-        delete[] U_strict->val;
+    if (U_strict->row_ptr != nullptr) { delete[] U_strict->row_ptr; U_strict->row_ptr = nullptr; }
+    if (U_strict->col != nullptr)     { delete[] U_strict->col;     U_strict->col = nullptr; }
+    if (U_strict->val != nullptr)     { delete[] U_strict->val;     U_strict->val = nullptr; }
 
-    L->nnz = 0;
-    L_strict->nnz = 0;
-    U->nnz = 0;
-    U_strict->nnz = 0;
+    // clang-format on
+    L->nnz = L_strict->nnz = U->nnz = U_strict->nnz = 0;
 
     // Count nnz
     int L_tmp_nnz = 0;
@@ -187,9 +174,13 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     // Make tmp structs
     int N = A->n_rows;
     MatrixCRS *L_tmp = new MatrixCRS(N, N, L_tmp_nnz);
+    L_tmp->row_ptr[0] = 0;
     MatrixCRS *L_strict_tmp = new MatrixCRS(N, N, L_strict_tmp_nnz);
+    L_strict_tmp->row_ptr[0] = 0;
     MatrixCRS *U_tmp = new MatrixCRS(N, N, U_tmp_nnz);
+    U_tmp->row_ptr[0] = 0;
     MatrixCRS *U_strict_tmp = new MatrixCRS(N, N, U_strict_tmp_nnz);
+    U_strict_tmp->row_ptr[0] = 0;
 
     // Assign nonzeros
     int L_tmp_count = 0;
@@ -290,9 +281,9 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
 
 inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
                      MatrixCRS *U, MatrixCRS *U_strict) {
-#if 1
+#if 0
     split_LU_old(A, L, L_strict, U, U_strict);
-#elif 0
+#elif 1
     split_LU_new(A, L, L_strict, U, U_strict);
 #endif
 }
