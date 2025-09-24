@@ -141,6 +141,19 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     if (U_strict->col != nullptr)     { delete[] U_strict->col;     U_strict->col = nullptr; }
     if (U_strict->val != nullptr)     { delete[] U_strict->val;     U_strict->val = nullptr; }
 
+    // Make nnz per row storages to simultaneously obtain nnz and row ptr
+    auto L_nnz_row = new int[A->n_rows];
+    auto L_strict_nnz_row = new int[A->n_rows];
+    auto U_nnz_row = new int[A->n_rows];
+    auto U_strict_nnz_row = new int[A->n_rows];
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < A->n_rows; i++) {
+        L_nnz_row[i] = 0;
+        L_strict_nnz_row[i] = 0;
+        U_nnz_row[i] = 0;
+        U_strict_nnz_row[i] = 0;
+    }
+
     // clang-format on
     L->nnz = L_strict->nnz = U->nnz = U_strict->nnz = 0;
 
@@ -149,6 +162,9 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     int L_strict_tmp_nnz = 0;
     int U_tmp_nnz = 0;
     int U_strict_tmp_nnz = 0;
+
+#pragma omp parallel for reduction(+ : L_tmp_nnz, L_strict_tmp_nnz, U_tmp_nnz, \
+                                       U_strict_tmp_nnz) schedule(static)
     for (int i = 0; i < A->n_rows; ++i) {
         int row_start = A->row_ptr[i];
         int row_end = A->row_ptr[i + 1];
@@ -158,19 +174,26 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
             int col = A->col[idx];
 
             if (col < i) {
+                L_nnz_row[i] += 1;
+                L_strict_nnz_row[i] += 1;
                 ++L_tmp_nnz;
                 ++L_strict_tmp_nnz;
             }
             if (col == i) {
+                U_nnz_row[i] += 1;
+                L_nnz_row[i] += 1;
                 ++L_tmp_nnz;
                 ++U_tmp_nnz;
             }
             if (col > i) {
+                U_nnz_row[i] += 1;
+                U_strict_nnz_row[i] += 1;
                 ++U_tmp_nnz;
                 ++U_strict_tmp_nnz;
             }
         }
     }
+
     // Make tmp structs
     int N = A->n_rows;
     MatrixCRS *L_tmp = new MatrixCRS(N, N, L_tmp_nnz);
@@ -182,14 +205,31 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     MatrixCRS *U_strict_tmp = new MatrixCRS(N, N, U_strict_tmp_nnz);
     U_strict_tmp->row_ptr[0] = 0;
 
+    // Compute actual row_ptr from nnz per row
+    for (int i = 1; i <= A->n_rows; i++) {
+        L_tmp->row_ptr[i] = L_tmp->row_ptr[i - 1] + L_nnz_row[i - 1];
+        L_strict_tmp->row_ptr[i] = L_strict_tmp->row_ptr[i - 1] + L_strict_nnz_row[i - 1];
+        U_tmp->row_ptr[i] = U_tmp->row_ptr[i - 1] + U_nnz_row[i - 1];
+        U_strict_tmp->row_ptr[i] = U_strict_tmp->row_ptr[i - 1] + U_strict_nnz_row[i - 1];
+    }
+
     // Assign nonzeros
     int L_tmp_count = 0;
     int L_strict_tmp_count = 0;
     int U_tmp_count = 0;
     int U_strict_tmp_count = 0;
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < A->n_rows; ++i) {
         int row_start = A->row_ptr[i];
         int row_end = A->row_ptr[i + 1];
+
+        int L_tmp_row_start = L_tmp->row_ptr[i];
+
+        int L_strict_tmp_row_start = L_strict_tmp->row_ptr[i];
+
+        int U_tmp_row_start = U_tmp->row_ptr[i];
+
+        int U_strict_tmp_row_start = U_strict_tmp->row_ptr[i];
 
         // Loop over each non-zero entry in the current row
         for (int idx = row_start; idx < row_end; ++idx) {
@@ -197,30 +237,24 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
             double val = A->val[idx];
 
             if (col < i) {
-                L_tmp->val[L_tmp_count] = val;
-                L_tmp->col[L_tmp_count++] = col;
-                L_strict_tmp->val[L_strict_tmp_count] = val;
-                L_strict_tmp->col[L_strict_tmp_count++] = col;
+                L_tmp->val[L_tmp_row_start] = val;
+                L_tmp->col[L_tmp_row_start++] = col;
+                L_strict_tmp->val[L_strict_tmp_row_start] = val;
+                L_strict_tmp->col[L_strict_tmp_row_start++] = col;
             }
             if (col == i) {
-                L_tmp->val[L_tmp_count] = val;
-                L_tmp->col[L_tmp_count++] = col;
-                U_tmp->val[U_tmp_count] = val;
-                U_tmp->col[U_tmp_count++] = col;
+                L_tmp->val[L_tmp_row_start] = val;
+                L_tmp->col[L_tmp_row_start++] = col;
+                U_tmp->val[U_tmp_row_start] = val;
+                U_tmp->col[U_tmp_row_start++] = col;
             }
             if (col > i) {
-                U_tmp->val[U_tmp_count] = val;
-                U_tmp->col[U_tmp_count++] = col;
-                U_strict_tmp->val[U_strict_tmp_count] = val;
-                U_strict_tmp->col[U_strict_tmp_count++] = col;
+                U_tmp->val[U_tmp_row_start] = val;
+                U_tmp->col[U_tmp_row_start++] = col;
+                U_strict_tmp->val[U_strict_tmp_row_start] = val;
+                U_strict_tmp->col[U_strict_tmp_row_start++] = col;
             }
         }
-
-        // Update row pointers
-        L_tmp->row_ptr[i + 1] = L_tmp_count;
-        L_strict_tmp->row_ptr[i + 1] = L_strict_tmp_count;
-        U_tmp->row_ptr[i + 1] = U_tmp_count;
-        U_strict_tmp->row_ptr[i + 1] = U_strict_tmp_count;
     }
 
     // Give L and U metadata
@@ -277,6 +311,10 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     delete L_strict_tmp;
     delete U_tmp;
     delete U_strict_tmp;
+    delete[] L_nnz_row;
+    delete[] L_strict_nnz_row;
+    delete[] U_nnz_row;
+    delete[] U_strict_nnz_row;
 }
 
 inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
@@ -548,14 +586,53 @@ inline void peel_diag_crs_old(MatrixCRS *A, double *D,
 
 inline void peel_diag_crs_new(MatrixCRS *A, double *D,
                               double *D_inv = nullptr) {
-    // TODO
+#pragma omp parallel for schedule(static)
+    for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
+        int row_start = A->row_ptr[row_idx];
+        int row_end = A->row_ptr[row_idx + 1] -
+                      1; // Index of the last element in the current row
+        int diag_j = -1; // Initialize diag_j to -1 (indicating diagonal not
+                         // found yet)
+        // Find the diagonal element in this row (since rows in CRS need not
+        // be column-sorted)
+        for (int j = row_start; j <= row_end; ++j) {
+            if (A->col[j] == row_idx) {
+                diag_j = j; // Store the index of the diagonal element
+                D[row_idx] = A->val[j]; // Extract the diagonal value
+
+                // Check if the diagonal value is very close to zero
+                if (std::abs(D[row_idx]) < 1e-16) {
+                    SanityChecker::zero_diag(
+                        row_idx); // Call sanity checker for zero diagonal
+                }
+
+                if (D_inv)
+                    D_inv[row_idx] = 1.0 / D[row_idx];
+            }
+        }
+
+        // If no diagonal element was found for this row
+        if (diag_j < 0) {
+            SanityChecker::no_diag(
+                row_idx); // Call sanity checker for missing diagonal
+        }
+
+        // If a diagonal element was found AND it's not already at the end
+        // of the row's non-zeros, swap it into the last slot of the current
+        // row's non-zero entries.
+        if (diag_j >= 0 &&
+            diag_j != row_end) { // Ensure diag_j is valid before swapping
+            std::swap(A->col[diag_j], A->col[row_end]);
+            std::swap(A->val[diag_j], A->val[row_end]);
+        }
+    }
 }
 
 inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
 
-#if 1
+#if 0
     peel_diag_crs_old(A, D, D_inv);
-#elif 0
+#elif 1
     peel_diag_crs_new(A, D, D_inv);
 #endif
 }
