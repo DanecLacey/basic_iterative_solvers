@@ -326,9 +326,10 @@ inline void split_LU(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
 #endif
 }
 
-inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
+inline void factor_ILU0_old(Timers *timers, const MatrixCRS *A, MatrixCRS *L,
                             MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
-                            MatrixCRS *U_strict, double *U_D) {
+                            MatrixCRS *U_strict, double *U_D,
+                            Interface *smax = nullptr) {
     int n = A->n_rows;
 
     // These will store the final factors, built row-by-row.
@@ -345,17 +346,20 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
     for (int i = 0; i < n; ++i) {
 
         // --- Step 1: Scatter row A(i,*) into the workspace ---
+        timers->preprocessing_factor_1_time->start();
         // This establishes the fixed sparsity pattern for the ILU(0)
         // calculations.
         for (int j_pos = A->row_ptr[i]; j_pos < A->row_ptr[i + 1]; ++j_pos) {
             int j = A->col[j_pos];
-            w_vals[j] = A->val[j_pos];
-            w_indices.push_back(j);
+            w_vals[j] = A->val[j_pos]; // Scattered CRS -> dense
+            w_indices.push_back(j);    // Packed
         }
         // Sort indices to process dependencies (k) in increasing order.
         std::sort(w_indices.begin(), w_indices.end());
+        timers->preprocessing_factor_1_time->stop();
 
         // --- Step 2: Elimination loop ---
+        timers->preprocessing_factor_2_time->start();
         // For each non-zero k < i in the current row's pattern...
         for (int k : w_indices) {
             if (k >= i)
@@ -391,8 +395,11 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
                 }
             }
         } // End of elimination for row i
+        timers->preprocessing_factor_2_time->stop();
 
         // --- Step 3: Gather the computed row into final L and U structures ---
+        timers->preprocessing_factor_3_time->start();
+        timers->preprocessing_factor_3_1_time->start();
         std::vector<std::pair<int, double>> l_row_final, u_row_final;
         double u_diag = 0.0;
 
@@ -405,13 +412,19 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
                 u_row_final.push_back({j, w_vals[j]});
             }
         }
+        timers->preprocessing_factor_3_1_time->stop();
+        timers->preprocessing_factor_3_2_time->start();
 
         // Robust pivot handling for the diagonal element U(i,i)
         if (std::abs(u_diag) < ILU0_PIVOT_TOLERANCE) {
             u_diag = (u_diag >= 0 ? 1.0 : -1.0) * ILU0_PIVOT_REPLACEMENT;
         }
         u_row_final.push_back({i, u_diag});
+        timers->preprocessing_factor_3_2_time->stop();
+        timers->preprocessing_factor_3_3_time->start();
         std::sort(u_row_final.begin(), u_row_final.end());
+        timers->preprocessing_factor_3_3_time->stop();
+        timers->preprocessing_factor_3_4_time->start();
 
         L_rows[i] = l_row_final;
         U_rows[i] = u_row_final;
@@ -421,13 +434,17 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
             w_vals[j] = 0.0;
         }
         w_indices.clear();
+        timers->preprocessing_factor_3_4_time->stop();
+        timers->preprocessing_factor_3_time->stop();
     }
 
     // --- Finalization: Convert vector-of-vectors to CRS format ---
+    timers->preprocessing_factor_4_time->start();
     // Count strict nnz and how many diagonals are missing
     int l_nnz_strict = 0;
     int missing_diags = 0;
     int u_nnz = 0;
+#pragma omp parallel for reduction(+ : l_nnz_strict, u_nnz, missing_diags)
     for (int i = 0; i < n; ++i) {
         l_nnz_strict += (int)L_rows[i].size();
         u_nnz += U_rows[i].size();
@@ -441,6 +458,8 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
         if (!has_diag)
             ++missing_diags;
     }
+    timers->preprocessing_factor_4_time->stop();
+    timers->preprocessing_factor_5_time->start();
 
     int l_nnz_with_diag = l_nnz_strict + missing_diags;
 
@@ -497,6 +516,8 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
             }
         }
     }
+    timers->preprocessing_factor_5_time->stop();
+    timers->preprocessing_factor_6_time->start();
     L->row_ptr[n] = posL;
     L_strict->row_ptr[n] = posLs;
 
@@ -506,6 +527,7 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
 
     // Populate U and peel its diagonal into U_D
     int pos = 0;
+
     for (int i = 0; i < n; ++i) {
         U->row_ptr[i] = pos;
         for (const auto &entry : U_rows[i]) {
@@ -518,25 +540,252 @@ inline void factor_ILU0_old(const MatrixCRS *A, MatrixCRS *L,
         }
     }
     U->row_ptr[n] = pos;
+    timers->preprocessing_factor_6_time->stop();
 
     // This isn't strictly needed if U_strict isn't used elsewhere, but good for
     // completeness
     split_LU(U, new MatrixCRS(), new MatrixCRS(), new MatrixCRS(), U_strict);
 }
 
-inline void factor_ILU0_new(const MatrixCRS *A, MatrixCRS *L,
+inline void factor_ILU0_new(Timers *timers, const MatrixCRS *A, MatrixCRS *L,
                             MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
-                            MatrixCRS *U_strict, double *U_D) {
-    // TODO
+                            MatrixCRS *U_strict, double *U_D,
+                            Interface *smax = nullptr) {
+#ifdef USE_SMAX
+    int n = A->n_rows;
+
+    // These will store the final factors, built row-by-row.
+    std::vector<std::vector<std::pair<int, double>>> L_rows(n);
+    std::vector<std::vector<std::pair<int, double>>> U_rows(n);
+
+    // Workspace for the current row i. `w_vals` holds the values,
+    // and `w_indices` tracks the non-zero pattern of the original row A(i, *).
+    std::vector<double> w_vals(n, 0.0);
+    std::vector<int> w_indices;
+    w_indices.reserve(A->nnz / n + 10); // Pre-allocate based on average nnz/row
+
+    // Main loop for each row `i` of the factorization.
+    int n_levels = smax->get_n_levels();
+    for (int level = 0; level < n_levels; ++level) {
+        int lvl_start = smax->get_level_ptr_at(level);
+        int lvl_end = smax->get_level_ptr_at(level + 1);
+#pragma omp parallel
+        {
+            std::vector<double> w_vals_private(n, 0.0);
+            std::vector<int> w_indices_private;
+            w_indices_private.reserve(A->nnz / n + 10);
+#pragma omp for
+            for (int i = lvl_start; i < lvl_end; ++i) {
+                auto &w_vals = w_vals_private;
+                auto &w_indices = w_indices_private;
+                // --- Step 1: Scatter row A(i,*) into the workspace ---
+                // This establishes the fixed sparsity pattern for the ILU(0)
+                // calculations.
+                for (int j_pos = A->row_ptr[i]; j_pos < A->row_ptr[i + 1];
+                     ++j_pos) {
+                    int j = A->col[j_pos];
+                    w_vals[j] = A->val[j_pos]; // Scattered CRS -> dense
+                    w_indices.push_back(j);    // Packed
+                }
+                // Sort indices to process dependencies (k) in increasing order.
+                std::sort(w_indices.begin(), w_indices.end());
+
+                // --- Step 2: Elimination loop ---
+                // For each non-zero k < i in the current row's pattern...
+                for (int k : w_indices) {
+                    if (k >= i)
+                        break;
+
+                    // Find the pivot U(k,k) from the previously computed k-th
+                    // row of U.
+                    double pivot = 0.0;
+                    for (const auto &u_entry : U_rows[k]) {
+                        if (u_entry.first == k) {
+                            pivot = u_entry.second;
+                            break;
+                        }
+                    }
+
+                    // Check for unstable pivot. If it's bad, we can't use this
+                    // row for elimination.
+                    if (std::abs(pivot) < 1e-16)
+                        continue;
+
+                    // Compute the L-factor L(i,k)
+                    double factor = w_vals[k] / pivot;
+                    w_vals[k] = factor; // Store it in the workspace.
+
+                    // Perform sparse update: w(j) -= L(i,k) * U(k,j)
+                    // We only update elements j that are already in the
+                    // sparsity pattern of row i.
+                    for (const auto &u_entry : U_rows[k]) {
+                        int j = u_entry.first;
+                        // Check if an element A(i,j) exists. w_vals[j] != 0 is
+                        // a proxy for this.
+                        if (j > k && w_vals[j] != 0.0) {
+                            w_vals[j] -= factor * u_entry.second;
+                        }
+                    }
+                } // End of elimination for row i
+
+                // --- Step 3: Gather the computed row into final L and U
+                // structures
+                // ---
+                std::vector<std::pair<int, double>> l_row_final, u_row_final;
+                double u_diag = 0.0;
+
+                for (int j : w_indices) {
+                    if (j < i) {
+                        l_row_final.push_back({j, w_vals[j]});
+                    } else if (j == i) {
+                        u_diag = w_vals[j];
+                    } else { // j > i
+                        u_row_final.push_back({j, w_vals[j]});
+                    }
+                }
+
+                // Robust pivot handling for the diagonal element U(i,i)
+                if (std::abs(u_diag) < ILU0_PIVOT_TOLERANCE) {
+                    u_diag =
+                        (u_diag >= 0 ? 1.0 : -1.0) * ILU0_PIVOT_REPLACEMENT;
+                }
+                u_row_final.push_back({i, u_diag});
+                std::sort(u_row_final.begin(), u_row_final.end());
+
+                L_rows[i] = l_row_final;
+                U_rows[i] = u_row_final;
+
+                // --- Step 4: Cleanup workspace for the next iteration ---
+                for (int j : w_indices) {
+                    w_vals[j] = 0.0;
+                }
+                w_indices.clear();
+            }
+        }
+    }
+
+    // --- Finalization: Convert vector-of-vectors to CRS format ---
+    timers->preprocessing_factor_4_time->start();
+    // Count strict nnz and how many diagonals are missing
+    int l_nnz_strict = 0;
+    int missing_diags = 0;
+    int u_nnz = 0;
+#pragma omp parallel for reduction(+ : l_nnz_strict, u_nnz, missing_diags)
+    for (int i = 0; i < n; ++i) {
+        l_nnz_strict += (int)L_rows[i].size();
+        u_nnz += U_rows[i].size();
+        bool has_diag = false;
+        for (const auto &e : L_rows[i]) {
+            if (e.first == i) {
+                has_diag = true;
+                break;
+            }
+        }
+        if (!has_diag)
+            ++missing_diags;
+    }
+    timers->preprocessing_factor_4_time->stop();
+    timers->preprocessing_factor_5_time->start();
+
+    int l_nnz_with_diag = l_nnz_strict + missing_diags;
+
+    // Allocate all required matrices
+    L_strict->n_rows = L->n_rows = n;
+    L_strict->n_cols = L->n_cols = n;
+    L_strict->nnz = l_nnz_strict;
+    L->nnz = l_nnz_with_diag;
+    L->row_ptr = new int[n + 1];
+    L->col = new int[L->nnz];
+    L->val = new double[L->nnz];
+    L_strict->row_ptr = new int[n + 1];
+    L_strict->col = new int[L_strict->nnz];
+    L_strict->val = new double[L_strict->nnz];
+
+    U->n_rows = n;
+    U->n_cols = n;
+    U->nnz = u_nnz;
+    U->row_ptr = new int[n + 1];
+    U->col = new int[u_nnz];
+    U->val = new double[u_nnz];
+
+    // Fill L (append diag if missing) and L_strict (strict only)
+    int posL = 0;
+    int posLs = 0;
+    for (int i = 0; i < n; ++i) {
+        // L (with diag)
+        L->row_ptr[i] = posL;
+        bool has_diag = false;
+        for (const auto &entry : L_rows[i]) {
+            L->col[posL] = entry.first;
+            L->val[posL] = entry.second;
+            if (entry.first == i)
+                has_diag = true;
+            ++posL;
+        }
+        if (!has_diag) {
+            L->col[posL] = i;
+            L->val[posL] = 1.0;
+            ++posL;
+        }
+
+        // L_strict (copy strict-lower entries only)
+        L_strict->row_ptr[i] = posLs;
+        for (const auto &entry : L_rows[i]) {
+            // copy every entry, including a diagonal if it was present in
+            // L_rows: but the "strict" requirement in your earlier text
+            // suggested L_rows is already strictly lower. If you truly want to
+            // exclude diag entries from L_strict, skip entry.first == i here.
+            if (entry.first != i) {
+                L_strict->col[posLs] = entry.first;
+                L_strict->val[posLs] = entry.second;
+                ++posLs;
+            }
+        }
+    }
+    timers->preprocessing_factor_5_time->stop();
+    timers->preprocessing_factor_6_time->start();
+    L->row_ptr[n] = posL;
+    L_strict->row_ptr[n] = posLs;
+
+    // For a unit-diagonal L-solve, L_D must be all ones.
+    for (int i = 0; i < n; ++i)
+        L_D[i] = 1.0;
+
+    // Populate U and peel its diagonal into U_D
+    int pos = 0;
+
+    for (int i = 0; i < n; ++i) {
+        U->row_ptr[i] = pos;
+        for (const auto &entry : U_rows[i]) {
+            U->col[pos] = entry.first;
+            U->val[pos] = entry.second;
+            if (entry.first == i) {
+                U_D[i] = entry.second;
+            }
+            pos++;
+        }
+    }
+    U->row_ptr[n] = pos;
+    timers->preprocessing_factor_6_time->stop();
+
+    // This isn't strictly needed if U_strict isn't used elsewhere, but good for
+    // completeness
+    split_LU(U, new MatrixCRS(), new MatrixCRS(), new MatrixCRS(), U_strict);
+#else
+    printf("ERROR: factor_ILU0_new required SMAX library.\n");
+#endif
 }
 
-inline void factor_ILU0(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
-                        double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
-                        double *U_D) {
+inline void factor_ILU0(Timers *timers, const MatrixCRS *A, MatrixCRS *L,
+                        MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
+                        MatrixCRS *U_strict, double *U_D,
+                        Interface *smax = nullptr) {
 #if 1
-    factor_ILU0_old(A, L, L_strict, L_D, U, U_strict, U_D);
+    factor_ILU0_new(timers, A, L, L_strict, L_D, U, U_strict,
+                    U_D SMAX_ARGS(smax));
 #elif 0
-    factor_ILU0_new(A, L, L_strict, L_D, U, U_strict, U_D);
+    factor_ILU0_old(timers, A, L, L_strict, L_D, U, U_strict,
+                    U_D SMAX_ARGS(smax));
 #endif
 }
 
@@ -637,10 +886,11 @@ inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
 #endif
 }
 
-inline void factor_LU(MatrixCRS *A, double *A_D, double *A_D_inv, MatrixCRS *L,
-                      MatrixCRS *L_strict, double *L_D, MatrixCRS *U,
-                      MatrixCRS *U_strict, double *U_D,
-                      PrecondType preconditioner) {
+inline void factor_LU(Timers *timers, MatrixCRS *A, double *A_D,
+                      double *A_D_inv, MatrixCRS *L, MatrixCRS *L_strict,
+                      double *L_D, MatrixCRS *U, MatrixCRS *U_strict,
+                      double *U_D, PrecondType preconditioner,
+                      Interface *smax = nullptr) {
 
     split_LU(A, L, L_strict, U, U_strict);
 
@@ -652,7 +902,8 @@ inline void factor_LU(MatrixCRS *A, double *A_D, double *A_D_inv, MatrixCRS *L,
 
     // In the case of ILU preconditioning, overwrite these with LU factors
     if (preconditioner == PrecondType::ILU0) {
-        factor_ILU0(A, L, L_strict, L_D, U, U_strict, U_D);
+        factor_ILU0(timers, A, L, L_strict, L_D, U, U_strict,
+                    U_D SMAX_ARGS(smax));
         peel_diag_crs(U, U_D);
 
 #ifdef USE_SMAX
