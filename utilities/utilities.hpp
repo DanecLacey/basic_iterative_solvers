@@ -130,6 +130,16 @@ inline void init_timers(Timers *timers) {
     CREATE_STOPWATCH(preprocessing_register)
 #endif
     CREATE_STOPWATCH(preprocessing_factor)
+    CREATE_STOPWATCH(preprocessing_factor_1)
+    CREATE_STOPWATCH(preprocessing_factor_2)
+    CREATE_STOPWATCH(preprocessing_factor_3)
+    CREATE_STOPWATCH(preprocessing_factor_3_1)
+    CREATE_STOPWATCH(preprocessing_factor_3_2)
+    CREATE_STOPWATCH(preprocessing_factor_3_3)
+    CREATE_STOPWATCH(preprocessing_factor_3_4)
+    CREATE_STOPWATCH(preprocessing_factor_4)
+    CREATE_STOPWATCH(preprocessing_factor_5)
+    CREATE_STOPWATCH(preprocessing_factor_6)
     CREATE_STOPWATCH(solve)
     CREATE_STOPWATCH(per_iteration)
     CREATE_STOPWATCH(iterate)
@@ -168,6 +178,26 @@ inline void print_timers(Args *cli_args, Timers *timers) {
 #endif
     long double preprocessing_factor_time =
         timers->preprocessing_factor_time->get_wtime();
+    long double preprocessing_factor_1_time =
+        timers->preprocessing_factor_1_time->get_wtime();
+    long double preprocessing_factor_2_time =
+        timers->preprocessing_factor_2_time->get_wtime();
+    long double preprocessing_factor_3_time =
+        timers->preprocessing_factor_3_time->get_wtime();
+    long double preprocessing_factor_3_1_time =
+        timers->preprocessing_factor_3_1_time->get_wtime();
+    long double preprocessing_factor_3_2_time =
+        timers->preprocessing_factor_3_2_time->get_wtime();
+    long double preprocessing_factor_3_3_time =
+        timers->preprocessing_factor_3_3_time->get_wtime();
+    long double preprocessing_factor_3_4_time =
+        timers->preprocessing_factor_3_4_time->get_wtime();
+    long double preprocessing_factor_4_time =
+        timers->preprocessing_factor_4_time->get_wtime();
+    long double preprocessing_factor_5_time =
+        timers->preprocessing_factor_5_time->get_wtime();
+    long double preprocessing_factor_6_time =
+        timers->preprocessing_factor_6_time->get_wtime();
     long double solve_time = timers->solve_time->get_wtime();
     long double precond_time = timers->precond_time->get_wtime();
     long double iterate_time = timers->iterate_time->get_wtime();
@@ -209,6 +239,26 @@ inline void print_timers(Args *cli_args, Timers *timers) {
 		std::cout << preprocessing_init_time  << "[s]" << std::endl;
 		std::cout << std::left << std::setw(left_flush_width) << "| | Factor time: " << std::right << std::setw(right_flush_width);
 		std::cout << preprocessing_factor_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 1 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_1_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 2 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_2_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 3 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_3_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Phase 3.1 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_3_1_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Phase 3.2 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_3_2_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Phase 3.3 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_3_3_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | | Phase 3.4 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_3_4_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 4 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_4_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 5 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_5_time  << "[s]" << std::endl;
+		std::cout << std::left << std::setw(left_flush_width) << "| | | Phase 6 time: " << std::right << std::setw(right_flush_width);
+		std::cout << preprocessing_factor_6_time  << "[s]" << std::endl;
 #ifdef USE_SMAX
 		std::cout << std::left << std::setw(left_flush_width) << "| | Perm time: " << std::right << std::setw(right_flush_width);
 		std::cout << preprocessing_perm_time  << "[s]" << std::endl;

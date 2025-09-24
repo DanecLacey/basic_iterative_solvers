@@ -45,9 +45,10 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 
     timers->preprocessing_factor_time->start();
     // Split A into L and U copies, depending on the selected preconditioner
-    factor_LU(solver->A.get(), solver->A_D, solver->A_D_inv, solver->L.get(),
-              solver->L_strict.get(), solver->L_D, solver->U.get(),
-              solver->U_strict.get(), solver->U_D, solver->preconditioner);
+    factor_LU(timers, solver->A.get(), solver->A_D, solver->A_D_inv,
+              solver->L.get(), solver->L_strict.get(), solver->L_D,
+              solver->U.get(), solver->U_strict.get(), solver->U_D,
+              solver->preconditioner SMAX_ARGS(smax));
     timers->preprocessing_factor_time->stop();
 
 #ifdef USE_SMAX

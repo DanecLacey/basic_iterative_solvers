@@ -272,6 +272,16 @@ struct Timers {
     Stopwatch *preprocessing_register_time;
 #endif
     Stopwatch *preprocessing_factor_time;
+    Stopwatch *preprocessing_factor_1_time;
+    Stopwatch *preprocessing_factor_2_time;
+    Stopwatch *preprocessing_factor_3_time;
+    Stopwatch *preprocessing_factor_3_1_time;
+    Stopwatch *preprocessing_factor_3_2_time;
+    Stopwatch *preprocessing_factor_3_3_time;
+    Stopwatch *preprocessing_factor_3_4_time;
+    Stopwatch *preprocessing_factor_4_time;
+    Stopwatch *preprocessing_factor_5_time;
+    Stopwatch *preprocessing_factor_6_time;
     Stopwatch *solve_time;
     Stopwatch *per_iteration_time;
     Stopwatch *iterate_time;
@@ -305,6 +315,16 @@ struct Timers {
         DELETE_STOPWATCH(preprocessing_register_time);
 #endif
         DELETE_STOPWATCH(preprocessing_factor_time);
+        DELETE_STOPWATCH(preprocessing_factor_1_time);
+        DELETE_STOPWATCH(preprocessing_factor_2_time);
+        DELETE_STOPWATCH(preprocessing_factor_3_time);
+        DELETE_STOPWATCH(preprocessing_factor_3_1_time);
+        DELETE_STOPWATCH(preprocessing_factor_3_2_time);
+        DELETE_STOPWATCH(preprocessing_factor_3_3_time);
+        DELETE_STOPWATCH(preprocessing_factor_3_4_time);
+        DELETE_STOPWATCH(preprocessing_factor_4_time);
+        DELETE_STOPWATCH(preprocessing_factor_5_time);
+        DELETE_STOPWATCH(preprocessing_factor_6_time);
         DELETE_STOPWATCH(solve_time);
         DELETE_STOPWATCH(per_iteration_time);
         DELETE_STOPWATCH(iterate_time);
