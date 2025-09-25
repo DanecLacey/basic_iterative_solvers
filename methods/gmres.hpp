@@ -362,6 +362,7 @@ class GMRESSolver : public Solver {
         IF_DEBUG_MODE_FINE(SanityChecker::print_vector(Vy, A->n_cols, "Vy"));
 
         // Finally, compute x <- x_0 + Vy [(n x 1) = (n x 1) + (n x m)(m x 1)]
+#pragma omp parallel for
         for (int i = 0; i < A->n_cols; ++i) {
             x[i] = x_old[i] + Vy[i];
 #ifdef DEBUG_MODE_FINE

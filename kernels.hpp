@@ -258,6 +258,7 @@ inline void copy_vector(double *output, const double *input, const int n_rows) {
 
 inline void dgemm_transpose1(double *A, double *B, double *C, int n_rows_A,
                              int n_cols_A, int n_cols_B) {
+#pragma omp parallel for
     for (int i = 0; i < n_rows_A; ++i) {
         for (int j = 0; j < n_cols_B; ++j) {
             double tmp = 0.0;
