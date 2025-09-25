@@ -35,6 +35,10 @@ void register_sptrsv(Interface *smax, const char *kernel_name,
     smax->kernel(kernel_name)->register_C(y_size, y);
 
     smax->kernel(kernel_name)->set_mat_upper_triang(is_upper_triang);
+
+#ifdef USE_SMAX_TLS
+    smax->kernel(kernel_name)->set_tls(true);
+#endif
 }
 
 void permute_mat(SMAX::Interface *smax, std::unique_ptr<MatrixCRS> &A) {

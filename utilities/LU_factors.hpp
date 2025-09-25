@@ -208,9 +208,11 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     // Compute actual row_ptr from nnz per row
     for (int i = 1; i <= A->n_rows; i++) {
         L_tmp->row_ptr[i] = L_tmp->row_ptr[i - 1] + L_nnz_row[i - 1];
-        L_strict_tmp->row_ptr[i] = L_strict_tmp->row_ptr[i - 1] + L_strict_nnz_row[i - 1];
+        L_strict_tmp->row_ptr[i] =
+            L_strict_tmp->row_ptr[i - 1] + L_strict_nnz_row[i - 1];
         U_tmp->row_ptr[i] = U_tmp->row_ptr[i - 1] + U_nnz_row[i - 1];
-        U_strict_tmp->row_ptr[i] = U_strict_tmp->row_ptr[i - 1] + U_strict_nnz_row[i - 1];
+        U_strict_tmp->row_ptr[i] =
+            U_strict_tmp->row_ptr[i - 1] + U_strict_nnz_row[i - 1];
     }
 
     // Assign nonzeros
@@ -291,21 +293,10 @@ inline void split_LU_new(const MatrixCRS *A, MatrixCRS *L, MatrixCRS *L_strict,
     U_strict->row_ptr[0] = 0;
 
     // Finally, numa-friendly copy tmp matrices to L and U
-    // if (use_level_sched) {
-    // TODO
-    //     // Copy triangular matrices in a NUMA friendly way for SpTRSV
-    //     smax->utils->level_aware_copy(D_plus_L_tmp->row_ptr,
-    //     D_plus_L.row_ptr,
-    //                                   D_plus_L_tmp->col, D_plus_L.col,
-    //                                   D_plus_L_tmp->val, D_plus_L.val);
-    //     smax->utils->level_aware_copy(U_tmp->row_ptr, U.row_ptr, U_tmp->col,
-    //                                   U.col, U_tmp->val, U.val);
-    // } else {
     *L = *L_tmp;
     *L_strict = *L_strict_tmp;
     *U = *U_tmp;
     *U_strict = *U_strict_tmp;
-    // }
 
     delete L_tmp;
     delete L_strict_tmp;
