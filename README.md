@@ -45,6 +45,7 @@ make
 * (Thresholded) **Incomplete LU** `-p ilu(0/t)`
 
 ### Notes ###
+* We strive to follow the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
 * The sparse matrix storage format of `A` is **CRS**.
 * Only **left-preconditioning** is implemented.
 * This code is mainly for **performance investigations**.
