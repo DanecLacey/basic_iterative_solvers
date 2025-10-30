@@ -877,6 +877,26 @@ inline void peel_diag_crs(MatrixCRS *A, double *D, double *D_inv = nullptr) {
 #endif
 }
 
+inline void extract_scale(MatrixCRS *A, double *D_scale = nullptr) {
+#pragma omp parallel for schedule(static)
+    for (int row_idx = 0; row_idx < A->n_rows; ++row_idx) {
+        int row_start = A->row_ptr[row_idx];
+        int row_end = A->row_ptr[row_idx + 1] - 1;
+        for (int j = row_start; j <= row_end; ++j) {
+            if (A->col[j] == row_idx) {
+
+                // Check if the diagonal value is very close to zero
+                if (std::abs(A->val[j]) < 1e-16) {
+                    SanityChecker::zero_diag(
+                        row_idx); // Call sanity checker for zero diagonal
+                }
+
+                    D_scale[row_idx] = 1.0 / std::sqrt(std::abs(A->val[j]));
+            }
+        }
+    }
+}
+
 inline void factor_LU(Timers *timers, MatrixCRS *A, double *A_D,
                       double *A_D_inv, MatrixCRS *L, MatrixCRS *L_strict,
                       double *L_D, MatrixCRS *U, MatrixCRS *U_strict,

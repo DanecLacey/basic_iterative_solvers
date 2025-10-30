@@ -103,9 +103,11 @@ template <> inline std::string to_string(SolverType type) {
 }
 
 struct Args {
-    std::string matrix_file_name;
-    SolverType method;
-    PrecondType preconditioner;
+    std::string matrix_file_name{};
+    SolverType method{};
+    PrecondType preconditioner{};
+    int restart_length = 10;
+    bool num_scale = false;
 };
 
 inline void *aligned_malloc(size_t bytesize) {

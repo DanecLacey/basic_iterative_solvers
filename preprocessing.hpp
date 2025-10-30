@@ -5,11 +5,26 @@
 #include "sparse_matrix.hpp"
 #include "utilities/utilities.hpp"
 
+// NOTE: I know this is lazy. TODO put in the correct place!
+void scale_vec(double* vec, const double* scale, const int N){
+    #pragma omp parallel for
+    for(int i = 0; i < N; ++i){
+        vec[i] = scale[i] * vec[i];
+    }
+}
+void scale_mat(MatrixCRS *A, const double* scale){
+    #pragma omp parallel for
+    for(int row = 0; row < A->n_rows; ++row){
+        double s_row = scale[row];
+        for(int i = A->row_ptr[row]; i < A->row_ptr[row + 1]; ++i){
+            double s_col = scale[A->col[i]];
+            A->val[i] *= (s_row * s_col);
+        }
+    }
+}
+
 void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
                    std::unique_ptr<MatrixCRS> &A) {
-
-    // Numerical preprocessing of matrix
-    // TODO: Scaling options
 
     // Initialize structs to be used in the solver
     IF_DEBUG_MODE(printf("Initializing structs\n"))
@@ -34,6 +49,19 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
 
     // Collect preprocessed CRS A matrix to solver object
     solver->A = std::move(A);
+
+    if(solver->num_scale) {
+        IF_DEBUG_MODE(printf("Scaling numerical problem\n"))
+        // Numerical preprocessing:
+        // Scale A, x_0, and b by diag(|A|) symmetrically
+        // NOTE: We now are solving the system A'b' = x', where
+        // A' = D^{-1/2}AD^{-1/2}, b' = D^{-1/2}b, x'= D^{-1/2}x
+        int N = solver->A->n_rows;
+        extract_scale(solver->A.get(), solver->A_D_scale);
+        scale_mat(solver->A.get(),    solver->A_D_scale);
+        scale_vec(solver->x_0,  solver->A_D_scale, N);
+        scale_vec(solver->b,  solver->A_D_scale, N);
+    }
 
     // It is convenient for gauss-seidel-like methods to have
     // (strict) lower and upper triangular copies. While not

@@ -94,26 +94,12 @@ inline void parse_cli(Args *cli_args, int argc, char *argv[],
                 exit(EXIT_FAILURE);
             }
         }
-        // TODO: reintroduce matrix scaling
-        // if (arg == "-scale"){
-        // 	 std::string scale = argv[++i];
-
-        // 		if (scale == "max"){
-        // 				args->scale_type = "max";
-        // 		}
-        // 		else if (scale == "diag"){
-        // 				args->scale_type = "diag";
-        // 		}
-        // 		else if (scale == "none"){
-        // 				args->scale_type = "none";
-        // 		}
-        // 		else{
-        // 				printf("ERROR: assign_cli_inputs: Please
-        // choose an available matrix scaling type:\nmax (Max row/col
-        // element)\ndiag (Diagonal)\nnone\n");
-        // exit(1);
-        // 		}
-        // }
+        else if (arg == "-scale"){
+            cli_args->num_scale = (bool)atoi(argv[++i]);
+        }
+        else if (arg == "-rl") {
+            cli_args->restart_length = atoi(argv[++i]);
+        }
         else {
             std::cout << "ERROR: assign_cli_inputs: Arguement \"" << arg
                       << "\" not recongnized." << std::endl;
