@@ -401,14 +401,15 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
         if (PRECOND_OUTER_ITERS > 1 && i != PRECOND_OUTER_ITERS - 1) {
             copy_vector(input, output, N);
         }
-        delete[] input_storage;
     }
 
     if ( PRECOND_OUTER_ITERS > 1 ) {
         copy_vector(input, input_storage, N);
     }
+    delete[] input_storage;
 
     // clang-format on
     IF_DEBUG_MODE_FINE(
         SanityChecker::print_vector(output, N, "after precond:"));
 }
+
