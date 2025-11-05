@@ -40,6 +40,9 @@ void summary_output(Args *cli_args, Solver *solver) {
         solver->iter_count += solver->gmres_restart_count;
 
     std::cout << "\nSolver: " << to_string(solver->method);
+    if(to_string(solver->method) == "gmres"){
+        std::cout << "(" << solver->gmres_restart_len << ")";
+    }
     if (solver->preconditioner != PrecondType::None) {
         std::cout << " with preconditioner: "
                   << to_string(solver->preconditioner);

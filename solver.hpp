@@ -22,28 +22,30 @@ class Solver {
     std::unique_ptr<MatrixCRS> U_strict;
 
     // Common parameters
-    double stopping_criteria = 0.0;
-    int iter_count = 0;
+    double stopping_criteria           = 0.0;
+    int iter_count                     = 0;
     int collected_residual_norms_count = 0;
-    double residual_norm = DBL_MAX;
-    int max_iters = MAX_ITERS;
-    double tolerance = TOL;
-    int residual_check_len = RES_CHECK_LEN;
-    int gmres_restart_len = GMRES_RESTART_LEN;
-    int gmres_restart_count = 0;
+    double residual_norm               = DBL_MAX;
+    int max_iters                      = MAX_ITERS;
+    double tolerance                   = TOL;
+    int residual_check_len             = RES_CHECK_LEN;
+    int gmres_restart_len              = 0;
+    int gmres_restart_count            = 0;
+    bool num_scale                     = false;
 
     // Common vectors
-    double *x_star = nullptr;
-    double *x_0 = nullptr;
-    double *b = nullptr;
-    double *tmp = nullptr;
-    double *work = nullptr;
-    double *residual = nullptr;
+    double *x_star     = nullptr;
+    double *x_0        = nullptr;
+    double *b          = nullptr;
+    double *tmp        = nullptr;
+    double *work       = nullptr;
+    double *residual   = nullptr;
     double *residual_0 = nullptr;
-    double *A_D = nullptr; // Diagonal of A
-    double *A_D_inv = nullptr;
-    double *L_D = nullptr; // Diagonal of L
-    double *U_D = nullptr; // Diagonal of U
+    double *A_D        = nullptr; // Diagonal of A
+    double *A_D_inv    = nullptr;
+    double *A_D_scale  = nullptr;
+    double *L_D        = nullptr; // Diagonal of L
+    double *U_D        = nullptr; // Diagonal of U
 
     // Bookkeeping
     double *collected_residual_norms = nullptr;
@@ -54,7 +56,12 @@ class Solver {
     bool gmres_restarted = false;
 
     Solver(const Args *cli_args)
-        : method(cli_args->method), preconditioner(cli_args->preconditioner) {
+        : 
+        method(cli_args->method), 
+        preconditioner(cli_args->preconditioner), 
+        gmres_restart_len(cli_args->restart_length),
+        num_scale(cli_args->num_scale) {
+
         collected_residual_norms = new double[max_iters * 2];
         time_per_iteration = new double[max_iters * 2];
 
@@ -82,6 +89,7 @@ class Solver {
         residual_0 = new double[N];
         A_D = new double[N];
         A_D_inv = new double[N];
+        A_D_scale = new double[N];
         L_D = new double[N];
         U_D = new double[N];
 
@@ -94,6 +102,7 @@ class Solver {
                 b[i] = B_VAL;
                 A_D[i] = 1.0; // div safe default
                 A_D_inv[i] = 0.0;
+                A_D_scale[i] = 0.0;
                 L_D[i] = 1.0; // div safe default
                 U_D[i] = 1.0; // div safe default
             }
@@ -128,6 +137,7 @@ class Solver {
         delete[] residual_0;
         delete[] A_D;
         delete[] A_D_inv;
+        delete[] A_D_scale;
         delete[] L_D;
         delete[] U_D;
         delete[] collected_residual_norms;
