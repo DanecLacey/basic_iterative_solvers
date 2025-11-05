@@ -345,6 +345,12 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
     IF_DEBUG_MODE_FINE(
         SanityChecker::print_vector(input, N, "before precond:"));
 
+    double *input_storage = nullptr;
+    if (PRECOND_OUTER_ITERS > 1) {
+        input_storage = new double[N];
+        copy_vector(input_storage, input, N);
+    }
+
     // clang-format off
     for (int i = 0; i < PRECOND_OUTER_ITERS; ++i) {
         if (preconditioner == PrecondType::Jacobi) {
@@ -391,6 +397,15 @@ inline void apply_preconditioner(const PrecondType preconditioner, const int N,
             // TODO: Would be great to think of a way around this
             copy_vector(output, input, N);
         }
+
+        if (PRECOND_OUTER_ITERS > 1 && i != PRECOND_OUTER_ITERS - 1) {
+            copy_vector(input, output, N);
+        }
+        delete[] input_storage;
+    }
+
+    if ( PRECOND_OUTER_ITERS > 1 ) {
+        copy_vector(input, input_storage, N);
     }
 
     // clang-format on

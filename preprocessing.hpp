@@ -33,20 +33,6 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     solver->init_structs(A->n_cols);
     timers->preprocessing_init_time->stop();
 
-#ifdef USE_SMAX
-    timers->preprocessing_perm_time->start();
-
-    // Initialize interface object
-    SMAX::Interface *smax = new SMAX::Interface();
-    solver->smax = smax;
-
-    // Optionally, permute matrix for parallel SpTRSV
-    if (TO_STRING(PERM_MODE) != std::string("NONE"))
-        permute_mat(smax, A);
-
-    timers->preprocessing_perm_time->stop();
-#endif
-
     // Collect preprocessed CRS A matrix to solver object
     solver->A = std::move(A);
 
@@ -62,6 +48,20 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
         scale_vec(solver->x_0,  solver->A_D_scale, N);
         scale_vec(solver->b,  solver->A_D_scale, N);
     }
+
+#ifdef USE_SMAX
+    timers->preprocessing_perm_time->start();
+
+    // Initialize interface object
+    SMAX::Interface *smax = new SMAX::Interface();
+    solver->smax = smax;
+
+    // Optionally, permute matrix for parallel SpTRSV
+    if (TO_STRING(PERM_MODE) != std::string("NONE"))
+        permute_mat(smax, solver->A);
+
+    timers->preprocessing_perm_time->stop();
+#endif
 
     // It is convenient for gauss-seidel-like methods to have
     // (strict) lower and upper triangular copies. While not
