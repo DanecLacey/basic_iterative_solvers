@@ -129,7 +129,7 @@ if(USE_SMAX)
         if(NOT SMAX_PERM_MODE)
             set(SMAX_PERM_MODE RS CACHE STRING "Choose the permutation mode." FORCE)
         endif()
-        set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "RS" "BFS" "SC" "PC" "PC_BAL")
+        set_property(CACHE SMAX_PERM_MODE PROPERTY STRINGS "NONE" "RS" "BFS" "C" "SC" "PC" "PC_BAL")
         message(STATUS "Permutation Mode: ${SMAX_PERM_MODE}")
 
         # Set SpTRSV mode ("TLS off" if not defined)

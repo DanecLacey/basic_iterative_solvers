@@ -57,8 +57,9 @@ void preprocessing(Args *cli_args, Solver *solver, Timers *timers,
     solver->smax = smax;
 
     // Optionally, permute matrix for parallel SpTRSV
-    if (TO_STRING(PERM_MODE) != std::string("NONE"))
-        permute_mat(smax, solver->A);
+    if (TO_STRING(PERM_MODE) != std::string("NONE")) {
+        permute_mat(smax, solver->A, solver->x_0, solver->b);
+    }
 
     timers->preprocessing_perm_time->stop();
 #endif

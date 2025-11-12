@@ -41,7 +41,7 @@ void register_sptrsv(Interface *smax, const char *kernel_name,
 #endif
 }
 
-void permute_mat(SMAX::Interface *smax, std::unique_ptr<MatrixCRS> &A) {
+void permute_mat(SMAX::Interface *smax, std::unique_ptr<MatrixCRS> &A, double *x_0 = nullptr, double *b = nullptr) {
     int n_rows = A->n_rows;
     int n_cols = A->n_cols;
     int nnz = A->nnz;
@@ -56,7 +56,30 @@ void permute_mat(SMAX::Interface *smax, std::unique_ptr<MatrixCRS> &A) {
         A->n_rows, A->row_ptr, A->col, A->val, A_perm->row_ptr, A_perm->col,
         A_perm->val, A->perm, A->inv_perm);
 
+    if (x_0 != nullptr) {
+        double *x_0_perm = new double[n_rows];
+        std::cout << "Try to apply vec perm to x" << std::endl;
+        smax->utils->apply_vec_perm<double>(n_rows, x_0, x_0_perm, A->perm);
+        std::cout << "Applied vec perm to x" << std::endl;
+#pragma omp parallel for
+        for (int i = 0; i < n_rows; i++) {
+            x_0[i] = x_0_perm[i];
+        }
+        delete[] x_0_perm;
+    }
+    if (b != nullptr) {
+        double *b_perm = new double[n_rows];
+        smax->utils->apply_vec_perm<double>(n_rows, b, b_perm, A->perm);
+#pragma omp parallel for
+        for (int i = 0; i < n_rows; i++) {
+            b[i] = b_perm[i];
+        }
+        delete[] b_perm;
+    }
+
     A = std::move(A_perm);
+
 }
+
 
 #endif
