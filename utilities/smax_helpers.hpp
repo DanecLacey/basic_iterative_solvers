@@ -58,9 +58,7 @@ void permute_mat(SMAX::Interface *smax, std::unique_ptr<MatrixCRS> &A, double *x
 
     if (x_0 != nullptr) {
         double *x_0_perm = new double[n_rows];
-        std::cout << "Try to apply vec perm to x" << std::endl;
         smax->utils->apply_vec_perm<double>(n_rows, x_0, x_0_perm, A->perm);
-        std::cout << "Applied vec perm to x" << std::endl;
 #pragma omp parallel for
         for (int i = 0; i < n_rows; i++) {
             x_0[i] = x_0_perm[i];
